@@ -120,24 +120,24 @@ Building blocks from foundation to features. Each phase builds on the previous.
 **Architecture Note:** All inference goes through `llama-server`. Server is single source of truth.
 
 ### 5.1 Server Process Management
-- [ ] Start llama-server subprocess with model flag
-- [ ] Store PID in `~/.gollama/server.pid`
-- [ ] Store current model in `~/.gollama/server-state.json`
-- [ ] Check PID before starting (avoid duplicate servers)
-- [ ] Send SIGTERM for graceful shutdown
-- [ ] Clean up PID file on exit
+- [x] Start llama-server subprocess with model flag
+- [x] Store PID in `~/.gollama/server-state.json`
+- [x] Store current model in `~/.gollama/server-state.json`
+- [x] Check PID before starting (avoid duplicate servers)
+- [x] Send SIGTERM for graceful shutdown
+- [x] Clean up PID file on exit
 - [ ] Handle server crashes gracefully
 
 ### 5.2 Server Configuration
-- [ ] Map config.yaml settings to llama-server flags:
+- [x] Map config.yaml settings to llama-server flags:
   - `--host`, `--port`
   - `--ctx-size`, `--temp`, `--top-p`, `--top-k`
   - `--n-gpu-layers`, `--threads`
-- [ ] Parse server logs for startup success/failure
-- [ ] Extract server URL from config
+- [x] Parse server logs for startup success/failure
+- [x] Extract server URL from config
 
 ### 5.3 Server Status Tracking
-- [ ] `server-state.json` schema:
+- [x] `server-state.json` schema:
   ```json
   {
     "pid": 12345,
@@ -148,16 +148,16 @@ Building blocks from foundation to features. Each phase builds on the previous.
     "started_at": "2024-01-15T12:00:00Z"
   }
   ```
-- [ ] Write state on successful server start
-- [ ] Read state to check current model
-- [ ] Clean state on server stop
+- [x] Write state on successful server start
+- [x] Read state to check current model
+- [x] Clean state on server stop
 
 ### 5.4 `serve` Command
-- [ ] Start server (optionally with initial model)
-- [ ] Pretty startup message with endpoints
-- [ ] Show logs (or forward to file)
-- [ ] Handle Ctrl+C gracefully (stop server)
-- [ ] Support `--detach` flag for background mode
+- [x] Start server (optionally with initial model)
+- [x] Pretty startup message with endpoints
+- [x] Show logs (or forward to file)
+- [x] Handle Ctrl+C gracefully (stop server)
+- [x] Support `--detach` flag for background mode
 
 **Checkpoint:** Server starts/stops cleanly, state tracked
 
@@ -166,39 +166,39 @@ Building blocks from foundation to features. Each phase builds on the previous.
 ## Phase 6: Inference via HTTP API
 
 ### 6.1 HTTP Client for Server API
-- [ ] Create client for llama-server API
-- [ ] Implement request builders:
+- [x] Create client for llama-server API
+- [x] Implement request builders:
   - Chat completion (OpenAI-compatible)
   - Completion (Ollama-style)
-- [ ] Handle streaming responses
-- [ ] Parse generation results
+- [x] Handle streaming responses
+- [x] Parse generation results
 
 ### 6.2 `run` Command (Server Mode)
-- [ ] Check if server is running (read PID file)
-- [ ] If server not running or wrong model:
+- [x] Check if server is running (read PID file)
+- [x] If server not running or wrong model:
   - Stop existing server (if running)
   - Start server with requested model
   - Wait for server to be ready
-- [ ] Send completion request via HTTP
-- [ ] Stream tokens to terminal
-- [ ] Detect TTY vs piped input
-- [ ] Chat loop: read input, send to API, display response
-- [ ] Handle Ctrl+C (stop generation, stay in chat)
-- [ ] `/bye` or Ctrl+D to exit
+- [x] Send completion request via HTTP
+- [x] Stream tokens to terminal
+- [x] Detect TTY vs piped input
+- [x] Chat loop: read input, send to API, display response
+- [x] Handle Ctrl+C (stop generation, stay in chat)
+- [x] `/bye` or Ctrl+D to exit
 
 ### 6.3 One-Shot Mode
-- [ ] Detect prompt argument or piped input
-- [ ] Send completion request
-- [ ] Print result
-- [ ] Exit after completion (piped) or stay interactive (prompt arg)
+- [x] Detect prompt argument or piped input
+- [x] Send completion request
+- [x] Print result
+- [x] Exit after completion (piped) or stay interactive (prompt arg)
 
 ### 6.4 Inference Parameters
-- [ ] Pass flags to completion API:
+- [x] Pass flags to completion API:
   - `--ctx`, `-n`, `--temp`
   - `--top-p`, `--top-k`
   - `--repeat-penalty`
   - `--system` prompt
-- [ ] Merge with config.yaml defaults
+- [x] Merge with config.yaml defaults
 
 **Checkpoint:** `gollama run user/repo` works via HTTP API
 
@@ -207,16 +207,16 @@ Building blocks from foundation to features. Each phase builds on the previous.
 ## Phase 7: Server Operations
 
 ### 7.1 `ps` Command
-- [ ] Check server state file
-- [ ] If server not running, show "Server not running"
-- [ ] Display current model, uptime, endpoint
-- [ ] Pretty table format
+- [x] Check server state file
+- [x] If server not running, show "Server not running"
+- [x] Display current model, uptime, endpoint
+- [x] Pretty table format
 
 ### 7.2 `stop` Command
-- [ ] Stop server: read PID, send SIGTERM
-- [ ] Clean up state files
-- [ ] Show confirmation message
-- [ ] Support stopping specific model vs entire server
+- [x] Stop server: read PID, send SIGTERM
+- [x] Clean up state files
+- [x] Show confirmation message
+- [x] Support stopping specific model vs entire server
 
 **Checkpoint:** `ps` and `stop` work
 
@@ -279,8 +279,8 @@ Building blocks from foundation to features. Each phase builds on the previous.
 - [ ] Concurrent access (multiple gollama processes)
 
 ### 10.4 Testing
-- [ ] Unit tests for HF client, matcher, config
-- [ ] Integration tests for commands
+- [x] Unit tests for HF client, matcher, config
+- [x] Integration tests for commands
 - [ ] Test on macOS (Intel + Apple Silicon)
 - [ ] Test on Linux (x86_64 + arm64)
 
