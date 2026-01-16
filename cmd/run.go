@@ -12,6 +12,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/nchapman/lemme/internal/config"
+	"github.com/nchapman/lemme/internal/hf"
 	"github.com/nchapman/lemme/internal/llama"
 	"github.com/nchapman/lemme/internal/proxy"
 	"github.com/nchapman/lemme/internal/server"
@@ -59,8 +60,8 @@ Models are loaded on-demand and unloaded after idle timeout.`,
 
 		modelQuery := args[0]
 
-		// Step 2: Validate model exists before starting proxy
-		resolvedModel, err := validateModel(modelQuery)
+		// Step 2: Validate model exists (or offer to pull)
+		resolvedModel, err := validateModel(modelQuery, cfg)
 		if err != nil {
 			fmt.Printf("%s %v\n", ui.ErrorMsg("Error:"), err)
 			os.Exit(1)
@@ -121,18 +122,12 @@ func ensureLlamaInstalled() error {
 	return nil
 }
 
-// validateModel checks if a model exists before starting the proxy
-func validateModel(query string) (*proxy.DownloadedModel, error) {
+// validateModel checks if a model exists, offering to pull it if not found
+func validateModel(query string, cfg *config.Config) (*proxy.DownloadedModel, error) {
 	resolver := proxy.NewModelResolver()
 	result, err := resolver.Resolve(query)
 	if err != nil {
 		return nil, err
-	}
-
-	// No models downloaded at all
-	models, _ := resolver.ListDownloadedModels()
-	if len(models) == 0 {
-		return nil, fmt.Errorf("no models downloaded yet\n\n  Use 'lemme search <query>' to find models\n  Use 'lemme pull <model>' to download one")
 	}
 
 	// Model resolved successfully
@@ -140,7 +135,7 @@ func validateModel(query string) (*proxy.DownloadedModel, error) {
 		return result.Model, nil
 	}
 
-	// Ambiguous match
+	// Ambiguous match - user needs to be more specific
 	if len(result.Matches) > 1 {
 		var b strings.Builder
 		b.WriteString(fmt.Sprintf("'%s' matches multiple models:\n\n", query))
@@ -151,18 +146,125 @@ func validateModel(query string) (*proxy.DownloadedModel, error) {
 		return nil, fmt.Errorf("%s", b.String())
 	}
 
-	// No match - show suggestions
+	// Model not found locally - check if it looks like a HuggingFace ref
+	user, repo, quant, parseErr := parseModelRef(query)
+	if parseErr != nil {
+		// Not a valid model ref format, show suggestions
+		return nil, modelNotFoundError(query, result.Suggestions)
+	}
+
+	// Try to pull from HuggingFace
+	pulledModel, err := offerToPull(cfg, user, repo, quant)
+	if err != nil {
+		return nil, err
+	}
+
+	return pulledModel, nil
+}
+
+// modelNotFoundError returns a helpful error for models that aren't found
+func modelNotFoundError(query string, suggestions []proxy.DownloadedModel) error {
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("no model matches '%s'", query))
-	if len(result.Suggestions) > 0 {
+	if len(suggestions) > 0 {
 		b.WriteString("\n\nDid you mean:\n")
-		for _, s := range result.Suggestions {
+		for _, s := range suggestions {
 			b.WriteString(fmt.Sprintf("  %s\n", s.FullName))
 		}
 	} else {
 		b.WriteString("\n\n  Use 'lemme list' to see downloaded models\n  Use 'lemme search <query>' to find models")
 	}
-	return nil, fmt.Errorf("%s", b.String())
+	return fmt.Errorf("%s", b.String())
+}
+
+// offerToPull checks HuggingFace and offers to download a model
+func offerToPull(cfg *config.Config, user, repo, quant string) (*proxy.DownloadedModel, error) {
+	client := hf.NewClient(cfg)
+
+	// Check if model exists on HuggingFace
+	modelInfo, err := client.GetModel(user, repo)
+	if err != nil {
+		if strings.Contains(err.Error(), "404") {
+			return nil, fmt.Errorf("model '%s/%s' not found on Hugging Face\n\n  Use 'lemme search <query>' to find models", user, repo)
+		}
+		return nil, fmt.Errorf("failed to check model: %w", err)
+	}
+
+	// Check for gated models
+	if modelInfo.Gated && cfg.HFToken == "" && os.Getenv("HF_TOKEN") == "" {
+		return nil, fmt.Errorf("model '%s/%s' requires authentication\n\n  Get a token at https://huggingface.co/settings/tokens\n  Then set: export HF_TOKEN=hf_xxxxx", user, repo)
+	}
+
+	// Get available quantizations
+	files, err := client.ListFiles(user, repo, "main")
+	if err != nil {
+		return nil, fmt.Errorf("failed to list model files: %w", err)
+	}
+
+	quants := hf.ExtractQuantizations(files)
+	if len(quants) == 0 {
+		return nil, fmt.Errorf("'%s/%s' contains no GGUF files\n\n  Try: %s-GGUF/%s", user, repo, user, repo)
+	}
+
+	// Select quantization
+	if quant == "" {
+		quant = hf.GetBestQuantization(quants)
+	} else {
+		if _, found := hf.FindQuantization(quants, quant); !found {
+			var b strings.Builder
+			b.WriteString(fmt.Sprintf("quantization '%s' not found\n\nAvailable:\n", quant))
+			for _, q := range hf.SortQuantizations(quants) {
+				b.WriteString(fmt.Sprintf("  %s (%s)\n", q.Name, ui.FormatBytes(q.Size)))
+			}
+			return nil, fmt.Errorf("%s", b.String())
+		}
+	}
+
+	selectedQuant, _ := hf.FindQuantization(quants, quant)
+
+	// Prompt user to download
+	fmt.Printf("Model not downloaded. Pull %s/%s:%s (%s)? [Y/n] ", user, repo, quant, ui.FormatBytes(selectedQuant.Size))
+	var response string
+	fmt.Scanln(&response)
+	response = strings.TrimSpace(strings.ToLower(response))
+
+	if response != "" && response != "y" && response != "yes" {
+		return nil, fmt.Errorf("model required to continue")
+	}
+
+	// Download the model
+	fmt.Println()
+	modelDir := hf.GetModelPath(user, repo)
+	modelPath := hf.GetModelFilePath(user, repo, quant)
+
+	if err := os.MkdirAll(modelDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create model directory: %w", err)
+	}
+
+	progressBar := ui.NewProgressBar("", selectedQuant.Size)
+	progressBar.Start("", selectedQuant.Size)
+
+	downloaderWithProgress := hf.NewDownloaderWithProgress(client, func(downloaded, total int64, speed float64, eta time.Duration) {
+		progressBar.Update(downloaded)
+	})
+
+	_, err = downloaderWithProgress.DownloadModel(user, repo, "main", selectedQuant.File, modelPath)
+	if err != nil {
+		progressBar.Stop()
+		return nil, fmt.Errorf("failed to download: %w", err)
+	}
+
+	progressBar.Finish(fmt.Sprintf("Downloaded %s/%s:%s", user, repo, quant))
+	fmt.Println()
+
+	// Return the downloaded model info
+	return &proxy.DownloadedModel{
+		User:      user,
+		Repo:      repo,
+		Quant:     quant,
+		FullName:  fmt.Sprintf("%s/%s:%s", user, repo, quant),
+		ModelPath: modelPath,
+	}, nil
 }
 
 // ensureProxyRunning starts the proxy if not already running and returns its URL
