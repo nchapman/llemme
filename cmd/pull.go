@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nchapman/gollama/internal/config"
-	"github.com/nchapman/gollama/internal/hf"
-	"github.com/nchapman/gollama/internal/ui"
+	"github.com/nchapman/lemme/internal/config"
+	"github.com/nchapman/lemme/internal/hf"
+	"github.com/nchapman/lemme/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -145,7 +145,7 @@ func handleModelError(err error, user, repo string) {
 		fmt.Printf("\nCould not find '%s/%s' on Hugging Face.\n\n", user, repo)
 		fmt.Println("Tips:")
 		fmt.Println("  • Check the spelling of the repository name")
-		fmt.Println("  • Use 'gollama search <query>' to find models")
+		fmt.Println("  • Use 'lemme search <query>' to find models")
 	} else {
 		fmt.Printf("%s %v\n", ui.ErrorMsg("Error:"), err)
 	}

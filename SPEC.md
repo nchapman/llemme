@@ -1,22 +1,22 @@
-# Gollama - MVP Specification
+# Lemme - MVP Specification
 
 A beautiful Go CLI wrapper around llama.cpp that brings simplicity of Ollama with direct Hugging Face integration.
 
 ## Vision
 
-Gollama makes running local LLMs effortless. Point it at any GGUF model on Hugging Face, and it handles the rest—downloading, caching, and running inference through llama.cpp. No model conversion, no complex setup, just `gollama run username/model` and go.
+Lemme makes running local LLMs effortless. Point it at any GGUF model on Hugging Face, and it handles the rest—downloading, caching, and running inference through llama.cpp. No model conversion, no complex setup, just `lemme run username/model` and go.
 
 ## Core Principles
 
 1. **Zero friction** - One command to run any GGUF model from Hugging Face
-2. **Familiar UX** - If you know Ollama, you know Gollama
+2. **Familiar UX** - If you know Ollama, you know Lemme
 3. **Beautiful output** - Polished terminal experience using Charm libraries
 4. **Transparent** - Uses llama.cpp directly, no hidden abstraction layers
 5. **Lightweight** - Minimal dependencies, fast startup
 
 ## Architecture
 
-**Single Backend Approach:** All Gollama commands interact with `llama-server` via HTTP API. The server is the single source of truth for model state, inference, and resource management.
+**Single Backend Approach:** All Lemme commands interact with `llama-server` via HTTP API. The server is the single source of truth for model state, inference, and resource management.
 
 **How it works:**
 - `run` ensures server is running, then makes HTTP requests for completions
@@ -37,34 +37,34 @@ Gollama makes running local LLMs effortless. Point it at any GGUF model on Huggi
 ### Commands
 
 ```
-gollama run <user/repo>[:quant]   # Interactive chat or one-shot inference
-gollama serve                       # Start llama.cpp server
-gollama pull <user/repo>[:quant]    # Download a model without running
-gollama list                         # List downloaded models
-gollama ps                           # Show models loaded in server
-gollama stop <user/repo>[:quant]    # Unload model from server
-gollama rm <user/repo>[:quant]      # Remove a downloaded model
-gollama search <query>               # Search Hugging Face for GGUF models
-gollama info <user/repo>             # Show model details
-gollama update                       # Update llama.cpp to latest release
-gollama version                      # Show gollama + llama.cpp versions
+lemme run <user/repo>[:quant]   # Interactive chat or one-shot inference
+lemme serve                       # Start llama.cpp server
+lemme pull <user/repo>[:quant]    # Download a model without running
+lemme list                         # List downloaded models
+lemme ps                           # Show models loaded in server
+lemme stop <user/repo>[:quant]    # Unload model from server
+lemme rm <user/repo>[:quant]      # Remove a downloaded model
+lemme search <query>               # Search Hugging Face for GGUF models
+lemme info <user/repo>             # Show model details
+lemme update                       # Update llama.cpp to latest release
+lemme version                      # Show lemme + llama.cpp versions
 ```
 
 **`run` behavior** (matches Ollama):
 ```
-gollama run user/repo              # Interactive chat session
-gollama run user/repo "prompt"     # One-shot: print response, then stay in chat
-echo "prompt" | gollama run ...    # Piped: print response and exit
+lemme run user/repo              # Interactive chat session
+lemme run user/repo "prompt"     # One-shot: print response, then stay in chat
+echo "prompt" | lemme run ...    # Piped: print response and exit
 ```
 
 **Smart model matching** (for `run`, `stop`, `rm`, `info`):
 
-Gollama matches partial names against downloaded models. If unique, it just works. If ambiguous, it suggests.
+Lemme matches partial names against downloaded models. If unique, it just works. If ambiguous, it suggests.
 
 ```
-gollama run llama                  # Matches "TheBloke/Llama-2-7B-GGUF" if it's the only llama
+lemme run llama                  # Matches "TheBloke/Llama-2-7B-GGUF" if it's the only llama
 
-gollama run mistral
+lemme run mistral
 
   Multiple models match 'mistral':
 
@@ -75,7 +75,7 @@ gollama run mistral
 ```
 
 ```
-gollama run lama
+lemme run lama
 
   No models match 'lama'. Did you mean?
 
@@ -94,28 +94,28 @@ gollama run lama
 Models are referenced using the simple `username/repository` format:
 
 ```
-gollama run TheBloke/Llama-2-7B-GGUF
-gollama run microsoft/phi-2-gguf
-gollama run mistralai/Mistral-7B-v0.1-GGUF
+lemme run TheBloke/Llama-2-7B-GGUF
+lemme run microsoft/phi-2-gguf
+lemme run mistralai/Mistral-7B-v0.1-GGUF
 ```
 
 For repos with multiple GGUF files, append the quantization:
 
 ```
-gollama run TheBloke/Llama-2-7B-GGUF:Q4_K_M
-gollama run TheBloke/Llama-2-7B-GGUF:Q8_0
+lemme run TheBloke/Llama-2-7B-GGUF:Q4_K_M
+lemme run TheBloke/Llama-2-7B-GGUF:Q8_0
 ```
 
-If no quantization is specified, Gollama picks the best available (preferring Q4_K_M).
+If no quantization is specified, Lemme picks the best available (preferring Q4_K_M).
 
 ## Technical Architecture
 
 ### Directory Structure
 
-**Design goal:** Human-navigable file structure. You should be able to `ls ~/.gollama/models` and immediately understand what you have.
+**Design goal:** Human-navigable file structure. You should be able to `ls ~/.lemme/models` and immediately understand what you have.
 
 ```
-~/.gollama/
+~/.lemme/
 ├── models/
 │   └── TheBloke/
 │       └── Llama-2-7B-GGUF/
@@ -132,26 +132,26 @@ If no quantization is specified, Gollama picks the best available (preferring Q4
 
 **Why this structure:**
 
-| Ollama | Gollama | Why |
+| Ollama | Lemme | Why |
 |--------|---------|-----|
-| `~/.ollama/models/manifests/...` | `~/.gollama/models/TheBloke/Llama-2-7B-GGUF/` | Browsable with standard tools |
-| `~/.ollama/blobs/sha256-abc123` | `~/.gollama/models/.../Q4_K_M.gguf` | Filename tells you the quantization |
+| `~/.ollama/models/manifests/...` | `~/.lemme/models/TheBloke/Llama-2-7B-GGUF/` | Browsable with standard tools |
+| `~/.ollama/blobs/sha256-abc123` | `~/.lemme/models/.../Q4_K_M.gguf` | Filename tells you the quantization |
 | Requires `ollama list` to understand | `ls` or Finder works fine | No CLI required to explore |
 
 **Example: What `ls -la` looks like:**
 
 ```bash
-$ ls ~/.gollama/models/
+$ ls ~/.lemme/models/
 TheBloke/
 microsoft/
 mistralai/
 
-$ ls ~/.gollama/models/TheBloke/
+$ ls ~/.lemme/models/TheBloke/
 CodeLlama-7B-GGUF/
 Llama-2-7B-GGUF/
 Mistral-7B-v0.1-GGUF/
 
-$ ls ~/.gollama/models/TheBloke/Llama-2-7B-GGUF/
+$ ls ~/.lemme/models/TheBloke/Llama-2-7B-GGUF/
 Q4_K_M.gguf      # 4.1 GB
 Q5_K_M.gguf      # 4.8 GB
 Q8_0.gguf        # 7.2 GB
@@ -192,7 +192,7 @@ Base URL: `https://huggingface.co`
 Token lookup order (first match wins):
 1. `HF_TOKEN` environment variable
 2. `~/.cache/huggingface/token` (standard HF CLI location)
-3. `hf_token` in `~/.gollama/config.yaml` (fallback)
+3. `hf_token` in `~/.lemme/config.yaml` (fallback)
 
 For authenticated requests, add header:
 ```
@@ -216,12 +216,12 @@ Authorization: Bearer hf_xxxxxxxxxxxxx
 - macOS: Universal binary with Metal support
 - Linux: x86_64 and arm64, CPU-only (CUDA support later)
 - Allow user override via `LLAMA_CPP_PATH` env var
-- Track installed version in `~/.gollama/bin/version.json`
-- `gollama update` fetches latest release from GitHub
+- Track installed version in `~/.lemme/bin/version.json`
+- `lemme update` fetches latest release from GitHub
 
 **Server Mode (Single Backend):**
 
-All inference goes through `llama-server`. Gollama manages the server lifecycle:
+All inference goes through `llama-server`. Lemme manages the server lifecycle:
 
 - Start server on-demand when needed
 - Keep server running for subsequent requests
@@ -240,14 +240,14 @@ llama-server --host 127.0.0.1 --port 8080 --model /path/to/model.gguf
 - `/health` endpoint for status checks
 
 **Process Management:**
-- Store PID in `~/.gollama/server.pid`
+- Store PID in `~/.lemme/server.pid`
 - Check PID before starting (avoid duplicate servers)
 - Send SIGTERM for graceful shutdown
 - Clean up PID file on exit
 
 ### Server Configuration
 
-**Server config in `~/.gollama/config.yaml`:**
+**Server config in `~/.lemme/config.yaml`:**
 ```yaml
 server:
   host: "127.0.0.1"
@@ -267,7 +267,7 @@ server:
 
 **CLI flags override config:**
 ```
-gollama run user/repo --temp 0.5 --ctx 8192
+lemme run user/repo --temp 0.5 --ctx 8192
 ```
 
 ## User Experience
@@ -290,7 +290,7 @@ Pulling TheBloke/Llama-2-7B-GGUF:Q4_K_M
 ### Interactive Mode
 
 ```
-gollama run TheBloke/Llama-2-7B-GGUF
+lemme run TheBloke/Llama-2-7B-GGUF
 
 ┌─────────────────────────────────────────────────────────────────────────┐
 │  Llama 2 7B • Q4_K_M • 4096 ctx                                         │
@@ -307,7 +307,7 @@ You: █
 ### Model List
 
 ```
-gollama list
+lemme list
 
 Downloaded Models
 
@@ -322,7 +322,7 @@ Total: 3 models, 13.4 GB
 ### Server & Process Management
 
 ```
-gollama serve
+lemme serve
 
 Server started on http://127.0.0.1:8080
 
@@ -334,7 +334,7 @@ Press Ctrl+C to stop
 ```
 
 ```
-gollama ps
+lemme ps
 
 Server Status
 
@@ -349,13 +349,13 @@ Total: 1 model, 3.8 GB memory used
 ```
 
 ```
-gollama stop TheBloke/Llama-2-7B-GGUF
+lemme stop TheBloke/Llama-2-7B-GGUF
 
 ✓ Unloaded TheBloke/Llama-2-7B-GGUF from server
 ```
 
 ```
-gollama stop
+lemme stop
 
 ✓ Server stopped
 ```
@@ -363,32 +363,32 @@ gollama stop
 ### Version Info
 
 ```
-gollama version
+lemme version
 
-Gollama v0.1.0 (darwin/arm64)
+Lemme v0.1.0 (darwin/arm64)
 llama.cpp b7751 (Metal)
 
 Paths:
-  Models:    ~/.gollama/models/
-  Server:    ~/.gollama/bin/llama-server.bin
+  Models:    ~/.lemme/models/
+  Server:    ~/.lemme/bin/llama-server.bin
 ```
 
 On Linux:
 ```
-gollama version
+lemme version
 
-Gollama v0.1.0 (linux/amd64)
+Lemme v0.1.0 (linux/amd64)
 llama.cpp b7751 (CPU)
 
 Paths:
-  Models:    ~/.gollama/models/
-  Server:    ~/.gollama/bin/llama-server.bin
+  Models:    ~/.lemme/models/
+  Server:    ~/.lemme/bin/llama-server.bin
 ```
 
 ### Updating llama.cpp
 
 ```
-gollama update
+lemme update
 
 Checking for updates...
 
@@ -405,14 +405,14 @@ Extracting...
 ```
 
 ```
-gollama update
+lemme update
 
 llama.cpp is already up to date (b7751)
 ```
 
 ## Configuration
 
-**~/.gollama/config.yaml:**
+**~/.lemme/config.yaml:**
 
 ```yaml
 # Server configuration
@@ -483,7 +483,7 @@ Error: Model not found
 
   Tips:
     • Check the spelling of the repository name
-    • Use 'gollama search llama' to find models
+    • Use 'lemme search llama' to find models
 ```
 
 ```
@@ -512,8 +512,8 @@ Error: Server not running
 
   The llama.cpp server is not running.
 
-  Start it with: gollama serve
-  Or use: gollama run <model> (will auto-start server)
+  Start it with: lemme serve
+  Or use: lemme run <model> (will auto-start server)
 ```
 
 ## MVP Scope
@@ -542,7 +542,7 @@ Error: Server not running
 
 - [ ] Windows support
 - [ ] Linux CUDA/ROCm support
-- [ ] Model aliases (`gollama run llama2` → resolves to full path)
+- [ ] Model aliases (`lemme run llama2` → resolves to full path)
 - [ ] Modelfile support (Ollama-style customization)
 - [ ] Embedding generation
 - [ ] Multi-model conversations

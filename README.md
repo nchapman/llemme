@@ -1,4 +1,4 @@
-# Gollama
+# Lemme
 
 A beautiful Go CLI wrapper around [llama.cpp](https://github.com/ggerganov/llama.cpp) that brings the simplicity of [Ollama](https://ollama.com) with direct Hugging Face integration.
 
@@ -18,24 +18,24 @@ A beautiful Go CLI wrapper around [llama.cpp](https://github.com/ggerganov/llama
 
 ```bash
 # Clone and build
-git clone https://github.com/nchapman/gollama
-cd gollama
+git clone https://github.com/nchapman/lemme
+cd lemme
 make build
-sudo cp build/gollama /usr/local/bin/
+sudo cp build/lemme /usr/local/bin/
 ```
 
 ### First Run
 
-Gollama automatically downloads llama.cpp on first use:
+Lemme automatically downloads llama.cpp on first use:
 
 ```bash
-gollama run TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF:Q6_K "Hello, world!"
+lemme run TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF:Q6_K "Hello, world!"
 ```
 
 ### Interactive Chat
 
 ```bash
-gollama run TheBloke/Llama-2-7B-GGUF
+lemme run TheBloke/Llama-2-7B-GGUF
 
 # Start chatting
 You: What is the capital of France?
@@ -47,24 +47,24 @@ You: /bye
 
 ```bash
 # Pass prompt as argument
-gollama run model:quant "Write a haiku about code"
+lemme run model:quant "Write a haiku about code"
 
 # Or pipe input
-echo "Summarize this text" | gollama run model:quant
+echo "Summarize this text" | lemme run model:quant
 ```
 
 ## Commands
 
 ```bash
-gollama run <user/repo>[:quant]    # Interactive chat or one-shot inference
-gollama serve                        # Start llama.cpp server
-gollama pull <user/repo>[:quant]    # Download a model
-gollama list                         # List downloaded models
-gollama ps                           # Show server status
-gollama stop                          # Stop server
-gollama rm <user/repo>[:quant]    # Remove a model
-gollama version                       # Show versions
-gollama update                       # Update llama.cpp
+lemme run <user/repo>[:quant]    # Interactive chat or one-shot inference
+lemme serve                        # Start llama.cpp server
+lemme pull <user/repo>[:quant]    # Download a model
+lemme list                         # List downloaded models
+lemme ps                           # Show server status
+lemme stop                          # Stop server
+lemme rm <user/repo>[:quant]    # Remove a model
+lemme version                       # Show versions
+lemme update                       # Update llama.cpp
 ```
 
 ## Model Management
@@ -73,16 +73,16 @@ gollama update                       # Update llama.cpp
 
 ```bash
 # Pull specific quantization
-gollama pull TheBloke/Llama-2-7B-GGUF:Q4_K_M
+lemme pull TheBloke/Llama-2-7B-GGUF:Q4_K_M
 
 # Pull and auto-select best quant
-gollama pull TheBloke/Llama-2-7B-GGUF
+lemme pull TheBloke/Llama-2-7B-GGUF
 ```
 
 ### List Models
 
 ```bash
-gollama list
+lemme list
 
 Downloaded Models
 
@@ -96,17 +96,17 @@ Total: 2 models, 4.9 GB
 ### Remove a Model
 
 ```bash
-gollama rm TheBloke/Llama-2-7B-GGUF:Q4_K_M
+lemme rm TheBloke/Llama-2-7B-GGUF:Q4_K_M
 ```
 
 ## Server Mode
 
-Gollama runs inference through `llama-server`, exposing an OpenAI-compatible HTTP API.
+Lemme runs inference through `llama-server`, exposing an OpenAI-compatible HTTP API.
 
 ### Start Server
 
 ```bash
-gollama serve --model TheBloke/Llama-2-7B-GGUF:Q4_K_M --detach
+lemme serve --model TheBloke/Llama-2-7B-GGUF:Q4_K_M --detach
 ```
 
 ### Server Endpoints
@@ -132,7 +132,7 @@ curl -X POST http://127.0.0.1:8080/api/chat \
 
 ## Configuration
 
-Create `~/.gollama/config.yaml`:
+Create `~/.lemme/config.yaml`:
 
 ```yaml
 server:
@@ -208,7 +208,7 @@ open build/coverage.html
 
 ## Architecture
 
-Gollama uses a **server-first architecture** where all inference goes through `llama-server`. This provides:
+Lemme uses a **server-first architecture** where all inference goes through `llama-server`. This provides:
 
 - Unified model loading and state management
 - Easy concurrent request handling
@@ -217,7 +217,7 @@ Gollama uses a **server-first architecture** where all inference goes through `l
 - OpenAI-compatible API out of the box
 
 ```
-gollama run → llama-server → HTTP API → Inference
+lemme run → llama-server → HTTP API → Inference
 ```
 
 ## License

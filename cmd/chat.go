@@ -9,7 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/nchapman/gollama/internal/server"
+	"github.com/nchapman/lemme/internal/server"
 )
 
 const gap = "\n\n"

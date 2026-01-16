@@ -38,7 +38,7 @@ type Proxy struct {
 }
 
 const (
-	configDir  = ".gollama"
+	configDir  = ".lemme"
 	configFile = "config.yaml"
 	modelsDir  = "models"
 	binDir     = "bin"

@@ -8,10 +8,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/nchapman/gollama/internal/config"
-	"github.com/nchapman/gollama/internal/llama"
-	"github.com/nchapman/gollama/internal/proxy"
-	"github.com/nchapman/gollama/internal/ui"
+	"github.com/nchapman/lemme/internal/config"
+	"github.com/nchapman/lemme/internal/llama"
+	"github.com/nchapman/lemme/internal/proxy"
+	"github.com/nchapman/lemme/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -24,8 +24,8 @@ var (
 
 var serveCmd = &cobra.Command{
 	Use:   "serve",
-	Short: "Start the gollama proxy server",
-	Long: `Start the gollama proxy server that manages multiple llama.cpp backends.
+	Short: "Start the lemme proxy server",
+	Long: `Start the lemme proxy server that manages multiple llama.cpp backends.
 
 The proxy server:
   - Routes requests to the appropriate model backend
@@ -35,7 +35,7 @@ The proxy server:
 	PreRun: func(cmd *cobra.Command, args []string) {
 		if !llama.IsInstalled() {
 			fmt.Printf("%s llama.cpp is not installed\n", ui.ErrorMsg("Error:"))
-			fmt.Println("Run 'gollama update' to install it")
+			fmt.Println("Run 'lemme update' to install it")
 			os.Exit(1)
 		}
 	},
@@ -50,7 +50,7 @@ The proxy server:
 		if existingState := proxy.GetRunningProxyState(); existingState != nil {
 			fmt.Printf("%s Proxy already running on http://%s:%d (PID %d)\n",
 				ui.ErrorMsg("Error:"), existingState.Host, existingState.Port, existingState.PID)
-			fmt.Println("Use 'gollama stop --proxy' to stop the existing proxy first")
+			fmt.Println("Use 'lemme stop --proxy' to stop the existing proxy first")
 			os.Exit(1)
 		}
 

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/nchapman/gollama/internal/config"
-	"github.com/nchapman/gollama/internal/hf"
-	"github.com/nchapman/gollama/internal/ui"
+	"github.com/nchapman/lemme/internal/config"
+	"github.com/nchapman/lemme/internal/hf"
+	"github.com/nchapman/lemme/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -57,7 +57,7 @@ var searchCmd = &cobra.Command{
 			fmt.Println()
 		}
 
-		fmt.Printf("Use: gollama pull %s/<model-name>\n", ui.Bold("author"))
+		fmt.Printf("Use: lemme pull %s/<model-name>\n", ui.Bold("author"))
 	},
 }
 

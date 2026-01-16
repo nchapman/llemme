@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/nchapman/gollama/internal/config"
+	"github.com/nchapman/lemme/internal/config"
 )
 
 // DownloadedModel represents a model that has been downloaded locally

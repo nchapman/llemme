@@ -179,11 +179,11 @@ type OpenAIModelInfo struct {
 	Object  string         `json:"object"`
 	Created int64          `json:"created"`
 	OwnedBy string         `json:"owned_by"`
-	Gollama *GollamaStatus `json:"gollama,omitempty"`
+	Lemme *LemmeStatus `json:"lemme,omitempty"`
 }
 
-// GollamaStatus contains gollama-specific model status
-type GollamaStatus struct {
+// LemmeStatus contains lemme-specific model status
+type LemmeStatus struct {
 	Status       string    `json:"status"`
 	Port         int       `json:"port"`
 	LastActivity time.Time `json:"last_activity"`

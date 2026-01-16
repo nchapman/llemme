@@ -5,8 +5,8 @@ import (
 	"os"
 
 	"github.com/charmbracelet/huh"
-	"github.com/nchapman/gollama/internal/hf"
-	"github.com/nchapman/gollama/internal/ui"
+	"github.com/nchapman/lemme/internal/hf"
+	"github.com/nchapman/lemme/internal/ui"
 	"github.com/spf13/cobra"
 )
 

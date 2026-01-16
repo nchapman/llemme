@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/nchapman/gollama/internal/config"
-	"github.com/nchapman/gollama/internal/ui"
+	"github.com/nchapman/lemme/internal/config"
+	"github.com/nchapman/lemme/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -76,7 +76,7 @@ var listCmd = &cobra.Command{
 		if len(models) == 0 {
 			fmt.Println(ui.Muted("No models downloaded yet"))
 			fmt.Println()
-			fmt.Println("Use 'gollama pull <user/repo>' to download a model")
+			fmt.Println("Use 'lemme pull <user/repo>' to download a model")
 			return
 		}
 

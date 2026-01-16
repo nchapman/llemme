@@ -4,17 +4,17 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/nchapman/gollama/internal/config"
-	"github.com/nchapman/gollama/internal/ui"
+	"github.com/nchapman/lemme/internal/config"
+	"github.com/nchapman/lemme/internal/ui"
 	"github.com/spf13/cobra"
 )
 
 var verbose bool
 
 var rootCmd = &cobra.Command{
-	Use:   "gollama",
+	Use:   "lemme",
 	Short: "Run local LLMs with Hugging Face integration",
-	Long: `Gollama makes running local LLMs effortless. Point it at any GGUF 
+	Long: `Lemme makes running local LLMs effortless. Point it at any GGUF 
 model on Hugging Face, and it handles the rest—downloading, caching, and 
 running inference through llama.cpp.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {

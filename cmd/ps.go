@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/nchapman/gollama/internal/proxy"
-	"github.com/nchapman/gollama/internal/ui"
+	"github.com/nchapman/lemme/internal/proxy"
+	"github.com/nchapman/lemme/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -20,8 +20,8 @@ var psCmd = &cobra.Command{
 		if state == nil {
 			fmt.Println(ui.Muted("Proxy is not running"))
 			fmt.Println()
-			fmt.Println("Start it with: gollama serve")
-			fmt.Println("Or use: gollama run <model> (will auto-start proxy)")
+			fmt.Println("Start it with: lemme serve")
+			fmt.Println("Or use: lemme run <model> (will auto-start proxy)")
 			return
 		}
 
@@ -52,7 +52,7 @@ var psCmd = &cobra.Command{
 		if len(status.Models) == 0 {
 			fmt.Println(ui.Muted("No models loaded"))
 			fmt.Println()
-			fmt.Println("Use 'gollama run <model>' to load a model")
+			fmt.Println("Use 'lemme run <model>' to load a model")
 			return
 		}
 

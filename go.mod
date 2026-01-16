@@ -1,4 +1,4 @@
-module github.com/nchapman/gollama
+module github.com/nchapman/lemme
 
 go 1.25.3
 

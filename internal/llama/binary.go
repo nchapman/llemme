@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nchapman/gollama/internal/config"
+	"github.com/nchapman/lemme/internal/config"
 )
 
 const (
@@ -74,7 +74,7 @@ func GetLatestVersion() (*Release, error) {
 	}
 
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
-	req.Header.Set("User-Agent", "gollama/0.1.0")
+	req.Header.Set("User-Agent", "lemme/0.1.0")
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
@@ -117,7 +117,7 @@ func DownloadBinary(downloadURL, destPath string, progress func(int64, int64)) e
 		return err
 	}
 
-	req.Header.Set("User-Agent", "gollama/0.1.0")
+	req.Header.Set("User-Agent", "lemme/0.1.0")
 
 	// Use transport timeouts for connection setup, but no overall timeout for large downloads
 	transport := &http.Transport{

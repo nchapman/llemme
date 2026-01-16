@@ -9,8 +9,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/nchapman/gollama/internal/proxy"
-	"github.com/nchapman/gollama/internal/ui"
+	"github.com/nchapman/lemme/internal/proxy"
+	"github.com/nchapman/lemme/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -25,9 +25,9 @@ var stopCmd = &cobra.Command{
 	Long: `Stop running models or the proxy server.
 
 Examples:
-  gollama stop llama              # Unload a specific model
-  gollama stop --all              # Unload all models (keep proxy running)
-  gollama stop --proxy            # Stop the proxy and all models`,
+  lemme stop llama              # Unload a specific model
+  lemme stop --all              # Unload all models (keep proxy running)
+  lemme stop --proxy            # Stop the proxy and all models`,
 	Run: func(cmd *cobra.Command, args []string) {
 		state := proxy.GetRunningProxyState()
 		if state == nil {
@@ -49,17 +49,17 @@ Examples:
 
 		if len(args) == 0 {
 			// No args and no flags - show help
-			fmt.Println("Usage: gollama stop [model] [flags]")
+			fmt.Println("Usage: lemme stop [model] [flags]")
 			fmt.Println()
 			fmt.Println("Stop a specific model:")
-			fmt.Println("  gollama stop llama")
-			fmt.Println("  gollama stop TheBloke/Llama-2-7B-GGUF:Q4_K_M")
+			fmt.Println("  lemme stop llama")
+			fmt.Println("  lemme stop TheBloke/Llama-2-7B-GGUF:Q4_K_M")
 			fmt.Println()
 			fmt.Println("Stop all models:")
-			fmt.Println("  gollama stop --all")
+			fmt.Println("  lemme stop --all")
 			fmt.Println()
 			fmt.Println("Stop the proxy server:")
-			fmt.Println("  gollama stop --proxy")
+			fmt.Println("  lemme stop --proxy")
 			return
 		}
 

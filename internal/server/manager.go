@@ -10,9 +10,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/nchapman/gollama/internal/config"
-	"github.com/nchapman/gollama/internal/llama"
-	"github.com/nchapman/gollama/internal/ui"
+	"github.com/nchapman/lemme/internal/config"
+	"github.com/nchapman/lemme/internal/llama"
+	"github.com/nchapman/lemme/internal/ui"
 )
 
 type ServerManager struct {

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Transform gollama from a single-model wrapper into a multi-model proxy that manages multiple llama.cpp server instances. The proxy handles request routing, automatic model loading, LRU eviction, and idle timeout cleanup.
+Transform lemme from a single-model wrapper into a multi-model proxy that manages multiple llama.cpp server instances. The proxy handles request routing, automatic model loading, LRU eviction, and idle timeout cleanup.
 
 ## Architecture
 
@@ -11,7 +11,7 @@ Transform gollama from a single-model wrapper into a multi-model proxy that mana
                                 │
                                 ▼
 ┌───────────────────────────────────────────────────────────────────┐
-│                    gollama proxy (:8080)                          │
+│                    lemme proxy (:8080)                          │
 │  ┌────────────────────────────────────────────────────────────┐  │
 │  │                     HTTP Router                             │  │
 │  │  /v1/chat/completions  →  extract model  →  route/load     │  │
@@ -100,7 +100,7 @@ type ModelManager struct {
 
 type Backend struct {
     ModelName    string           // "TheBloke/Llama-2-7B-GGUF:Q4_K_M"
-    ModelPath    string           // "/Users/x/.gollama/models/.../Q4_K_M.gguf"
+    ModelPath    string           // "/Users/x/.lemme/models/.../Q4_K_M.gguf"
     Port         int              // 8081
     Process      *os.Process      // llama-server process
     LastActivity time.Time        // for idle detection
@@ -234,7 +234,7 @@ func (p *PortAllocator) Release(port int)
       "object": "model",
       "created": 1699900000,
       "owned_by": "local",
-      "gollama": {
+      "lemme": {
         "status": "ready",
         "port": 8081,
         "last_activity": "2024-01-15T10:30:00Z",
@@ -245,7 +245,7 @@ func (p *PortAllocator) Release(port int)
 }
 ```
 
-### `/api/status` Response (gollama-specific)
+### `/api/status` Response (lemme-specific)
 
 ```json
 {
@@ -276,29 +276,29 @@ func (p *PortAllocator) Release(port int)
 
 ## CLI Command Changes
 
-### `gollama serve`
+### `lemme serve`
 
 ```bash
 # Start proxy in foreground (logs to stdout)
-gollama serve
+lemme serve
 
 # Start proxy in background (daemonize)
-gollama serve --detach
+lemme serve --detach
 
 # With custom settings
-gollama serve --port 9000 --max-models 5 --idle-timeout 30m
+lemme serve --port 9000 --max-models 5 --idle-timeout 30m
 ```
 
 **Behavior:**
 - Starts proxy server
-- Writes PID to `~/.gollama/proxy.pid`
+- Writes PID to `~/.lemme/proxy.pid`
 - Foreground: blocks, logs to stdout, Ctrl+C stops
-- Detached: backgrounds, logs to `~/.gollama/proxy.log`
+- Detached: backgrounds, logs to `~/.lemme/proxy.log`
 
-### `gollama run`
+### `lemme run`
 
 ```bash
-gollama run TheBloke/Llama-2-7B-GGUF:Q4_K_M
+lemme run TheBloke/Llama-2-7B-GGUF:Q4_K_M
 ```
 
 **Behavior:**
@@ -307,10 +307,10 @@ gollama run TheBloke/Llama-2-7B-GGUF:Q4_K_M
 3. Send request to proxy to ensure model is loaded
 4. Start interactive chat session
 
-### `gollama ps`
+### `lemme ps`
 
 ```bash
-$ gollama ps
+$ lemme ps
 
 Proxy Status
   • Running on http://127.0.0.1:8080 (PID 12345)
@@ -326,26 +326,26 @@ Loaded Models
 Total: 2 models loaded, 7.9 GB memory
 ```
 
-### `gollama stop`
+### `lemme stop`
 
 ```bash
 # Stop specific model (unload from memory)
-gollama stop TheBloke/Llama-2-7B-GGUF:Q4_K_M
+lemme stop TheBloke/Llama-2-7B-GGUF:Q4_K_M
 # → "✓ Unloaded TheBloke/Llama-2-7B-GGUF:Q4_K_M"
 
 # Stop all models but keep proxy running
-gollama stop --all
+lemme stop --all
 # → "✓ Unloaded 2 models"
 
 # Stop proxy entirely (and all models)
-gollama stop --proxy
+lemme stop --proxy
 # → "✓ Stopped proxy and unloaded 2 models"
 ```
 
 ## File Structure Changes
 
 ```
-~/.gollama/
+~/.lemme/
 ├── models/              # unchanged
 ├── bin/                 # unchanged
 ├── proxy.pid            # NEW: proxy process ID
@@ -357,7 +357,7 @@ gollama stop --proxy
 ## Configuration Changes
 
 ```yaml
-# ~/.gollama/config.yaml
+# ~/.lemme/config.yaml
 
 # Proxy configuration (NEW)
 proxy:

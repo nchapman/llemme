@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/nchapman/gollama/internal/config"
-	"github.com/nchapman/gollama/internal/hf"
-	"github.com/nchapman/gollama/internal/ui"
+	"github.com/nchapman/lemme/internal/config"
+	"github.com/nchapman/lemme/internal/hf"
+	"github.com/nchapman/lemme/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -75,12 +75,12 @@ var infoCmd = &cobra.Command{
 		}
 
 		fmt.Printf("\n%s\n", ui.Bold("Actions"))
-		fmt.Printf("  gollama pull %s\n", ui.Value(modelRef))
+		fmt.Printf("  lemme pull %s\n", ui.Value(modelRef))
 		if len(quants) > 0 {
 			bestQuant := hf.GetBestQuantization(quants)
-			fmt.Printf("  gollama pull %s:%s\n", ui.Value(modelRef), ui.Value(bestQuant))
+			fmt.Printf("  lemme pull %s:%s\n", ui.Value(modelRef), ui.Value(bestQuant))
 		}
-		fmt.Printf("  gollama run %s\n", ui.Value(modelRef))
+		fmt.Printf("  lemme run %s\n", ui.Value(modelRef))
 	},
 }
 

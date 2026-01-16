@@ -11,11 +11,11 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/nchapman/gollama/internal/config"
-	"github.com/nchapman/gollama/internal/llama"
-	"github.com/nchapman/gollama/internal/proxy"
-	"github.com/nchapman/gollama/internal/server"
-	"github.com/nchapman/gollama/internal/ui"
+	"github.com/nchapman/lemme/internal/config"
+	"github.com/nchapman/lemme/internal/llama"
+	"github.com/nchapman/lemme/internal/proxy"
+	"github.com/nchapman/lemme/internal/server"
+	"github.com/nchapman/lemme/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -45,7 +45,7 @@ Models are loaded on-demand and unloaded after idle timeout.`,
 	PreRun: func(cmd *cobra.Command, args []string) {
 		if !llama.IsInstalled() {
 			fmt.Printf("%s llama.cpp is not installed\n", ui.ErrorMsg("Error:"))
-			fmt.Println("Run 'gollama update' to install it")
+			fmt.Println("Run 'lemme update' to install it")
 			os.Exit(1)
 		}
 	},

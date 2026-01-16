@@ -61,7 +61,7 @@ func TestLoad(t *testing.T) {
 	})
 
 	t.Run("parses valid config file", func(t *testing.T) {
-		configDir := filepath.Join(tmpDir, ".gollama")
+		configDir := filepath.Join(tmpDir, ".lemme")
 		if err := os.MkdirAll(configDir, 0755); err != nil {
 			t.Fatalf("Failed to create test config dir: %v", err)
 		}
@@ -130,7 +130,7 @@ server:
 	})
 
 	t.Run("returns error for invalid YAML", func(t *testing.T) {
-		configDir := filepath.Join(tmpDir, ".gollama")
+		configDir := filepath.Join(tmpDir, ".lemme")
 		if err := os.MkdirAll(configDir, 0755); err != nil {
 			t.Fatalf("Failed to create test config dir: %v", err)
 		}
@@ -175,7 +175,7 @@ func TestSave(t *testing.T) {
 		t.Fatalf("Expected no error saving config, got %v", err)
 	}
 
-	configPath := filepath.Join(tmpDir, ".gollama", "config.yaml")
+	configPath := filepath.Join(tmpDir, ".lemme", "config.yaml")
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		t.Fatalf("Failed to read saved config: %v", err)
@@ -219,7 +219,7 @@ func TestEnsureDirectories(t *testing.T) {
 		t.Fatalf("Expected no error creating directories, got %v", err)
 	}
 
-	baseDir := filepath.Join(tmpDir, ".gollama")
+	baseDir := filepath.Join(tmpDir, ".lemme")
 
 	expectedDirs := []string{
 		baseDir,
@@ -243,25 +243,25 @@ func TestPathHelpers(t *testing.T) {
 	os.Setenv("HOME", tmpDir)
 
 	configPath := ConfigPath()
-	expectedConfigPath := filepath.Join(tmpDir, ".gollama", "config.yaml")
+	expectedConfigPath := filepath.Join(tmpDir, ".lemme", "config.yaml")
 	if configPath != expectedConfigPath {
 		t.Errorf("Expected ConfigPath %s, got %s", expectedConfigPath, configPath)
 	}
 
 	modelsPath := ModelsPath()
-	expectedModelsPath := filepath.Join(tmpDir, ".gollama", "models")
+	expectedModelsPath := filepath.Join(tmpDir, ".lemme", "models")
 	if modelsPath != expectedModelsPath {
 		t.Errorf("Expected ModelsPath %s, got %s", expectedModelsPath, modelsPath)
 	}
 
 	binPath := BinPath()
-	expectedBinPath := filepath.Join(tmpDir, ".gollama", "bin")
+	expectedBinPath := filepath.Join(tmpDir, ".lemme", "bin")
 	if binPath != expectedBinPath {
 		t.Errorf("Expected BinPath %s, got %s", expectedBinPath, binPath)
 	}
 
 	blobsPath := BlobsPath()
-	expectedBlobsPath := filepath.Join(tmpDir, ".gollama", "blobs")
+	expectedBlobsPath := filepath.Join(tmpDir, ".lemme", "blobs")
 	if blobsPath != expectedBlobsPath {
 		t.Errorf("Expected BlobsPath %s, got %s", expectedBlobsPath, blobsPath)
 	}

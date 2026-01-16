@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/nchapman/gollama/internal/config"
+	"github.com/nchapman/lemme/internal/config"
 )
 
 const (

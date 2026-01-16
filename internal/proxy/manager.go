@@ -12,8 +12,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/nchapman/gollama/internal/config"
-	"github.com/nchapman/gollama/internal/llama"
+	"github.com/nchapman/lemme/internal/config"
+	"github.com/nchapman/lemme/internal/llama"
 )
 
 // ModelManager manages the lifecycle of llama-server backend instances

@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nchapman/gollama/internal/config"
+	"github.com/nchapman/lemme/internal/config"
 )
 
 const Version = "0.2.0"
@@ -195,7 +195,7 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 			Object:  "model",
 			Created: b.StartedAt.Unix(),
 			OwnedBy: "local",
-			Gollama: &GollamaStatus{
+			Lemme: &LemmeStatus{
 				Status:       b.Status,
 				Port:         b.Port,
 				LastActivity: b.LastActivity,
