@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/nchapman/lemme/internal/config"
-	"github.com/nchapman/lemme/internal/hf"
-	"github.com/nchapman/lemme/internal/ui"
+	"github.com/nchapman/llemme/internal/config"
+	"github.com/nchapman/llemme/internal/hf"
+	"github.com/nchapman/llemme/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -61,7 +61,7 @@ var searchCmd = &cobra.Command{
 		fmt.Println()
 		fmt.Printf("%d models found\n", len(results))
 		fmt.Println()
-		fmt.Println("Use 'lemme info <model>' for details")
+		fmt.Println("Use 'llemme info <model>' for details")
 	},
 }
 

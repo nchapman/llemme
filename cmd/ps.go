@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/nchapman/lemme/internal/llama"
-	"github.com/nchapman/lemme/internal/proxy"
-	"github.com/nchapman/lemme/internal/ui"
+	"github.com/nchapman/llemme/internal/llama"
+	"github.com/nchapman/llemme/internal/proxy"
+	"github.com/nchapman/llemme/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -20,8 +20,8 @@ var psCmd = &cobra.Command{
 		if state == nil {
 			fmt.Println(ui.Muted("Proxy is not running"))
 			fmt.Println()
-			fmt.Println("Start it with: lemme serve")
-			fmt.Println("Or use: lemme run <model> (will auto-start proxy)")
+			fmt.Println("Start it with: llemme serve")
+			fmt.Println("Or use: llemme run <model> (will auto-start proxy)")
 			return
 		}
 
@@ -50,7 +50,7 @@ var psCmd = &cobra.Command{
 		if len(status.Models) == 0 {
 			fmt.Println(ui.Muted("No models loaded"))
 			fmt.Println()
-			fmt.Println("Use 'lemme run <model>' to load a model")
+			fmt.Println("Use 'llemme run <model>' to load a model")
 			return
 		}
 

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nchapman/lemme/internal/config"
-	"github.com/nchapman/lemme/internal/ui"
+	"github.com/nchapman/llemme/internal/config"
+	"github.com/nchapman/llemme/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -75,7 +75,7 @@ var listCmd = &cobra.Command{
 		if len(models) == 0 {
 			fmt.Println(ui.Muted("No models downloaded yet"))
 			fmt.Println()
-			fmt.Println("Use 'lemme pull <user/repo>' to download a model")
+			fmt.Println("Use 'llemme pull <user/repo>' to download a model")
 			return
 		}
 

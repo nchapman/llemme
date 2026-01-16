@@ -4,7 +4,7 @@ A beautiful Go CLI wrapper around llama.cpp that brings simplicity of Ollama wit
 
 ## Vision
 
-Lemme makes running local LLMs effortless. Point it at any GGUF model on Hugging Face, and it handles the rest—downloading, caching, and running inference through llama.cpp. No model conversion, no complex setup, just `lemme run username/model` and go.
+Lemme makes running local LLMs effortless. Point it at any GGUF model on Hugging Face, and it handles the rest—downloading, caching, and running inference through llama.cpp. No model conversion, no complex setup, just `llemme run username/model` and go.
 
 ## Core Principles
 
@@ -37,24 +37,24 @@ Lemme makes running local LLMs effortless. Point it at any GGUF model on Hugging
 ### Commands
 
 ```
-lemme run <user/repo>[:quant]   # Interactive chat or one-shot inference
-lemme serve                       # Start llama.cpp server
-lemme pull <user/repo>[:quant]    # Download a model without running
-lemme list                         # List downloaded models
-lemme ps                           # Show models loaded in server
-lemme stop <user/repo>[:quant]    # Unload model from server
-lemme rm <user/repo>[:quant]      # Remove a downloaded model
-lemme search <query>               # Search Hugging Face for GGUF models
-lemme info <user/repo>             # Show model details
-lemme update                       # Update llama.cpp to latest release
-lemme version                      # Show lemme + llama.cpp versions
+llemme run <user/repo>[:quant]   # Interactive chat or one-shot inference
+llemme serve                       # Start llama.cpp server
+llemme pull <user/repo>[:quant]    # Download a model without running
+llemme list                         # List downloaded models
+llemme ps                           # Show models loaded in server
+llemme stop <user/repo>[:quant]    # Unload model from server
+llemme rm <user/repo>[:quant]      # Remove a downloaded model
+llemme search <query>               # Search Hugging Face for GGUF models
+llemme info <user/repo>             # Show model details
+llemme update                       # Update llama.cpp to latest release
+llemme version                      # Show llemme + llama.cpp versions
 ```
 
 **`run` behavior** (matches Ollama):
 ```
-lemme run user/repo              # Interactive chat session
-lemme run user/repo "prompt"     # One-shot: print response, then stay in chat
-echo "prompt" | lemme run ...    # Piped: print response and exit
+llemme run user/repo              # Interactive chat session
+llemme run user/repo "prompt"     # One-shot: print response, then stay in chat
+echo "prompt" | llemme run ...    # Piped: print response and exit
 ```
 
 **Smart model matching** (for `run`, `stop`, `rm`, `info`):
@@ -62,9 +62,9 @@ echo "prompt" | lemme run ...    # Piped: print response and exit
 Lemme matches partial names against downloaded models. If unique, it just works. If ambiguous, it suggests.
 
 ```
-lemme run llama                  # Matches "TheBloke/Llama-2-7B-GGUF" if it's the only llama
+llemme run llama                  # Matches "TheBloke/Llama-2-7B-GGUF" if it's the only llama
 
-lemme run mistral
+llemme run mistral
 
   Multiple models match 'mistral':
 
@@ -75,7 +75,7 @@ lemme run mistral
 ```
 
 ```
-lemme run lama
+llemme run lama
 
   No models match 'lama'. Did you mean?
 
@@ -94,16 +94,16 @@ lemme run lama
 Models are referenced using the simple `username/repository` format:
 
 ```
-lemme run TheBloke/Llama-2-7B-GGUF
-lemme run microsoft/phi-2-gguf
-lemme run mistralai/Mistral-7B-v0.1-GGUF
+llemme run TheBloke/Llama-2-7B-GGUF
+llemme run microsoft/phi-2-gguf
+llemme run mistralai/Mistral-7B-v0.1-GGUF
 ```
 
 For repos with multiple GGUF files, append the quantization:
 
 ```
-lemme run TheBloke/Llama-2-7B-GGUF:Q4_K_M
-lemme run TheBloke/Llama-2-7B-GGUF:Q8_0
+llemme run TheBloke/Llama-2-7B-GGUF:Q4_K_M
+llemme run TheBloke/Llama-2-7B-GGUF:Q8_0
 ```
 
 If no quantization is specified, Lemme picks the best available (preferring Q4_K_M).
@@ -112,10 +112,10 @@ If no quantization is specified, Lemme picks the best available (preferring Q4_K
 
 ### Directory Structure
 
-**Design goal:** Human-navigable file structure. You should be able to `ls ~/.lemme/models` and immediately understand what you have.
+**Design goal:** Human-navigable file structure. You should be able to `ls ~/.llemme/models` and immediately understand what you have.
 
 ```
-~/.lemme/
+~/.llemme/
 ├── models/
 │   └── TheBloke/
 │       └── Llama-2-7B-GGUF/
@@ -134,24 +134,24 @@ If no quantization is specified, Lemme picks the best available (preferring Q4_K
 
 | Ollama | Lemme | Why |
 |--------|---------|-----|
-| `~/.ollama/models/manifests/...` | `~/.lemme/models/TheBloke/Llama-2-7B-GGUF/` | Browsable with standard tools |
-| `~/.ollama/blobs/sha256-abc123` | `~/.lemme/models/.../Q4_K_M.gguf` | Filename tells you the quantization |
+| `~/.ollama/models/manifests/...` | `~/.llemme/models/TheBloke/Llama-2-7B-GGUF/` | Browsable with standard tools |
+| `~/.ollama/blobs/sha256-abc123` | `~/.llemme/models/.../Q4_K_M.gguf` | Filename tells you the quantization |
 | Requires `ollama list` to understand | `ls` or Finder works fine | No CLI required to explore |
 
 **Example: What `ls -la` looks like:**
 
 ```bash
-$ ls ~/.lemme/models/
+$ ls ~/.llemme/models/
 TheBloke/
 microsoft/
 mistralai/
 
-$ ls ~/.lemme/models/TheBloke/
+$ ls ~/.llemme/models/TheBloke/
 CodeLlama-7B-GGUF/
 Llama-2-7B-GGUF/
 Mistral-7B-v0.1-GGUF/
 
-$ ls ~/.lemme/models/TheBloke/Llama-2-7B-GGUF/
+$ ls ~/.llemme/models/TheBloke/Llama-2-7B-GGUF/
 Q4_K_M.gguf      # 4.1 GB
 Q5_K_M.gguf      # 4.8 GB
 Q8_0.gguf        # 7.2 GB
@@ -192,7 +192,7 @@ Base URL: `https://huggingface.co`
 Token lookup order (first match wins):
 1. `HF_TOKEN` environment variable
 2. `~/.cache/huggingface/token` (standard HF CLI location)
-3. `hf_token` in `~/.lemme/config.yaml` (fallback)
+3. `hf_token` in `~/.llemme/config.yaml` (fallback)
 
 For authenticated requests, add header:
 ```
@@ -216,8 +216,8 @@ Authorization: Bearer hf_xxxxxxxxxxxxx
 - macOS: Universal binary with Metal support
 - Linux: x86_64 and arm64, CPU-only (CUDA support later)
 - Allow user override via `LLAMA_CPP_PATH` env var
-- Track installed version in `~/.lemme/bin/version.json`
-- `lemme update` fetches latest release from GitHub
+- Track installed version in `~/.llemme/bin/version.json`
+- `llemme update` fetches latest release from GitHub
 
 **Server Mode (Single Backend):**
 
@@ -240,14 +240,14 @@ llama-server --host 127.0.0.1 --port 8080 --model /path/to/model.gguf
 - `/health` endpoint for status checks
 
 **Process Management:**
-- Store PID in `~/.lemme/server.pid`
+- Store PID in `~/.llemme/server.pid`
 - Check PID before starting (avoid duplicate servers)
 - Send SIGTERM for graceful shutdown
 - Clean up PID file on exit
 
 ### Server Configuration
 
-**Server config in `~/.lemme/config.yaml`:**
+**Server config in `~/.llemme/config.yaml`:**
 ```yaml
 server:
   host: "127.0.0.1"
@@ -267,7 +267,7 @@ server:
 
 **CLI flags override config:**
 ```
-lemme run user/repo --temp 0.5 --ctx 8192
+llemme run user/repo --temp 0.5 --ctx 8192
 ```
 
 ## User Experience
@@ -290,7 +290,7 @@ Pulling TheBloke/Llama-2-7B-GGUF:Q4_K_M
 ### Interactive Mode
 
 ```
-lemme run TheBloke/Llama-2-7B-GGUF
+llemme run TheBloke/Llama-2-7B-GGUF
 
 ┌─────────────────────────────────────────────────────────────────────────┐
 │  Llama 2 7B • Q4_K_M • 4096 ctx                                         │
@@ -307,7 +307,7 @@ You: █
 ### Model List
 
 ```
-lemme list
+llemme list
 
 Downloaded Models
 
@@ -322,7 +322,7 @@ Total: 3 models, 13.4 GB
 ### Server & Process Management
 
 ```
-lemme serve
+llemme serve
 
 Server started on http://127.0.0.1:8080
 
@@ -334,7 +334,7 @@ Press Ctrl+C to stop
 ```
 
 ```
-lemme ps
+llemme ps
 
 Server Status
 
@@ -349,13 +349,13 @@ Total: 1 model, 3.8 GB memory used
 ```
 
 ```
-lemme stop TheBloke/Llama-2-7B-GGUF
+llemme stop TheBloke/Llama-2-7B-GGUF
 
 ✓ Unloaded TheBloke/Llama-2-7B-GGUF from server
 ```
 
 ```
-lemme stop
+llemme stop
 
 ✓ Server stopped
 ```
@@ -363,32 +363,32 @@ lemme stop
 ### Version Info
 
 ```
-lemme version
+llemme version
 
 Lemme v0.1.0 (darwin/arm64)
 llama.cpp b7751 (Metal)
 
 Paths:
-  Models:    ~/.lemme/models/
-  Server:    ~/.lemme/bin/llama-server.bin
+  Models:    ~/.llemme/models/
+  Server:    ~/.llemme/bin/llama-server.bin
 ```
 
 On Linux:
 ```
-lemme version
+llemme version
 
 Lemme v0.1.0 (linux/amd64)
 llama.cpp b7751 (CPU)
 
 Paths:
-  Models:    ~/.lemme/models/
-  Server:    ~/.lemme/bin/llama-server.bin
+  Models:    ~/.llemme/models/
+  Server:    ~/.llemme/bin/llama-server.bin
 ```
 
 ### Updating llama.cpp
 
 ```
-lemme update
+llemme update
 
 Checking for updates...
 
@@ -405,14 +405,14 @@ Extracting...
 ```
 
 ```
-lemme update
+llemme update
 
 llama.cpp is already up to date (b7751)
 ```
 
 ## Configuration
 
-**~/.lemme/config.yaml:**
+**~/.llemme/config.yaml:**
 
 ```yaml
 # Server configuration
@@ -483,7 +483,7 @@ Error: Model not found
 
   Tips:
     • Check the spelling of the repository name
-    • Use 'lemme search llama' to find models
+    • Use 'llemme search llama' to find models
 ```
 
 ```
@@ -512,8 +512,8 @@ Error: Server not running
 
   The llama.cpp server is not running.
 
-  Start it with: lemme serve
-  Or use: lemme run <model> (will auto-start server)
+  Start it with: llemme serve
+  Or use: llemme run <model> (will auto-start server)
 ```
 
 ## MVP Scope
@@ -542,7 +542,7 @@ Error: Server not running
 
 - [ ] Windows support
 - [ ] Linux CUDA/ROCm support
-- [ ] Model aliases (`lemme run llama2` → resolves to full path)
+- [ ] Model aliases (`llemme run llama2` → resolves to full path)
 - [ ] Modelfile support (Ollama-style customization)
 - [ ] Embedding generation
 - [ ] Multi-model conversations

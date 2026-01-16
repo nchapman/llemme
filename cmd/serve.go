@@ -9,10 +9,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/nchapman/lemme/internal/config"
-	"github.com/nchapman/lemme/internal/llama"
-	"github.com/nchapman/lemme/internal/proxy"
-	"github.com/nchapman/lemme/internal/ui"
+	"github.com/nchapman/llemme/internal/config"
+	"github.com/nchapman/llemme/internal/llama"
+	"github.com/nchapman/llemme/internal/proxy"
+	"github.com/nchapman/llemme/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -25,8 +25,8 @@ var (
 
 var serveCmd = &cobra.Command{
 	Use:   "serve",
-	Short: "Start the lemme proxy server",
-	Long: `Start the lemme proxy server that manages multiple llama.cpp backends.
+	Short: "Start the llemme proxy server",
+	Long: `Start the llemme proxy server that manages multiple llama.cpp backends.
 
 The proxy server:
   - Routes requests to the appropriate model backend
@@ -66,7 +66,7 @@ The proxy server:
 		if existingState := proxy.GetRunningProxyState(); existingState != nil {
 			fmt.Printf("%s Proxy already running on http://%s:%d (PID %d)\n",
 				ui.ErrorMsg("Error:"), existingState.Host, existingState.Port, existingState.PID)
-			fmt.Println("Use 'lemme stop --proxy' to stop the existing proxy first")
+			fmt.Println("Use 'llemme stop --proxy' to stop the existing proxy first")
 			os.Exit(1)
 		}
 

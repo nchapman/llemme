@@ -9,13 +9,13 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/nchapman/lemme/internal/config"
+	"github.com/nchapman/llemme/internal/config"
 )
 
 const (
 	baseURL    = "https://huggingface.co"
 	apiBase    = "https://huggingface.co/api"
-	userAgent  = "lemme/0.1.0"
+	userAgent  = "llemme/0.1.0"
 	maxRetries = 3
 	retryDelay = 1 * time.Second
 )

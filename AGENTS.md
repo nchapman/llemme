@@ -33,8 +33,8 @@ import (
     "github.com/charmbracelet/bubbletea"  // external deps
     "github.com/spf13/cobra"
 
-    "github.com/nchapman/lemme/internal/config"  // internal packages
-    "github.com/nchapman/lemme/internal/ui"
+    "github.com/nchapman/llemme/internal/config"  // internal packages
+    "github.com/nchapman/llemme/internal/ui"
 )
 ```
 Standard library first, then external dependencies, then internal packages. Separate groups with blank lines.
@@ -205,5 +205,5 @@ Do not add comments unless absolutely necessary. The code should be self-documen
 ## Important Notes
 
 - Always run `make check` and `make lint` before committing
-- Binary is built to `build/lemme` via `make build`
+- Binary is built to `build/llemme` via `make build`
 - Use `.gitignore` to exclude build artifacts

@@ -4,17 +4,17 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/nchapman/lemme/internal/config"
-	"github.com/nchapman/lemme/internal/llama"
-	"github.com/nchapman/lemme/internal/ui"
+	"github.com/nchapman/llemme/internal/config"
+	"github.com/nchapman/llemme/internal/llama"
+	"github.com/nchapman/llemme/internal/ui"
 	"github.com/spf13/cobra"
 )
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "Show lemme version information",
+	Short: "Show llemme version information",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("lemme v0.1.0 (%s/%s)\n", runtime.GOOS, runtime.GOARCH)
+		fmt.Printf("llemme v0.1.0 (%s/%s)\n", runtime.GOOS, runtime.GOARCH)
 
 		installed, _ := llama.GetInstalledVersion()
 		if installed != nil {

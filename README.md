@@ -1,4 +1,4 @@
-# lemme
+# llemme
 
 A fast, simple CLI for running LLMs locally. Powered by [llama.cpp](https://github.com/ggerganov/llama.cpp) with direct [Hugging Face](https://huggingface.co) integration.
 
@@ -15,34 +15,34 @@ A fast, simple CLI for running LLMs locally. Powered by [llama.cpp](https://gith
 ## Install
 
 ```bash
-go install github.com/nchapman/lemme@latest
+go install github.com/nchapman/llemme@latest
 ```
 
 Or build from source:
 
 ```bash
-git clone https://github.com/nchapman/lemme
-cd lemme
-go build -o lemme .
+git clone https://github.com/nchapman/llemme
+cd llemme
+go build -o llemme .
 ```
 
 ## Usage
 
 ```bash
 # Run a model (downloads automatically)
-lemme run TheBloke/Llama-2-7B-GGUF
+llemme run TheBloke/Llama-2-7B-GGUF
 
 # One-shot prompt
-lemme run llama "Explain quantum computing in one sentence"
+llemme run llama "Explain quantum computing in one sentence"
 
 # Search for models
-lemme search mistral
+llemme search mistral
 
 # List downloaded models
-lemme list
+llemme list
 
 # Show running models
-lemme ps
+llemme ps
 ```
 
 ## Commands
@@ -73,7 +73,7 @@ curl http://localhost:8080/v1/chat/completions \
 
 ## Configuration
 
-Config lives at `~/.lemme/config.yaml`:
+Config lives at `~/.llemme/config.yaml`:
 
 ```yaml
 context_length: 4096

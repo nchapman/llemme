@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nchapman/lemme/internal/config"
+	"github.com/nchapman/llemme/internal/config"
 )
 
 type ProgressCallback func(downloaded, total int64, speed float64, eta time.Duration)

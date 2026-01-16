@@ -10,12 +10,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/nchapman/lemme/internal/config"
-	"github.com/nchapman/lemme/internal/hf"
-	"github.com/nchapman/lemme/internal/llama"
-	"github.com/nchapman/lemme/internal/proxy"
-	"github.com/nchapman/lemme/internal/server"
-	"github.com/nchapman/lemme/internal/ui"
+	"github.com/nchapman/llemme/internal/config"
+	"github.com/nchapman/llemme/internal/hf"
+	"github.com/nchapman/llemme/internal/llama"
+	"github.com/nchapman/llemme/internal/proxy"
+	"github.com/nchapman/llemme/internal/server"
+	"github.com/nchapman/llemme/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -167,7 +167,7 @@ func modelNotFoundError(query string, suggestions []proxy.DownloadedModel) error
 			b.WriteString(fmt.Sprintf("  %s\n", s.FullName))
 		}
 	} else {
-		b.WriteString("\n\n  Use 'lemme list' to see downloaded models\n  Use 'lemme search <query>' to find models")
+		b.WriteString("\n\n  Use 'llemme list' to see downloaded models\n  Use 'llemme search <query>' to find models")
 	}
 	return fmt.Errorf("%s", b.String())
 }
@@ -180,7 +180,7 @@ func offerToPull(cfg *config.Config, user, repo, quant string) (*proxy.Downloade
 	modelInfo, err := client.GetModel(user, repo)
 	if err != nil {
 		if strings.Contains(err.Error(), "404") {
-			return nil, fmt.Errorf("model '%s/%s' not found on Hugging Face\n\n  Use 'lemme search <query>' to find models", user, repo)
+			return nil, fmt.Errorf("model '%s/%s' not found on Hugging Face\n\n  Use 'llemme search <query>' to find models", user, repo)
 		}
 		return nil, fmt.Errorf("failed to check model: %w", err)
 	}

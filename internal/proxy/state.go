@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/nchapman/lemme/internal/config"
+	"github.com/nchapman/llemme/internal/config"
 )
 
 const (

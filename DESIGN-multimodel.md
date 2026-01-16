@@ -2,7 +2,7 @@
 
 ## Overview
 
-Transform lemme from a single-model wrapper into a multi-model proxy that manages multiple llama.cpp server instances. The proxy handles request routing, automatic model loading, LRU eviction, and idle timeout cleanup.
+Transform llemme from a single-model wrapper into a multi-model proxy that manages multiple llama.cpp server instances. The proxy handles request routing, automatic model loading, LRU eviction, and idle timeout cleanup.
 
 ## Architecture
 
@@ -11,7 +11,7 @@ Transform lemme from a single-model wrapper into a multi-model proxy that manage
                                 │
                                 ▼
 ┌───────────────────────────────────────────────────────────────────┐
-│                    lemme proxy (:8080)                          │
+│                    llemme proxy (:8080)                          │
 │  ┌────────────────────────────────────────────────────────────┐  │
 │  │                     HTTP Router                             │  │
 │  │  /v1/chat/completions  →  extract model  →  route/load     │  │
@@ -100,7 +100,7 @@ type ModelManager struct {
 
 type Backend struct {
     ModelName    string           // "TheBloke/Llama-2-7B-GGUF:Q4_K_M"
-    ModelPath    string           // "/Users/x/.lemme/models/.../Q4_K_M.gguf"
+    ModelPath    string           // "/Users/x/.llemme/models/.../Q4_K_M.gguf"
     Port         int              // 8081
     Process      *os.Process      // llama-server process
     LastActivity time.Time        // for idle detection
@@ -234,7 +234,7 @@ func (p *PortAllocator) Release(port int)
       "object": "model",
       "created": 1699900000,
       "owned_by": "local",
-      "lemme": {
+      "llemme": {
         "status": "ready",
         "port": 8081,
         "last_activity": "2024-01-15T10:30:00Z",
@@ -245,7 +245,7 @@ func (p *PortAllocator) Release(port int)
 }
 ```
 
-### `/api/status` Response (lemme-specific)
+### `/api/status` Response (llemme-specific)
 
 ```json
 {
@@ -276,29 +276,29 @@ func (p *PortAllocator) Release(port int)
 
 ## CLI Command Changes
 
-### `lemme serve`
+### `llemme serve`
 
 ```bash
 # Start proxy in foreground (logs to stdout)
-lemme serve
+llemme serve
 
 # Start proxy in background (daemonize)
-lemme serve --detach
+llemme serve --detach
 
 # With custom settings
-lemme serve --port 9000 --max-models 5 --idle-timeout 30m
+llemme serve --port 9000 --max-models 5 --idle-timeout 30m
 ```
 
 **Behavior:**
 - Starts proxy server
-- Writes PID to `~/.lemme/proxy.pid`
+- Writes PID to `~/.llemme/proxy.pid`
 - Foreground: blocks, logs to stdout, Ctrl+C stops
-- Detached: backgrounds, logs to `~/.lemme/proxy.log`
+- Detached: backgrounds, logs to `~/.llemme/proxy.log`
 
-### `lemme run`
+### `llemme run`
 
 ```bash
-lemme run TheBloke/Llama-2-7B-GGUF:Q4_K_M
+llemme run TheBloke/Llama-2-7B-GGUF:Q4_K_M
 ```
 
 **Behavior:**
@@ -307,10 +307,10 @@ lemme run TheBloke/Llama-2-7B-GGUF:Q4_K_M
 3. Send request to proxy to ensure model is loaded
 4. Start interactive chat session
 
-### `lemme ps`
+### `llemme ps`
 
 ```bash
-$ lemme ps
+$ llemme ps
 
 Proxy Status
   • Running on http://127.0.0.1:8080 (PID 12345)
@@ -326,26 +326,26 @@ Loaded Models
 Total: 2 models loaded, 7.9 GB memory
 ```
 
-### `lemme stop`
+### `llemme stop`
 
 ```bash
 # Stop specific model (unload from memory)
-lemme stop TheBloke/Llama-2-7B-GGUF:Q4_K_M
+llemme stop TheBloke/Llama-2-7B-GGUF:Q4_K_M
 # → "✓ Unloaded TheBloke/Llama-2-7B-GGUF:Q4_K_M"
 
 # Stop all models but keep proxy running
-lemme stop --all
+llemme stop --all
 # → "✓ Unloaded 2 models"
 
 # Stop proxy entirely (and all models)
-lemme stop --proxy
+llemme stop --proxy
 # → "✓ Stopped proxy and unloaded 2 models"
 ```
 
 ## File Structure Changes
 
 ```
-~/.lemme/
+~/.llemme/
 ├── models/              # unchanged
 ├── bin/                 # unchanged
 ├── proxy.pid            # NEW: proxy process ID
@@ -357,7 +357,7 @@ lemme stop --proxy
 ## Configuration Changes
 
 ```yaml
-# ~/.lemme/config.yaml
+# ~/.llemme/config.yaml
 
 # Proxy configuration (NEW)
 proxy:

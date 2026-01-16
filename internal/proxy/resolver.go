@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/nchapman/lemme/internal/config"
+	"github.com/nchapman/llemme/internal/config"
 )
 
 // DownloadedModel represents a model that has been downloaded locally

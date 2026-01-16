@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/nchapman/lemme/internal/llama"
-	"github.com/nchapman/lemme/internal/ui"
+	"github.com/nchapman/llemme/internal/llama"
+	"github.com/nchapman/llemme/internal/ui"
 	"github.com/spf13/cobra"
 )
 

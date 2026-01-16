@@ -38,7 +38,7 @@ type Proxy struct {
 }
 
 const (
-	configDir  = ".lemme"
+	configDir  = ".llemme"
 	configFile = "config.yaml"
 	modelsDir  = "models"
 	binDir     = "bin"

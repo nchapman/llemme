@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/nchapman/lemme/internal/config"
-	"github.com/nchapman/lemme/internal/ui"
+	"github.com/nchapman/llemme/internal/config"
+	"github.com/nchapman/llemme/internal/ui"
 	"github.com/spf13/cobra"
 )
 
 var verbose bool
 
 var rootCmd = &cobra.Command{
-	Use:   "lemme",
+	Use:   "llemme",
 	Short: "Run local LLMs with Hugging Face integration",
 	Long: `Lemme makes running local LLMs effortless. Point it at any GGUF 
 model on Hugging Face, and it handles the rest—downloading, caching, and 
