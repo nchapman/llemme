@@ -46,9 +46,9 @@ var psCmd = &cobra.Command{
 }
 
 var stopCmd = &cobra.Command{
-	Use:   "stop [model]",
-	Short: "Stop server or unload model",
-	Args:  cobra.MaximumNArgs(1),
+	Use:   "stop",
+	Short: "Stop llama.cpp server",
+	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		manager := server.NewManager(nil)
 
@@ -63,30 +63,12 @@ var stopCmd = &cobra.Command{
 			return
 		}
 
-		if len(args) == 0 {
-			if err := manager.Stop(); err != nil {
-				fmt.Printf("%s Failed to stop server: %v\n", ui.ErrorMsg("Error:"), err)
-				os.Exit(1)
-			}
-			fmt.Printf("%s Server stopped\n", ui.Success("✓"))
-			return
-		}
-
-		modelRef := args[0]
-		if state.Model != modelRef {
-			fmt.Printf("%s Server is running with different model: %s\n", ui.Warning("Warning:"), state.Model)
-			fmt.Printf("Current model: %s\nRequested: %s\n", state.Model, modelRef)
-			fmt.Println("\nTo switch models, run: gollama run <new-model>")
-			fmt.Println("Or stop: entire server with: gollama stop")
-			os.Exit(1)
-		}
-
 		if err := manager.Stop(); err != nil {
 			fmt.Printf("%s Failed to stop server: %v\n", ui.ErrorMsg("Error:"), err)
 			os.Exit(1)
 		}
 
-		fmt.Printf("%s Unloaded %s from server\n", ui.Success("✓"), modelRef)
+		fmt.Println(ui.Success("✓ Server stopped"))
 	},
 }
 
