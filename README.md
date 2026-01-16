@@ -2,6 +2,16 @@
 
 A fast, simple CLI for running LLMs locally. Powered by [llama.cpp](https://github.com/ggerganov/llama.cpp) with direct [Hugging Face](https://huggingface.co) integration.
 
+## Features
+
+- 🚀 **Run any GGUF model** from Hugging Face with a single command
+- 🔄 **Multi-model support** - load multiple models, auto-unload when idle
+- 💬 **Interactive chat** or one-shot inference
+- 📦 **Automatic downloads** with progress tracking
+- 🔍 **Fuzzy model matching** - type `llama` instead of `TheBloke/Llama-2-7B-GGUF:Q4_K_M`
+- ⚡ **OpenAI-compatible API** - works with existing tools and libraries
+- 🎯 **Zero config** - auto-downloads llama.cpp, picks optimal quantization
+
 ## Install
 
 ```bash
