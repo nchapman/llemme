@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/nchapman/gollama/internal/config"
 	"github.com/nchapman/gollama/internal/hf"
@@ -149,7 +150,6 @@ func runInteractive(api *server.APIClient, model string, cfg *config.Config) {
 			return
 		}
 
-		fmt.Print("AI: ")
 		messages := []server.ChatMessage{
 			{Role: "user", Content: input},
 		}
@@ -163,9 +163,24 @@ func runInteractive(api *server.APIClient, model string, cfg *config.Config) {
 			MaxTokens:   -1,
 		}
 
+		fmt.Print("AI: ")
+
+		spinner := ui.NewSpinner("")
+		spinner.Start("Thinking...")
+		spinnerStarted := true
+
+		time.Sleep(50 * time.Millisecond)
+
 		if err := api.StreamChatCompletion(req, func(content string) {
+			if spinnerStarted {
+				spinner.Stop(true, "")
+				spinnerStarted = false
+			}
 			fmt.Print(content)
 		}); err != nil {
+			if spinnerStarted {
+				spinner.Stop(false, "")
+			}
 			fmt.Printf("\n%s %v\n", ui.ErrorMsg("Error:"), err)
 			continue
 		}

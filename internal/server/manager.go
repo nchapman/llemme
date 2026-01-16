@@ -12,6 +12,7 @@ import (
 
 	"github.com/nchapman/gollama/internal/config"
 	"github.com/nchapman/gollama/internal/llama"
+	"github.com/nchapman/gollama/internal/ui"
 )
 
 type ServerManager struct {
@@ -75,7 +76,7 @@ func (sm *ServerManager) Start(modelPath, modelRef string) error {
 		return fmt.Errorf("failed to save state: %w", err)
 	}
 
-	if err := sm.waitForReady(); err != nil {
+	if err := ui.WithSpinner("Starting server...", sm.waitForReady); err != nil {
 		sm.Stop()
 		return fmt.Errorf("server failed to start: %w", err)
 	}
