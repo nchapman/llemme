@@ -172,3 +172,90 @@ func TestVerifySHA256(t *testing.T) {
 		})
 	}
 }
+
+func TestCleanupPartialFiles(t *testing.T) {
+	tmpDir := t.TempDir()
+	oldHome := os.Getenv("HOME")
+	defer os.Setenv("HOME", oldHome)
+
+	os.Setenv("HOME", tmpDir)
+
+	binDir := filepath.Join(tmpDir, ".gollama", "bin")
+	modelsDir := filepath.Join(tmpDir, ".gollama", "models", "user", "repo")
+
+	if err := os.MkdirAll(binDir, 0755); err != nil {
+		t.Fatalf("Failed to create bin dir: %v", err)
+	}
+	if err := os.MkdirAll(modelsDir, 0755); err != nil {
+		t.Fatalf("Failed to create models dir: %v", err)
+	}
+
+	// Create some partial files
+	partialFiles := []string{
+		filepath.Join(binDir, "llama-cli.partial"),
+		filepath.Join(binDir, "llama-server.partial"),
+		filepath.Join(modelsDir, "model.gguf.partial"),
+	}
+
+	// Create some regular files that should NOT be deleted
+	regularFiles := []string{
+		filepath.Join(binDir, "llama-cli"),
+		filepath.Join(modelsDir, "model.gguf"),
+	}
+
+	for _, f := range partialFiles {
+		if err := os.WriteFile(f, []byte("partial"), 0644); err != nil {
+			t.Fatalf("Failed to create partial file %s: %v", f, err)
+		}
+	}
+
+	for _, f := range regularFiles {
+		if err := os.WriteFile(f, []byte("complete"), 0644); err != nil {
+			t.Fatalf("Failed to create regular file %s: %v", f, err)
+		}
+	}
+
+	// Run cleanup
+	err := CleanupPartialFiles()
+	if err != nil {
+		t.Fatalf("CleanupPartialFiles() error = %v", err)
+	}
+
+	// Check partial files were deleted
+	for _, f := range partialFiles {
+		if _, err := os.Stat(f); !os.IsNotExist(err) {
+			t.Errorf("Partial file %s should have been deleted", f)
+		}
+	}
+
+	// Check regular files still exist
+	for _, f := range regularFiles {
+		if _, err := os.Stat(f); err != nil {
+			t.Errorf("Regular file %s should still exist: %v", f, err)
+		}
+	}
+}
+
+func TestCleanupPartialFilesEmptyDirs(t *testing.T) {
+	tmpDir := t.TempDir()
+	oldHome := os.Getenv("HOME")
+	defer os.Setenv("HOME", oldHome)
+
+	os.Setenv("HOME", tmpDir)
+
+	// Create the directories but don't put any partial files in them
+	binDir := filepath.Join(tmpDir, ".gollama", "bin")
+	modelsDir := filepath.Join(tmpDir, ".gollama", "models")
+
+	if err := os.MkdirAll(binDir, 0755); err != nil {
+		t.Fatalf("Failed to create bin dir: %v", err)
+	}
+	if err := os.MkdirAll(modelsDir, 0755); err != nil {
+		t.Fatalf("Failed to create models dir: %v", err)
+	}
+
+	err := CleanupPartialFiles()
+	if err != nil {
+		t.Errorf("CleanupPartialFiles() error = %v", err)
+	}
+}

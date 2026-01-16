@@ -173,3 +173,57 @@ func TestCalculateProgress(t *testing.T) {
 		})
 	}
 }
+
+func TestProgressModelUpdate(t *testing.T) {
+	model := initialProgressModel("test", 1000)
+
+	t.Run("progressUpdateMsg updates downloaded", func(t *testing.T) {
+		updated, cmd := model.Update(progressUpdateMsg{downloaded: 500})
+		updatedModel := updated.(progressModel)
+
+		if updatedModel.downloaded != 500 {
+			t.Errorf("downloaded = %v, want 500", updatedModel.downloaded)
+		}
+		if cmd != nil {
+			t.Error("expected nil cmd for update message")
+		}
+	})
+
+	t.Run("progressFinishMsg sets done and message", func(t *testing.T) {
+		updated, cmd := model.Update(progressFinishMsg{message: "Complete!"})
+		updatedModel := updated.(progressModel)
+
+		if !updatedModel.done {
+			t.Error("expected done=true after finish message")
+		}
+		if updatedModel.message != "Complete!" {
+			t.Errorf("message = %v, want Complete!", updatedModel.message)
+		}
+		// Should return quit command
+		if cmd == nil {
+			t.Error("expected quit cmd for finish message")
+		}
+	})
+
+	t.Run("progressTickMsg continues ticking when not done", func(t *testing.T) {
+		updated, cmd := model.Update(progressTickMsg{})
+		updatedModel := updated.(progressModel)
+
+		if updatedModel.done {
+			t.Error("model should not be done after tick")
+		}
+		if cmd == nil {
+			t.Error("expected tick cmd to continue")
+		}
+	})
+
+	t.Run("progressTickMsg quits when done", func(t *testing.T) {
+		doneModel := initialProgressModel("test", 1000)
+		doneModel.done = true
+
+		_, cmd := doneModel.Update(progressTickMsg{})
+		if cmd == nil {
+			t.Error("expected quit cmd when done")
+		}
+	})
+}

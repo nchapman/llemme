@@ -449,3 +449,80 @@ func TestPathHelpers(t *testing.T) {
 		t.Errorf("Expected PIDPath %s, got %s", expectedPIDPath, actualPIDPath)
 	}
 }
+
+func TestCheckLogForReady(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := &config.Config{
+		Server: config.Server{Host: "127.0.0.1", Port: 8080},
+	}
+	sm := NewManager(cfg)
+
+	tests := []struct {
+		name        string
+		logContent  string
+		wantReady   bool
+		wantErr     bool
+	}{
+		{
+			name:       "server ready",
+			logContent: "Starting server...\nlistening on http://127.0.0.1:8080\n",
+			wantReady:  true,
+			wantErr:    false,
+		},
+		{
+			name:       "server startup failed",
+			logContent: "Starting server...\nerror loading model\n",
+			wantReady:  false,
+			wantErr:    true,
+		},
+		{
+			name:       "server failed with failed message",
+			logContent: "Starting server...\nfailed to initialize\n",
+			wantReady:  false,
+			wantErr:    true,
+		},
+		{
+			name:       "server still starting",
+			logContent: "Loading model...\nInitializing...\n",
+			wantReady:  false,
+			wantErr:    false,
+		},
+		{
+			name:       "empty log",
+			logContent: "",
+			wantReady:  false,
+			wantErr:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logFile := filepath.Join(tmpDir, tt.name+".log")
+			if err := os.WriteFile(logFile, []byte(tt.logContent), 0644); err != nil {
+				t.Fatalf("Failed to write log file: %v", err)
+			}
+
+			ready, err := sm.checkLogForReady(logFile)
+
+			if tt.wantErr && err == nil {
+				t.Error("Expected error, got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
+			if ready != tt.wantReady {
+				t.Errorf("Expected ready=%v, got %v", tt.wantReady, ready)
+			}
+		})
+	}
+
+	t.Run("non-existent file", func(t *testing.T) {
+		ready, err := sm.checkLogForReady("/nonexistent/path/log.txt")
+		if err != nil {
+			t.Errorf("Expected no error for non-existent file, got %v", err)
+		}
+		if ready {
+			t.Error("Expected ready=false for non-existent file")
+		}
+	})
+}
