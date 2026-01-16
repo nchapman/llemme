@@ -130,6 +130,7 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.textarea.Reset()
 				m.viewport.GotoBottom()
 
+				m.streamChan = make(chan string)
 				m.generating = true
 				return m, tea.Batch(
 					m.startGeneration(),
@@ -164,7 +165,10 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m chatModel) startGeneration() tea.Cmd {
+	streamChan := m.streamChan
 	return func() tea.Msg {
+		defer close(streamChan)
+
 		req := &server.ChatCompletionRequest{
 			Model:       m.model,
 			Messages:    m.history,
@@ -175,7 +179,7 @@ func (m chatModel) startGeneration() tea.Cmd {
 		}
 
 		err := m.api.StreamChatCompletion(req, func(content string) {
-			m.streamChan <- content
+			streamChan <- content
 		})
 
 		if err != nil {

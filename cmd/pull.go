@@ -72,7 +72,7 @@ var pullCmd = &cobra.Command{
 				fmt.Printf("%s Quantization '%s' not found\n", ui.ErrorMsg("Error:"), quant)
 				fmt.Println("\nAvailable quantizations:")
 				for _, q := range hf.SortQuantizations(quants) {
-					fmt.Printf("  • %s (%s)\n", q.Name, formatBytes(q.Size))
+					fmt.Printf("  • %s (%s)\n", q.Name, ui.FormatBytes(q.Size))
 				}
 				os.Exit(1)
 			}
@@ -95,7 +95,7 @@ var pullCmd = &cobra.Command{
 		message := fmt.Sprintf("Pulling %s/%s:%s", user, repo, quant)
 		fmt.Printf("%s\n", ui.Bold(message))
 		fmt.Printf("  Model info:\n")
-		fmt.Printf("    • Size: %s\n", formatBytes(selectedQuant.Size))
+		fmt.Printf("    • Size: %s\n", ui.FormatBytes(selectedQuant.Size))
 		fmt.Println()
 
 		progressBar := ui.NewProgressBar("", selectedQuant.Size)

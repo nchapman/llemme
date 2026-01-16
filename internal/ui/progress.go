@@ -73,14 +73,14 @@ func (m progressModel) View() string {
 	return fmt.Sprintf("\n  %s  %.0f%% │ %s / %s │ %.1f MB/s │ ETA %s\n",
 		bar,
 		percent*100,
-		formatBytes(m.downloaded),
-		formatBytes(m.total),
+		FormatBytes(m.downloaded),
+		FormatBytes(m.total),
 		0.0,
 		"0s",
 	)
 }
 
-func formatBytes(b int64) string {
+func FormatBytes(b int64) string {
 	const unit = 1024
 	if b < unit {
 		return fmt.Sprintf("%d B", b)

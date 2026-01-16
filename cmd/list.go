@@ -99,13 +99,13 @@ var listCmd = &cobra.Command{
 			fmt.Printf("  %-40s %-10s %10s  %s\n",
 				rowStyle.Render(modelRef),
 				rowStyle.Render(m.Quant),
-				rowStyle.Render(formatBytes(m.Size)),
+				rowStyle.Render(ui.FormatBytes(m.Size)),
 				rowStyle.Render(formatTime(m.ModifiedAt)),
 			)
 		}
 
 		fmt.Println()
-		fmt.Printf("%s %s\n", ui.Bold("Total:"), fmt.Sprintf("%d models, %s", len(models), formatBytes(totalSize)))
+		fmt.Printf("%s %s\n", ui.Bold("Total:"), fmt.Sprintf("%d models, %s", len(models), ui.FormatBytes(totalSize)))
 	},
 }
 

@@ -106,15 +106,18 @@ func (sm *ServerManager) Stop() error {
 		return nil
 	}
 
-	time.Sleep(100 * time.Millisecond)
-
-	process, _ = os.FindProcess(state.PID)
-	if process != nil {
-		if err := process.Kill(); err != nil {
+	// Wait for process to exit gracefully
+	for range 20 {
+		time.Sleep(100 * time.Millisecond)
+		if err := process.Signal(syscall.Signal(0)); err != nil {
+			// Process has exited
 			ClearState()
 			return nil
 		}
 	}
+
+	// Force kill if still running after 2 seconds
+	process.Kill()
 
 	if err := ClearState(); err != nil {
 		return fmt.Errorf("failed to clear state: %w", err)
@@ -148,28 +151,39 @@ func (sm *ServerManager) buildArgs(modelPath string) []string {
 func (sm *ServerManager) waitForReady() error {
 	logFile := filepath.Join(config.BinPath(), "server.log")
 
-	for i := 0; i < 60; i++ {
+	for range 60 {
 		time.Sleep(500 * time.Millisecond)
 
-		file, err := os.Open(logFile)
+		ready, err := sm.checkLogForReady(logFile)
 		if err != nil {
-			continue
+			return err
 		}
-		defer file.Close()
-
-		scanner := bufio.NewScanner(file)
-		for scanner.Scan() {
-			line := scanner.Text()
-			if strings.Contains(line, "listening on http") {
-				return nil
-			}
-			if strings.Contains(line, "error") || strings.Contains(line, "failed") {
-				return fmt.Errorf("server startup failed")
-			}
+		if ready {
+			return nil
 		}
 	}
 
 	return fmt.Errorf("server did not start within 30 seconds")
+}
+
+func (sm *ServerManager) checkLogForReady(logFile string) (bool, error) {
+	file, err := os.Open(logFile)
+	if err != nil {
+		return false, nil
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.Contains(line, "listening on http") {
+			return true, nil
+		}
+		if strings.Contains(line, "error") || strings.Contains(line, "failed") {
+			return false, fmt.Errorf("server startup failed")
+		}
+	}
+	return false, nil
 }
 
 func (sm *ServerManager) Status() (*ServerState, error) {

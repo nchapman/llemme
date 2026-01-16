@@ -58,7 +58,7 @@ var infoCmd = &cobra.Command{
 			fmt.Printf("\n%s\n", ui.Bold("Available Quantizations"))
 			sortedQuants := hf.SortQuantizations(quants)
 			for _, q := range sortedQuants {
-				fmt.Printf("  • %s %s\n", ui.Bold(q.Name), ui.Muted(fmt.Sprintf("(%s)", formatBytes(q.Size))))
+				fmt.Printf("  • %s %s\n", ui.Bold(q.Name), ui.Muted(fmt.Sprintf("(%s)", ui.FormatBytes(q.Size))))
 			}
 		}
 

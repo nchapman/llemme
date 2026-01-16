@@ -101,30 +101,6 @@ func TestExtractQuantFromPath(t *testing.T) {
 	}
 }
 
-func TestFormatBytes(t *testing.T) {
-	tests := []struct {
-		input int64
-		want  string
-	}{
-		{0, "0 B"},
-		{500, "500 B"},
-		{1024, "1.0 KB"},
-		{1536, "1.5 KB"},
-		{1024 * 1024, "1.0 MB"},
-		{1024 * 1024 * 1024, "1.0 GB"},
-		{1024 * 1024 * 1024 * 1024, "1.0 TB"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.want, func(t *testing.T) {
-			result := formatBytes(tt.input)
-			if result != tt.want {
-				t.Errorf("formatBytes() = %v, want %v", result, tt.want)
-			}
-		})
-	}
-}
-
 func TestIsPipedInput(t *testing.T) {
 	t.Run("not piped", func(t *testing.T) {
 		result := isPipedInput()

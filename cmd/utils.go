@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/nchapman/gollama/internal/config"
 	"github.com/nchapman/gollama/internal/ui"
 )
 
@@ -19,21 +20,8 @@ type ModelMatch struct {
 	Score   int
 }
 
-func formatBytes(b int64) string {
-	const unit = 1024
-	if b < unit {
-		return fmt.Sprintf("%d B", b)
-	}
-	div, exp := int64(unit), 0
-	for n := b / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "KMGTPE"[exp])
-}
-
 func findModels() []string {
-	modelsDir := filepath.Join(os.Getenv("HOME"), ".gollama", "models")
+	modelsDir := config.ModelsPath()
 	var models []string
 
 	entries, err := os.ReadDir(modelsDir)

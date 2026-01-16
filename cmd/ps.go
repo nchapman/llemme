@@ -39,7 +39,7 @@ var psCmd = &cobra.Command{
 		if state.ModelPath != "" {
 			if info, err := os.Stat(state.ModelPath); err == nil {
 				size := info.Size()
-				fmt.Printf("  • Size: %s\n", formatBytes(size))
+				fmt.Printf("  • Size: %s\n", ui.FormatBytes(size))
 			}
 		}
 	},
