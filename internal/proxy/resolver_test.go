@@ -115,7 +115,7 @@ func TestModelResolverWithTempDir(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create test model structure
-	modelDir := filepath.Join(tmpDir, "TheBloke", "Llama-2-7B-GGUF")
+	modelDir := filepath.Join(tmpDir, "bartowski", "Llama-3.2-3B-Instruct-GGUF")
 	if err := os.MkdirAll(modelDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -140,11 +140,11 @@ func TestModelResolverWithTempDir(t *testing.T) {
 	}
 
 	model := models[0]
-	if model.User != "TheBloke" {
-		t.Errorf("User = %s, want TheBloke", model.User)
+	if model.User != "bartowski" {
+		t.Errorf("User = %s, want bartowski", model.User)
 	}
-	if model.Repo != "Llama-2-7B-GGUF" {
-		t.Errorf("Repo = %s, want Llama-2-7B-GGUF", model.Repo)
+	if model.Repo != "Llama-3.2-3B-Instruct-GGUF" {
+		t.Errorf("Repo = %s, want Llama-3.2-3B-Instruct-GGUF", model.Repo)
 	}
 	if model.Quant != "Q4_K_M" {
 		t.Errorf("Quant = %s, want Q4_K_M", model.Quant)
@@ -159,9 +159,9 @@ func setupTestModels(t *testing.T) *ModelResolver {
 	models := []struct {
 		user, repo, quant string
 	}{
-		{"TheBloke", "Llama-2-7B-GGUF", "Q4_K_M"},
-		{"TheBloke", "Llama-2-7B-GGUF", "Q8_0"},
-		{"TheBloke", "Mistral-7B-v0.1-GGUF", "Q4_K_M"},
+		{"bartowski", "Llama-3.2-3B-Instruct-GGUF", "Q4_K_M"},
+		{"bartowski", "Llama-3.2-3B-Instruct-GGUF", "Q8_0"},
+		{"bartowski", "Mistral-7B-Instruct-v0.3-GGUF", "Q4_K_M"},
 		{"mistralai", "Mistral-7B-Instruct-GGUF", "Q4_K_M"},
 		{"microsoft", "phi-2-gguf", "Q4_0"},
 	}
@@ -194,23 +194,23 @@ func TestResolve(t *testing.T) {
 		// Exact matches
 		{
 			name:      "exact full name",
-			query:     "TheBloke/Llama-2-7B-GGUF:Q4_K_M",
+			query:     "bartowski/Llama-3.2-3B-Instruct-GGUF:Q4_K_M",
 			wantMatch: true,
-			wantModel: "TheBloke/Llama-2-7B-GGUF:Q4_K_M",
+			wantModel: "bartowski/Llama-3.2-3B-Instruct-GGUF:Q4_K_M",
 		},
 		{
 			name:      "exact full name case insensitive",
-			query:     "thebloke/llama-2-7b-gguf:q4_k_m",
+			query:     "bartowski/llama-3.2-3b-instruct-gguf:q4_k_m",
 			wantMatch: true,
-			wantModel: "TheBloke/Llama-2-7B-GGUF:Q4_K_M",
+			wantModel: "bartowski/Llama-3.2-3B-Instruct-GGUF:Q4_K_M",
 		},
 
 		// User/repo without quant - picks best quant
 		{
 			name:      "user/repo picks best quant",
-			query:     "TheBloke/Llama-2-7B-GGUF",
+			query:     "bartowski/Llama-3.2-3B-Instruct-GGUF",
 			wantMatch: true,
-			wantModel: "TheBloke/Llama-2-7B-GGUF:Q4_K_M", // Q4_K_M preferred over Q8_0
+			wantModel: "bartowski/Llama-3.2-3B-Instruct-GGUF:Q4_K_M", // Q4_K_M preferred over Q8_0
 		},
 
 		// Repo name only - unique
@@ -232,7 +232,7 @@ func TestResolve(t *testing.T) {
 			name:          "ambiguous repo name",
 			query:         "Mistral",
 			wantAmbiguous: true,
-			wantCount:     2, // TheBloke and mistralai both have Mistral
+			wantCount:     2, // bartowski and mistralai both have Mistral
 		},
 
 		// Contains match - unique
@@ -246,9 +246,9 @@ func TestResolve(t *testing.T) {
 		// Contains match - same repo different quants
 		{
 			name:      "contains match same repo",
-			query:     "llama-2-7b",
+			query:     "llama-3.2-3b",
 			wantMatch: true,
-			wantModel: "TheBloke/Llama-2-7B-GGUF:Q4_K_M", // picks best quant
+			wantModel: "bartowski/Llama-3.2-3B-Instruct-GGUF:Q4_K_M", // picks best quant
 		},
 
 		// No match - should give suggestions

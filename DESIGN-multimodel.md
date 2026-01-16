@@ -99,7 +99,7 @@ type ModelManager struct {
 }
 
 type Backend struct {
-    ModelName    string           // "TheBloke/Llama-2-7B-GGUF:Q4_K_M"
+    ModelName    string           // "bartowski/Llama-3.2-3B-Instruct-GGUF:Q4_K_M"
     ModelPath    string           // "/Users/x/.llemme/models/.../Q4_K_M.gguf"
     Port         int              // 8081
     Process      *os.Process      // llama-server process
@@ -164,7 +164,7 @@ func (p *PortAllocator) Release(port int)
 ### Normal Request (Model Already Loaded)
 
 ```
-1. Client → POST /v1/chat/completions {"model": "TheBloke/Llama-2-7B-GGUF:Q4_K_M", ...}
+1. Client → POST /v1/chat/completions {"model": "bartowski/Llama-3.2-3B-Instruct-GGUF:Q4_K_M", ...}
 2. Proxy extracts model name from request body
 3. ModelManager.GetBackend(modelName) → returns Backend{Port: 8081}
 4. Update Backend.LastActivity = now
@@ -230,7 +230,7 @@ func (p *PortAllocator) Release(port int)
   "object": "list",
   "data": [
     {
-      "id": "TheBloke/Llama-2-7B-GGUF:Q4_K_M",
+      "id": "bartowski/Llama-3.2-3B-Instruct-GGUF:Q4_K_M",
       "object": "model",
       "created": 1699900000,
       "owned_by": "local",
@@ -262,7 +262,7 @@ func (p *PortAllocator) Release(port int)
   },
   "models": [
     {
-      "name": "TheBloke/Llama-2-7B-GGUF:Q4_K_M",
+      "name": "bartowski/Llama-3.2-3B-Instruct-GGUF:Q4_K_M",
       "status": "ready",
       "port": 8081,
       "pid": 12345,
@@ -298,7 +298,7 @@ llemme serve --port 9000 --max-models 5 --idle-timeout 30m
 ### `llemme run`
 
 ```bash
-llemme run TheBloke/Llama-2-7B-GGUF:Q4_K_M
+llemme run bartowski/Llama-3.2-3B-Instruct-GGUF:Q4_K_M
 ```
 
 **Behavior:**
@@ -320,8 +320,8 @@ Proxy Status
 Loaded Models
 
   MODEL                           QUANT     PORT    STATUS    IDLE      MEMORY
-  TheBloke/Llama-2-7B-GGUF        Q4_K_M    8081    ready     2m ago    3.8 GB
-  mistralai/Mistral-7B-GGUF       Q4_K_M    8082    ready     8m ago    4.1 GB
+  bartowski/Llama-3.2-3B-Instruct-GGUF        Q4_K_M    8081    ready     2m ago    3.8 GB
+  mistralai/Mistral-7B-Instruct-v0.3-GGUF       Q4_K_M    8082    ready     8m ago    4.1 GB
 
 Total: 2 models loaded, 7.9 GB memory
 ```
@@ -330,8 +330,8 @@ Total: 2 models loaded, 7.9 GB memory
 
 ```bash
 # Stop specific model (unload from memory)
-llemme stop TheBloke/Llama-2-7B-GGUF:Q4_K_M
-# → "✓ Unloaded TheBloke/Llama-2-7B-GGUF:Q4_K_M"
+llemme stop bartowski/Llama-3.2-3B-Instruct-GGUF:Q4_K_M
+# → "✓ Unloaded bartowski/Llama-3.2-3B-Instruct-GGUF:Q4_K_M"
 
 # Stop all models but keep proxy running
 llemme stop --all
@@ -448,10 +448,10 @@ POST /v1/chat/completions
 {"model": "llama", "messages": [...]}
 ```
 
-Will match `TheBloke/Llama-2-7B-GGUF:Q4_K_M` if it's the only downloaded model containing "llama".
+Will match `bartowski/Llama-3.2-3B-Instruct-GGUF:Q4_K_M` if it's the only downloaded model containing "llama".
 
 **Matching priority** (same as CLI):
-1. Exact match (`TheBloke/Llama-2-7B-GGUF:Q4_K_M`)
+1. Exact match (`bartowski/Llama-3.2-3B-Instruct-GGUF:Q4_K_M`)
 2. Suffix match (`Llama-2-7B-GGUF`)
 3. Contains match, case-insensitive (`llama`)
 4. Fuzzy match for typos
@@ -460,7 +460,7 @@ Will match `TheBloke/Llama-2-7B-GGUF:Q4_K_M` if it's the only downloaded model c
 ```json
 {
   "error": {
-    "message": "Ambiguous model name 'mistral'. Matches: TheBloke/Mistral-7B-GGUF:Q4_K_M, mistralai/Mistral-7B-Instruct-GGUF:Q4_K_M",
+    "message": "Ambiguous model name 'mistral'. Matches: bartowski/Mistral-7B-Instruct-v0.3-GGUF:Q4_K_M, mistralai/Mistral-7B-Instruct-GGUF:Q4_K_M",
     "type": "invalid_request_error"
   }
 }
@@ -470,7 +470,7 @@ Will match `TheBloke/Llama-2-7B-GGUF:Q4_K_M` if it's the only downloaded model c
 ```json
 {
   "error": {
-    "message": "No downloaded model matches 'lama'. Did you mean: TheBloke/Llama-2-7B-GGUF?",
+    "message": "No downloaded model matches 'lama'. Did you mean: bartowski/Llama-3.2-3B-Instruct-GGUF?",
     "type": "not_found"
   }
 }

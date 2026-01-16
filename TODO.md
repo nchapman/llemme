@@ -141,7 +141,7 @@ Building blocks from foundation to features. Each phase builds on the previous.
   ```json
   {
     "pid": 12345,
-    "model": "TheBloke/Llama-2-7B-GGUF:Q4_K_M",
+    "model": "bartowski/Llama-3.2-3B-Instruct-GGUF:Q4_K_M",
     "model_path": "/Users/.../Q4_K_M.gguf",
     "host": "127.0.0.1",
     "port": 8080,

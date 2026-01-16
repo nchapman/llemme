@@ -8,7 +8,7 @@ A fast, simple CLI for running LLMs locally. Powered by [llama.cpp](https://gith
 - 🔄 **Multi-model support** - load multiple models, auto-unload when idle
 - 💬 **Interactive chat** or one-shot inference
 - 📦 **Automatic downloads** with progress tracking
-- 🔍 **Fuzzy model matching** - type `llama` instead of `TheBloke/Llama-2-7B-GGUF:Q4_K_M`
+- 🔍 **Fuzzy model matching** - type `llama` instead of `bartowski/Llama-3.2-3B-Instruct-GGUF:Q4_K_M`
 - ⚡ **OpenAI-compatible API** - works with existing tools and libraries
 - 🎯 **Zero config** - auto-downloads llama.cpp, picks optimal quantization
 
@@ -30,7 +30,7 @@ go build -o llemme .
 
 ```bash
 # Run a model (downloads automatically)
-llemme run TheBloke/Llama-2-7B-GGUF
+llemme run bartowski/Llama-3.2-3B-Instruct-GGUF
 
 # One-shot prompt
 llemme run llama "Explain quantum computing in one sentence"

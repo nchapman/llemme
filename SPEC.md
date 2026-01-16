@@ -62,13 +62,13 @@ echo "prompt" | llemme run ...    # Piped: print response and exit
 Lemme matches partial names against downloaded models. If unique, it just works. If ambiguous, it suggests.
 
 ```
-llemme run llama                  # Matches "TheBloke/Llama-2-7B-GGUF" if it's the only llama
+llemme run llama                  # Matches "bartowski/Llama-3.2-3B-Instruct-GGUF" if it's the only llama
 
 llemme run mistral
 
   Multiple models match 'mistral':
 
-    • TheBloke/Mistral-7B-v0.1-GGUF
+    • bartowski/Mistral-7B-Instruct-v0.3-GGUF
     • mistralai/Mistral-7B-Instruct-v0.2-GGUF
 
   Be more specific, or use the full name.
@@ -79,13 +79,13 @@ llemme run lama
 
   No models match 'lama'. Did you mean?
 
-    • TheBloke/Llama-2-7B-GGUF
-    • TheBloke/CodeLlama-7B-GGUF
+    • bartowski/Llama-3.2-3B-Instruct-GGUF
+    • bartowski/CodeLlama-7B-Instruct-GGUF
 ```
 
 **Matching priority:**
 1. Exact match (full `user/repo` or `user/repo:quant`)
-2. Suffix match (`Llama-2-7B-GGUF` matches `TheBloke/Llama-2-7B-GGUF`)
+2. Suffix match (`Llama-2-7B-GGUF` matches `bartowski/Llama-3.2-3B-Instruct-GGUF`)
 3. Contains match (case-insensitive)
 4. Fuzzy match for typo suggestions
 
@@ -94,7 +94,7 @@ llemme run lama
 Models are referenced using the simple `username/repository` format:
 
 ```
-llemme run TheBloke/Llama-2-7B-GGUF
+llemme run bartowski/Llama-3.2-3B-Instruct-GGUF
 llemme run microsoft/phi-2-gguf
 llemme run mistralai/Mistral-7B-v0.1-GGUF
 ```
@@ -102,8 +102,8 @@ llemme run mistralai/Mistral-7B-v0.1-GGUF
 For repos with multiple GGUF files, append the quantization:
 
 ```
-llemme run TheBloke/Llama-2-7B-GGUF:Q4_K_M
-llemme run TheBloke/Llama-2-7B-GGUF:Q8_0
+llemme run bartowski/Llama-3.2-3B-Instruct-GGUF:Q4_K_M
+llemme run bartowski/Llama-3.2-3B-Instruct-GGUF:Q8_0
 ```
 
 If no quantization is specified, Lemme picks the best available (preferring Q4_K_M).
@@ -117,7 +117,7 @@ If no quantization is specified, Lemme picks the best available (preferring Q4_K
 ```
 ~/.llemme/
 ├── models/
-│   └── TheBloke/
+│   └── bartowski/
 │       └── Llama-2-7B-GGUF/
 │           ├── Q4_K_M.gguf              # Actual model file, named by quantization
 │           ├── Q8_0.gguf                # Multiple quants can coexist
@@ -134,7 +134,7 @@ If no quantization is specified, Lemme picks the best available (preferring Q4_K
 
 | Ollama | Lemme | Why |
 |--------|---------|-----|
-| `~/.ollama/models/manifests/...` | `~/.llemme/models/TheBloke/Llama-2-7B-GGUF/` | Browsable with standard tools |
+| `~/.ollama/models/manifests/...` | `~/.llemme/models/bartowski/Llama-3.2-3B-Instruct-GGUF/` | Browsable with standard tools |
 | `~/.ollama/blobs/sha256-abc123` | `~/.llemme/models/.../Q4_K_M.gguf` | Filename tells you the quantization |
 | Requires `ollama list` to understand | `ls` or Finder works fine | No CLI required to explore |
 
@@ -142,16 +142,16 @@ If no quantization is specified, Lemme picks the best available (preferring Q4_K
 
 ```bash
 $ ls ~/.llemme/models/
-TheBloke/
+bartowski/
 microsoft/
 mistralai/
 
-$ ls ~/.llemme/models/TheBloke/
+$ ls ~/.llemme/models/bartowski/
 CodeLlama-7B-GGUF/
 Llama-2-7B-GGUF/
 Mistral-7B-v0.1-GGUF/
 
-$ ls ~/.llemme/models/TheBloke/Llama-2-7B-GGUF/
+$ ls ~/.llemme/models/bartowski/Llama-3.2-3B-Instruct-GGUF/
 Q4_K_M.gguf      # 4.1 GB
 Q5_K_M.gguf      # 4.8 GB
 Q8_0.gguf        # 7.2 GB
@@ -275,7 +275,7 @@ llemme run user/repo --temp 0.5 --ctx 8192
 ### Download Progress
 
 ```
-Pulling TheBloke/Llama-2-7B-GGUF:Q4_K_M
+Pulling bartowski/Llama-3.2-3B-Instruct-GGUF:Q4_K_M
 
   Model info:
     • Size: 4.1 GB
@@ -284,13 +284,13 @@ Pulling TheBloke/Llama-2-7B-GGUF:Q4_K_M
 
   ████████████████████░░░░░░░░░  68% │ 2.8 GB / 4.1 GB │ 45 MB/s │ ETA 30s
 
-✓ Pulled TheBloke/Llama-2-7B-GGUF:Q4_K_M successfully!
+✓ Pulled bartowski/Llama-3.2-3B-Instruct-GGUF:Q4_K_M successfully!
 ```
 
 ### Interactive Mode
 
 ```
-llemme run TheBloke/Llama-2-7B-GGUF
+llemme run bartowski/Llama-3.2-3B-Instruct-GGUF
 
 ┌─────────────────────────────────────────────────────────────────────────┐
 │  Llama 2 7B • Q4_K_M • 4096 ctx                                         │
@@ -312,7 +312,7 @@ llemme list
 Downloaded Models
 
   MODEL                           QUANT     SIZE      MODIFIED
-  TheBloke/Llama-2-7B-GGUF        Q4_K_M    4.1 GB    2 days ago
+  bartowski/Llama-3.2-3B-Instruct-GGUF        Q4_K_M    4.1 GB    2 days ago
   microsoft/phi-2-gguf            Q4_0      1.6 GB    1 week ago
   mistralai/Mistral-7B-GGUF       Q8_0      7.7 GB    3 weeks ago
 
@@ -343,15 +343,15 @@ Server Status
 Loaded Models
 
   MODEL                           QUANT     SIZE      MEMORY    LOADED
-  TheBloke/Llama-2-7B-GGUF        Q4_K_M    4.1 GB    3.8 GB    2 min ago
+  bartowski/Llama-3.2-3B-Instruct-GGUF        Q4_K_M    4.1 GB    3.8 GB    2 min ago
 
 Total: 1 model, 3.8 GB memory used
 ```
 
 ```
-llemme stop TheBloke/Llama-2-7B-GGUF
+llemme stop bartowski/Llama-3.2-3B-Instruct-GGUF
 
-✓ Unloaded TheBloke/Llama-2-7B-GGUF from server
+✓ Unloaded bartowski/Llama-3.2-3B-Instruct-GGUF from server
 ```
 
 ```
@@ -475,11 +475,11 @@ hf_token: ""
 ```
 Error: Model not found
 
-  Could not find 'TheBloke/Llama-2-7B-GUF' on Hugging Face.
+  Could not find 'bartowski/Llama-3.2-3B-Instruct-GUF' on Hugging Face.
 
   Did you mean?
-    • TheBloke/Llama-2-7B-GGUF
-    • TheBloke/Llama-2-7B-Chat-GGUF
+    • bartowski/Llama-3.2-3B-Instruct-GGUF
+    • bartowski/Llama-3.2-3B-Instruct-GGUF
 
   Tips:
     • Check the spelling of the repository name
@@ -492,8 +492,8 @@ Error: No GGUF files found
   The repository 'meta-llama/Llama-2-7b' exists but contains no GGUF files.
 
   Try one of these GGUF versions:
-    • TheBloke/Llama-2-7B-GGUF
-    • TheBloke/Llama-2-7B-Chat-GGUF
+    • bartowski/Llama-3.2-3B-Instruct-GGUF
+    • bartowski/Llama-3.2-3B-Instruct-GGUF
 ```
 
 ```

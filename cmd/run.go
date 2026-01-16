@@ -35,7 +35,7 @@ var runCmd = &cobra.Command{
 	Use:   "run <model> [prompt]",
 	Short: "Run inference with a model via the proxy server",
 	Long: `Run inference with a model. The model can be specified using:
-  - Full name: TheBloke/Llama-2-7B-GGUF:Q4_K_M
+  - Full name: bartowski/Llama-3.2-3B-Instruct-GGUF:Q4_K_M
   - Partial name: llama (matches if unique)
   - Repo name: Llama-2-7B-GGUF
 

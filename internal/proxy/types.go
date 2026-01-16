@@ -34,7 +34,7 @@ func (s BackendStatus) String() string {
 // Backend represents a running llama-server instance for a specific model
 type Backend struct {
 	mu           sync.RWMutex
-	ModelName    string        // Full model reference: "TheBloke/Llama-2-7B-GGUF:Q4_K_M"
+	ModelName    string        // Full model reference: "bartowski/Llama-3.2-3B-Instruct-GGUF:Q4_K_M"
 	ModelPath    string        // Absolute path to the .gguf file
 	Port         int           // Port this backend is listening on
 	Process      *os.Process   // The llama-server process

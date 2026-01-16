@@ -53,7 +53,7 @@ Examples:
 			fmt.Println()
 			fmt.Println("Stop a specific model:")
 			fmt.Println("  llemme stop llama")
-			fmt.Println("  llemme stop TheBloke/Llama-2-7B-GGUF:Q4_K_M")
+			fmt.Println("  llemme stop bartowski/Llama-3.2-3B-Instruct-GGUF:Q4_K_M")
 			fmt.Println()
 			fmt.Println("Stop all models:")
 			fmt.Println("  llemme stop --all")
