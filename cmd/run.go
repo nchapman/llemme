@@ -42,13 +42,6 @@ var runCmd = &cobra.Command{
 The proxy server will be auto-started if not running.
 Models are loaded on-demand and unloaded after idle timeout.`,
 	Args: cobra.MinimumNArgs(1),
-	PreRun: func(cmd *cobra.Command, args []string) {
-		if !llama.IsInstalled() {
-			fmt.Printf("%s llama.cpp is not installed\n", ui.ErrorMsg("Error:"))
-			fmt.Println("Run 'lemme update' to install it")
-			os.Exit(1)
-		}
-	},
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg, err := config.Load()
 		if err != nil {
@@ -56,9 +49,24 @@ Models are loaded on-demand and unloaded after idle timeout.`,
 			os.Exit(1)
 		}
 
+		// Step 1: Ensure llama.cpp is installed
+		if !llama.IsInstalled() {
+			if err := ensureLlamaInstalled(); err != nil {
+				fmt.Printf("%s %v\n", ui.ErrorMsg("Error:"), err)
+				os.Exit(1)
+			}
+		}
+
 		modelQuery := args[0]
 
-		// Ensure proxy is running
+		// Step 2: Validate model exists before starting proxy
+		resolvedModel, err := validateModel(modelQuery)
+		if err != nil {
+			fmt.Printf("%s %v\n", ui.ErrorMsg("Error:"), err)
+			os.Exit(1)
+		}
+
+		// Step 3: Ensure proxy is running
 		proxyURL, err := ensureProxyRunning(cfg)
 		if err != nil {
 			fmt.Printf("%s Failed to start proxy: %v\n", ui.ErrorMsg("Error:"), err)
@@ -79,12 +87,82 @@ Models are loaded on-demand and unloaded after idle timeout.`,
 			promptArg = strings.Join(args[1:], " ")
 		}
 
+		// Use the resolved full model name
+		modelName := resolvedModel.FullName
+
 		if promptArg != "" {
-			runOneShot(api, modelQuery, promptArg, cfg, true)
+			runOneShot(api, modelName, promptArg, cfg, true)
 		} else {
-			runTUI(api, modelQuery, cfg)
+			runTUI(api, modelName, cfg)
 		}
 	},
+}
+
+// ensureLlamaInstalled prompts the user to install llama.cpp if not present
+func ensureLlamaInstalled() error {
+	fmt.Println("llama.cpp is not installed.")
+	fmt.Print("Install now? [Y/n] ")
+
+	var response string
+	fmt.Scanln(&response)
+	response = strings.TrimSpace(strings.ToLower(response))
+
+	if response != "" && response != "y" && response != "yes" {
+		return fmt.Errorf("llama.cpp is required to run models")
+	}
+
+	fmt.Println()
+	_, err := llama.InstallLatest()
+	if err != nil {
+		return fmt.Errorf("failed to install llama.cpp: %w", err)
+	}
+
+	fmt.Println()
+	return nil
+}
+
+// validateModel checks if a model exists before starting the proxy
+func validateModel(query string) (*proxy.DownloadedModel, error) {
+	resolver := proxy.NewModelResolver()
+	result, err := resolver.Resolve(query)
+	if err != nil {
+		return nil, err
+	}
+
+	// No models downloaded at all
+	models, _ := resolver.ListDownloadedModels()
+	if len(models) == 0 {
+		return nil, fmt.Errorf("no models downloaded yet\n\n  Use 'lemme search <query>' to find models\n  Use 'lemme pull <model>' to download one")
+	}
+
+	// Model resolved successfully
+	if result.Model != nil {
+		return result.Model, nil
+	}
+
+	// Ambiguous match
+	if len(result.Matches) > 1 {
+		var b strings.Builder
+		b.WriteString(fmt.Sprintf("'%s' matches multiple models:\n\n", query))
+		for _, m := range result.Matches {
+			b.WriteString(fmt.Sprintf("  %s\n", m.FullName))
+		}
+		b.WriteString("\nSpecify the full model name to continue")
+		return nil, fmt.Errorf("%s", b.String())
+	}
+
+	// No match - show suggestions
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("no model matches '%s'", query))
+	if len(result.Suggestions) > 0 {
+		b.WriteString("\n\nDid you mean:\n")
+		for _, s := range result.Suggestions {
+			b.WriteString(fmt.Sprintf("  %s\n", s.FullName))
+		}
+	} else {
+		b.WriteString("\n\n  Use 'lemme list' to see downloaded models\n  Use 'lemme search <query>' to find models")
+	}
+	return nil, fmt.Errorf("%s", b.String())
 }
 
 // ensureProxyRunning starts the proxy if not already running and returns its URL

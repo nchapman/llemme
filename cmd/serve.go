@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -34,9 +35,24 @@ The proxy server:
   - Unloads idle models after the configured timeout`,
 	PreRun: func(cmd *cobra.Command, args []string) {
 		if !llama.IsInstalled() {
-			fmt.Printf("%s llama.cpp is not installed\n", ui.ErrorMsg("Error:"))
-			fmt.Println("Run 'lemme update' to install it")
-			os.Exit(1)
+			fmt.Println("llama.cpp is not installed.")
+			fmt.Print("Install now? [Y/n] ")
+
+			var response string
+			fmt.Scanln(&response)
+			response = strings.TrimSpace(strings.ToLower(response))
+
+			if response != "" && response != "y" && response != "yes" {
+				fmt.Println(ui.Muted("Cancelled"))
+				os.Exit(0)
+			}
+
+			fmt.Println()
+			if _, err := llama.InstallLatest(); err != nil {
+				fmt.Printf("%s Failed to install llama.cpp: %v\n", ui.ErrorMsg("Error:"), err)
+				os.Exit(1)
+			}
+			fmt.Println()
 		}
 	},
 	Run: func(cmd *cobra.Command, args []string) {
