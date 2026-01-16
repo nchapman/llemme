@@ -3,14 +3,17 @@ package cmd
 import (
 	"bufio"
 	"fmt"
+	"net/http"
 	"os"
+	"os/exec"
 	"strings"
+	"syscall"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/nchapman/gollama/internal/config"
-	"github.com/nchapman/gollama/internal/hf"
 	"github.com/nchapman/gollama/internal/llama"
+	"github.com/nchapman/gollama/internal/proxy"
 	"github.com/nchapman/gollama/internal/server"
 	"github.com/nchapman/gollama/internal/ui"
 	"github.com/spf13/cobra"
@@ -29,9 +32,16 @@ var (
 )
 
 var runCmd = &cobra.Command{
-	Use:   "run <user/repo>[:quant] [prompt]",
-	Short: "Run inference with a model via server",
-	Args:  cobra.MinimumNArgs(1),
+	Use:   "run <model> [prompt]",
+	Short: "Run inference with a model via the proxy server",
+	Long: `Run inference with a model. The model can be specified using:
+  - Full name: TheBloke/Llama-2-7B-GGUF:Q4_K_M
+  - Partial name: llama (matches if unique)
+  - Repo name: Llama-2-7B-GGUF
+
+The proxy server will be auto-started if not running.
+Models are loaded on-demand and unloaded after idle timeout.`,
+	Args: cobra.MinimumNArgs(1),
 	PreRun: func(cmd *cobra.Command, args []string) {
 		if !llama.IsInstalled() {
 			fmt.Printf("%s llama.cpp is not installed\n", ui.ErrorMsg("Error:"))
@@ -46,72 +56,21 @@ var runCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		modelRef := args[0]
-		user, repo, quant, err := parseModelRef(modelRef)
+		modelQuery := args[0]
+
+		// Ensure proxy is running
+		proxyURL, err := ensureProxyRunning(cfg)
 		if err != nil {
-			fmt.Printf("%s %s\n", ui.ErrorMsg("Error:"), err)
+			fmt.Printf("%s Failed to start proxy: %v\n", ui.ErrorMsg("Error:"), err)
 			os.Exit(1)
 		}
 
-		modelPath := hf.GetModelFilePath(user, repo, quant)
-		if quant == "" {
-			modelDir := hf.GetModelPath(user, repo)
-			if _, err := os.Stat(modelDir); os.IsNotExist(err) {
-				fmt.Printf("%s Model not found: %s\n", ui.ErrorMsg("Error:"), modelRef)
-				fmt.Println("Use 'gollama pull' to download models")
-				os.Exit(1)
-			}
+		// Create API client pointing to proxy
+		api := server.NewAPIClientFromURL(proxyURL)
 
-			modelPath = findModelInDir(modelDir)
-			if modelPath == "" {
-				fmt.Printf("%s No GGUF files found in %s\n", ui.ErrorMsg("Error:"), modelRef)
-				os.Exit(1)
-			}
-
-			fmt.Printf("%s No quantization specified, using: %s\n",
-				ui.Warning("Warning:"), extractQuantFromPath(modelPath))
-		} else {
-			if _, err := os.Stat(modelPath); os.IsNotExist(err) {
-				fmt.Printf("%s Model not found: %s\n", ui.ErrorMsg("Error:"), modelRef)
-				fmt.Println("Use 'gollama pull' to download models")
-				os.Exit(1)
-			}
-		}
-
-		manager := server.NewManager(cfg)
-
-		state, err := manager.Status()
-		if err != nil {
-			fmt.Printf("%s Failed to check server status: %v\n", ui.ErrorMsg("Error:"), err)
-		}
-
-		needRestart := false
-		if state == nil {
-			needRestart = true
-		} else if state.Model != modelRef {
-			needRestart = true
-		}
-
-		if needRestart {
-			if state != nil && server.IsRunning(state) {
-				fmt.Printf("Stopping server (model: %s)...\n", state.Model)
-				if err := manager.Stop(); err != nil {
-					fmt.Printf("%s Failed to stop server: %v\n", ui.ErrorMsg("Error:"), err)
-					os.Exit(1)
-				}
-			}
-
-			fmt.Printf("Starting server with model: %s\n", modelRef)
-			if err := manager.Start(modelPath, modelRef); err != nil {
-				fmt.Printf("%s Failed to start server: %v\n", ui.ErrorMsg("Error:"), err)
-				os.Exit(1)
-			}
-		}
-
-		api := server.NewAPIClient(cfg.Server.Host, cfg.Server.Port)
-
+		// Check health
 		if err := api.Health(); err != nil {
-			fmt.Printf("%s Server health check failed: %v\n", ui.ErrorMsg("Error:"), err)
+			fmt.Printf("%s Proxy health check failed: %v\n", ui.ErrorMsg("Error:"), err)
 			os.Exit(1)
 		}
 
@@ -121,11 +80,82 @@ var runCmd = &cobra.Command{
 		}
 
 		if promptArg != "" {
-			runOneShot(api, modelRef, promptArg, cfg, true)
+			runOneShot(api, modelQuery, promptArg, cfg, true)
 		} else {
-			runTUI(api, modelRef, cfg)
+			runTUI(api, modelQuery, cfg)
 		}
 	},
+}
+
+// ensureProxyRunning starts the proxy if not already running and returns its URL
+func ensureProxyRunning(cfg *config.Config) (string, error) {
+	// Check if proxy is already running
+	if state := proxy.GetRunningProxyState(); state != nil {
+		return fmt.Sprintf("http://%s:%d", state.Host, state.Port), nil
+	}
+
+	// Need to start proxy
+	fmt.Println("Starting proxy server...")
+
+	executable, err := os.Executable()
+	if err != nil {
+		return "", fmt.Errorf("failed to get executable path: %w", err)
+	}
+
+	// Use config values for proxy
+	host := cfg.Proxy.Host
+	if host == "" {
+		host = "127.0.0.1"
+	}
+	port := cfg.Proxy.Port
+	if port == 0 {
+		port = 8080
+	}
+
+	args := []string{
+		"internal-serve",
+		"--host", host,
+		"--port", fmt.Sprintf("%d", port),
+	}
+
+	cmd := exec.Command(executable, args...)
+	cmd.Env = os.Environ()
+
+	// Redirect output to log file
+	logFile := config.BinPath() + "/proxy.log"
+	log, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return "", fmt.Errorf("failed to open log file: %w", err)
+	}
+	cmd.Stdout = log
+	cmd.Stderr = log
+
+	// Detach from parent process
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setsid: true,
+	}
+
+	if err := cmd.Start(); err != nil {
+		return "", fmt.Errorf("failed to start proxy: %w", err)
+	}
+
+	// Wait for proxy to become ready
+	proxyURL := fmt.Sprintf("http://%s:%d", host, port)
+	client := &http.Client{Timeout: 2 * time.Second}
+
+	for range 30 {
+		time.Sleep(200 * time.Millisecond)
+		resp, err := client.Get(proxyURL + "/health")
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				fmt.Println(ui.Success("✓") + " Proxy started")
+				return proxyURL, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("proxy did not become ready")
 }
 
 func runTUI(api *server.APIClient, model string, cfg *config.Config) {
@@ -234,29 +264,6 @@ func runOneShot(api *server.APIClient, model, prompt string, cfg *config.Config,
 func isPipedInput() bool {
 	stat, _ := os.Stdin.Stat()
 	return (stat.Mode() & os.ModeCharDevice) == 0
-}
-
-func findModelInDir(dir string) string {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return ""
-	}
-
-	for _, entry := range entries {
-		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".gguf") {
-			return dir + "/" + entry.Name()
-		}
-	}
-
-	return ""
-}
-
-func extractQuantFromPath(path string) string {
-	parts := strings.Split(path, "/")
-	if len(parts) > 0 {
-		return parts[len(parts)-1]
-	}
-	return path
 }
 
 func init() {

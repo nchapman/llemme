@@ -458,10 +458,10 @@ func TestCheckLogForReady(t *testing.T) {
 	sm := NewManager(cfg)
 
 	tests := []struct {
-		name        string
-		logContent  string
-		wantReady   bool
-		wantErr     bool
+		name       string
+		logContent string
+		wantReady  bool
+		wantErr    bool
 	}{
 		{
 			name:       "server ready",

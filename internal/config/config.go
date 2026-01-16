@@ -18,12 +18,23 @@ type Config struct {
 	LLamaPath     string  `yaml:"llama_path"`
 	HFToken       string  `yaml:"hf_token"`
 	Server        Server  `yaml:"server"`
+	Proxy         Proxy   `yaml:"proxy"`
 }
 
 type Server struct {
 	Host    string   `yaml:"host"`
 	Port    int      `yaml:"port"`
 	Preload []string `yaml:"preload"`
+}
+
+type Proxy struct {
+	Host            string `yaml:"host"`
+	Port            int    `yaml:"port"`
+	MaxModels       int    `yaml:"max_models"`
+	IdleTimeoutMins int    `yaml:"idle_timeout_mins"`
+	BackendPortMin  int    `yaml:"backend_port_min"`
+	BackendPortMax  int    `yaml:"backend_port_max"`
+	StartupTimeoutS int    `yaml:"startup_timeout_secs"`
 }
 
 const (
@@ -72,6 +83,15 @@ func DefaultConfig() *Config {
 			Host:    "127.0.0.1",
 			Port:    8080,
 			Preload: []string{},
+		},
+		Proxy: Proxy{
+			Host:            "127.0.0.1",
+			Port:            8080,
+			MaxModels:       3,
+			IdleTimeoutMins: 10,
+			BackendPortMin:  49152,
+			BackendPortMax:  49200,
+			StartupTimeoutS: 120,
 		},
 	}
 }

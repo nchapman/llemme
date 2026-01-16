@@ -38,8 +38,8 @@ func TestFormatUptime(t *testing.T) {
 	}{
 		{"seconds", 45 * time.Second, "45 seconds"},
 		{"minutes", 15 * time.Minute, "15 minutes"},
-		{"hours", 3 * time.Hour, "3.0 hours"},
-		{"hours partial", 3*time.Hour + 30*time.Minute, "3.5 hours"},
+		{"hours", 3 * time.Hour, "3h 0m"},
+		{"hours partial", 3*time.Hour + 30*time.Minute, "3h 30m"},
 		{"days", 48 * time.Hour, "2.0 days"},
 		{"days partial", 36 * time.Hour, "1.5 days"},
 	}

@@ -74,6 +74,13 @@ func NewAPIClient(host string, port int) *APIClient {
 	}
 }
 
+func NewAPIClientFromURL(baseURL string) *APIClient {
+	return &APIClient{
+		baseURL: baseURL,
+		client:  &http.Client{},
+	}
+}
+
 func (api *APIClient) Health() error {
 	url := fmt.Sprintf("%s/health", api.baseURL)
 
