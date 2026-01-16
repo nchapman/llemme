@@ -129,9 +129,10 @@ var runCmd = &cobra.Command{
 func runInteractive(api *server.APIClient, model string, cfg *config.Config) {
 	fmt.Printf("\n%s  %s\n", ui.Box(model), ui.Muted("Ctrl+D to exit, Ctrl+C to stop generation"))
 
+	reader := bufio.NewReader(os.Stdin)
+
 	for {
 		fmt.Print("You: ")
-		reader := bufio.NewReader(os.Stdin)
 		input, err := reader.ReadString('\n')
 		if err != nil {
 			fmt.Println()
