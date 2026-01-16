@@ -31,33 +31,37 @@ var searchCmd = &cobra.Command{
 		}
 
 		if len(results) == 0 {
-			fmt.Printf("%s No results found for '%s'\n", ui.Warning("Warning:"), query)
-			fmt.Println("\nTips:")
-			fmt.Println("  • Try a different search term")
-			fmt.Println("  • Check spelling")
-			fmt.Println("  • Browse Hugging Face: https://huggingface.co/models?library=gguf")
+			fmt.Printf("No results found for '%s'\n", query)
+			fmt.Println()
+			fmt.Println("Tips:")
+			fmt.Println("  Try a different search term")
+			fmt.Println("  Check spelling")
+			fmt.Println("  Browse Hugging Face: https://huggingface.co/models?library=gguf")
 			os.Exit(1)
 		}
 
-		fmt.Printf("%s\n", ui.Bold("Search Results"))
-		fmt.Printf("Query: %s\n", ui.Value(query))
-		fmt.Printf("Found: %d models\n\n", len(results))
+		fmt.Printf("Search results for %s\n", ui.Value("\""+query+"\""))
+		fmt.Println()
 
-		for i, result := range results {
-			fmt.Printf("%d. %s/%s\n", i+1, ui.Bold(result.Author), ui.Value(result.ModelId))
-			fmt.Printf("   Downloads: %s\n", ui.Muted(formatNumber(result.Downloads)))
+		table := ui.NewTable().
+			AddColumn("MODEL", 40, ui.AlignLeft).
+			AddColumn("DOWNLOADS", 10, ui.AlignRight).
+			AddColumn("FORMAT", 12, ui.AlignLeft)
+
+		for _, result := range results {
+			modelName := fmt.Sprintf("%s/%s", result.Author, result.ModelId)
+			format := result.LibraryName
 			if result.Gated {
-				fmt.Printf("   %s\n", ui.Muted("(gated)"))
+				format += " (gated)"
 			}
-			if result.LibraryName == "gguf" {
-				fmt.Printf("   ✓ GGUF format\n")
-			} else {
-				fmt.Printf("   Format: %s\n", ui.Muted(result.LibraryName))
-			}
-			fmt.Println()
+			table.AddRow(modelName, formatNumber(result.Downloads), format)
 		}
 
-		fmt.Printf("Use: lemme pull %s/<model-name>\n", ui.Bold("author"))
+		fmt.Print(table.Render())
+		fmt.Println()
+		fmt.Printf("%d models found\n", len(results))
+		fmt.Println()
+		fmt.Println("Use 'lemme info <model>' for details")
 	},
 }
 

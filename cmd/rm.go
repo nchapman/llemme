@@ -29,7 +29,8 @@ var rmCmd = &cobra.Command{
 
 		if quant != "" {
 			modelPath := hf.GetModelFilePath(user, repo, quant)
-			if _, err := os.Stat(modelPath); os.IsNotExist(err) {
+			fileInfo, err := os.Stat(modelPath)
+			if os.IsNotExist(err) {
 				fmt.Printf("%s Model not found: %s\n", ui.ErrorMsg("Error:"), modelRef)
 				os.Exit(1)
 			}
@@ -37,8 +38,7 @@ var rmCmd = &cobra.Command{
 			if !force {
 				confirm := false
 				prompt := huh.NewConfirm().
-					Title(fmt.Sprintf("Remove %s?", modelRef)).
-					Description("This will delete the model file. This action cannot be undone.").
+					Title(fmt.Sprintf("Remove %s (%s)?", modelRef, ui.FormatBytes(fileInfo.Size()))).
 					Value(&confirm)
 
 				if err := prompt.Run(); err != nil {
@@ -57,7 +57,7 @@ var rmCmd = &cobra.Command{
 				os.Exit(1)
 			}
 
-			fmt.Printf("%s Removed %s\n", ui.Success("✓"), modelRef)
+			fmt.Printf("Removed %s\n", modelRef)
 		} else {
 			if _, err := os.Stat(modelDir); os.IsNotExist(err) {
 				fmt.Printf("%s Model not found: %s\n", ui.ErrorMsg("Error:"), modelRef)
@@ -67,8 +67,7 @@ var rmCmd = &cobra.Command{
 			if !force {
 				confirm := false
 				prompt := huh.NewConfirm().
-					Title(fmt.Sprintf("Remove entire model %s?", modelRef)).
-					Description("This will delete all quantizations of this model. This action cannot be undone.").
+					Title(fmt.Sprintf("Remove all quantizations of %s?", modelRef)).
 					Value(&confirm)
 
 				if err := prompt.Run(); err != nil {
@@ -87,7 +86,7 @@ var rmCmd = &cobra.Command{
 				os.Exit(1)
 			}
 
-			fmt.Printf("%s Removed %s\n", ui.Success("✓"), modelRef)
+			fmt.Printf("Removed %s\n", modelRef)
 		}
 	},
 }

@@ -14,7 +14,7 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Show lemme version information",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(ui.Bold(fmt.Sprintf("Lemme v0.1.0 (%s/%s)", runtime.GOOS, runtime.GOARCH)))
+		fmt.Printf("lemme v0.1.0 (%s/%s)\n", runtime.GOOS, runtime.GOARCH)
 
 		installed, _ := llama.GetInstalledVersion()
 		if installed != nil {
@@ -22,15 +22,15 @@ var versionCmd = &cobra.Command{
 			if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
 				backend = "Metal"
 			}
-			fmt.Printf("llama.cpp %s (%s)\n", installed.TagName, backend)
+			fmt.Printf("%s (%s)\n", ui.LlamaCppCredit(installed.TagName), backend)
 		} else {
 			fmt.Println(ui.Muted("llama.cpp not installed"))
 		}
 
 		fmt.Println()
-		fmt.Println(ui.Bold("Paths:"))
-		fmt.Printf("  Models:    %s\n", ui.Muted(config.ModelsPath()))
-		fmt.Printf("  llama.cpp: %s\n", ui.Muted(llama.BinaryPath()))
+		fmt.Println(ui.Header("Paths"))
+		fmt.Printf("  %-10s %s\n", "Models", ui.Muted(config.ModelsPath()))
+		fmt.Printf("  %-10s %s\n", "Binaries", ui.Muted(config.BinPath()))
 	},
 }
 

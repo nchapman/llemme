@@ -1,7 +1,16 @@
 package ui
 
 import (
+	"fmt"
+
 	"github.com/charmbracelet/lipgloss"
+)
+
+// Icon constants for consistent output.
+const (
+	IconCheck = "✓"
+	IconCross = "✗"
+	IconArrow = "→"
 )
 
 var (
@@ -52,4 +61,9 @@ func Value(text string) string {
 
 func Box(text string) string {
 	return borderPadding.Render(borderStyle.Render(text))
+}
+
+// LlamaCppCredit returns the llama.cpp attribution line.
+func LlamaCppCredit(version string) string {
+	return Muted(fmt.Sprintf("Powered by llama.cpp %s", version))
 }

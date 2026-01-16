@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/charmbracelet/lipgloss"
+	"github.com/nchapman/lemme/internal/llama"
 	"github.com/nchapman/lemme/internal/proxy"
 	"github.com/nchapman/lemme/internal/ui"
 	"github.com/spf13/cobra"
@@ -30,23 +30,21 @@ var psCmd = &cobra.Command{
 		status, err := getProxyStatus(proxyURL)
 		if err != nil {
 			// Fall back to basic info
-			fmt.Printf("%s\n", ui.Bold("Proxy Status"))
-			fmt.Println()
-			fmt.Printf("  • Running on: %s\n", ui.Bold(proxyURL))
-			fmt.Printf("  • PID: %d\n", state.PID)
-			fmt.Printf("  • Started: %s\n", formatTimeSince(state.StartedAt))
+			fmt.Println(ui.Header("Proxy Status"))
+			fmt.Printf("  %-12s %s\n", "Address", proxyURL)
+			fmt.Printf("  %-12s %d\n", "PID", state.PID)
+			fmt.Printf("  %-12s %s\n", "Started", formatTimeSince(state.StartedAt))
 			fmt.Println()
 			fmt.Printf("%s Could not fetch detailed status: %v\n", ui.Muted("Note:"), err)
 			return
 		}
 
 		// Pretty print status
-		fmt.Printf("%s\n", ui.Bold("Proxy Status"))
-		fmt.Println()
-		fmt.Printf("  • Running on: %s (PID %d)\n", ui.Bold(proxyURL), state.PID)
-		fmt.Printf("  • Uptime: %s\n", formatUptime(time.Duration(status.UptimeSeconds)*time.Second))
-		fmt.Printf("  • Max models: %d\n", status.MaxModels)
-		fmt.Printf("  • Idle timeout: %s\n", status.IdleTimeout)
+		fmt.Println(ui.Header("Proxy Status"))
+		fmt.Printf("  %-12s %s\n", "Address", proxyURL)
+		fmt.Printf("  %-12s %d\n", "PID", state.PID)
+		fmt.Printf("  %-12s %s\n", "Uptime", formatUptime(time.Duration(status.UptimeSeconds)*time.Second))
+		fmt.Printf("  %-12s %d\n", "Max models", status.MaxModels)
 		fmt.Println()
 
 		if len(status.Models) == 0 {
@@ -56,10 +54,14 @@ var psCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Printf("%s\n", ui.Bold("Loaded Models"))
+		fmt.Println(ui.Header("Loaded Models"))
 		fmt.Println()
 
-		header := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12"))
+		table := ui.NewTable().
+			AddColumn("MODEL", 50, ui.AlignLeft).
+			AddColumn("PORT", 5, ui.AlignRight).
+			AddColumn("STATUS", 7, ui.AlignLeft).
+			AddColumn("UNLOADS IN", 10, ui.AlignLeft)
 
 		// Calculate idle timeout in minutes for "unload in" display
 		idleTimeoutMins := 10.0 // default
@@ -69,26 +71,25 @@ var psCmd = &cobra.Command{
 			}
 		}
 
-		fmt.Printf("  %-50s %5s  %-7s  %s\n",
-			header.Render("MODEL"),
-			header.Render("PORT"),
-			header.Render("STATUS"),
-			header.Render("UNLOADS IN"),
-		)
-
 		for _, m := range status.Models {
 			unloadIn := formatUnloadTime(m.IdleMinutes, idleTimeoutMins)
-
-			fmt.Printf("  %-50s %5d  %-7s  %s\n",
-				truncateModel(m.ModelName, 50),
-				m.Port,
-				m.Status,
-				unloadIn,
-			)
+			table.AddRow(m.ModelName, fmt.Sprintf("%d", m.Port), m.Status, unloadIn)
 		}
 
+		fmt.Print(table.Render())
+
+		// Footer with model count and llama.cpp credit
 		fmt.Println()
-		fmt.Printf("%s %d models loaded\n", ui.Bold("Total:"), len(status.Models))
+		modelWord := "model"
+		if len(status.Models) != 1 {
+			modelWord = "models"
+		}
+		installed, _ := llama.GetInstalledVersion()
+		if installed != nil {
+			fmt.Printf("%d %s loaded %s %s\n", len(status.Models), modelWord, ui.Muted("•"), ui.LlamaCppCredit(installed.TagName))
+		} else {
+			fmt.Printf("%d %s loaded\n", len(status.Models), modelWord)
+		}
 	},
 }
 
@@ -140,13 +141,6 @@ func formatUnloadTime(idleMinutes, timeoutMinutes float64) string {
 		return fmt.Sprintf("%.0fm", remaining)
 	}
 	return fmt.Sprintf("%.1fh", remaining/60)
-}
-
-func truncateModel(name string, maxLen int) string {
-	if len(name) <= maxLen {
-		return name
-	}
-	return name[:maxLen-3] + "..."
 }
 
 func formatTimeSince(t time.Time) string {

@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/lipgloss"
 	"github.com/nchapman/lemme/internal/config"
 	"github.com/nchapman/lemme/internal/ui"
 	"github.com/spf13/cobra"
@@ -80,32 +79,23 @@ var listCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Println(ui.Bold("Downloaded Models"))
+		fmt.Println(ui.Header("Downloaded Models"))
 		fmt.Println()
 
-		header := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12"))
-		rowStyle := lipgloss.NewStyle()
-
-		fmt.Printf("%s   %-40s %-10s %10s  %s\n",
-			header.Render(""),
-			header.Render("MODEL"),
-			header.Render("QUANT"),
-			header.Render("SIZE"),
-			header.Render("MODIFIED"),
-		)
+		table := ui.NewTable().
+			AddColumn("MODEL", 40, ui.AlignLeft).
+			AddColumn("QUANT", 10, ui.AlignLeft).
+			AddColumn("SIZE", 10, ui.AlignRight).
+			AddColumn("MODIFIED", 10, ui.AlignLeft)
 
 		for _, m := range models {
 			modelRef := fmt.Sprintf("%s/%s", m.User, m.Repo)
-			fmt.Printf("  %-40s %-10s %10s  %s\n",
-				rowStyle.Render(modelRef),
-				rowStyle.Render(m.Quant),
-				rowStyle.Render(ui.FormatBytes(m.Size)),
-				rowStyle.Render(formatTime(m.ModifiedAt)),
-			)
+			table.AddRow(modelRef, m.Quant, ui.FormatBytes(m.Size), formatTime(m.ModifiedAt))
 		}
 
+		fmt.Print(table.Render())
 		fmt.Println()
-		fmt.Printf("%s %s\n", ui.Bold("Total:"), fmt.Sprintf("%d models, %s", len(models), ui.FormatBytes(totalSize)))
+		fmt.Printf("%d models, %s total\n", len(models), ui.FormatBytes(totalSize))
 	},
 }
 

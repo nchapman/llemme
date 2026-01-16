@@ -13,7 +13,7 @@ var updateCmd = &cobra.Command{
 	Use:   "update",
 	Short: "Update llama.cpp to the latest version",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Checking for updates...")
+		fmt.Println("Checking for llama.cpp updates...")
 		fmt.Println()
 
 		installed, err := llama.GetInstalledVersion()
@@ -33,17 +33,17 @@ var updateCmd = &cobra.Command{
 			currentVersion = installed.TagName
 		}
 
-		fmt.Printf("  Current: %s\n", ui.Muted(currentVersion))
-		fmt.Printf("  Latest:  %s\n", ui.Muted(release.TagName))
+		fmt.Printf("  %-12s %s\n", "Installed", currentVersion)
+		fmt.Printf("  %-12s %s\n", "Available", release.TagName)
 		fmt.Println()
 
 		if installed != nil && installed.TagName == release.TagName {
-			fmt.Println(ui.Success("llama.cpp is already up to date (" + release.TagName + ")"))
+			fmt.Println("llama.cpp is already up to date")
 			return
 		}
 
 		if !forceUpdate {
-			fmt.Printf("Update llama.cpp from %s to %s? [y/N] ", currentVersion, release.TagName)
+			fmt.Printf("Update to %s? [y/N] ", release.TagName)
 			var response string
 			fmt.Scanln(&response)
 			if response != "y" && response != "Y" {
@@ -52,14 +52,15 @@ var updateCmd = &cobra.Command{
 			}
 		}
 
+		fmt.Println()
+
 		version, err := llama.InstallLatest()
 		if err != nil {
 			fmt.Printf("%s Failed to install llama.cpp: %v\n", ui.ErrorMsg("Error:"), err)
 			os.Exit(1)
 		}
 
-		fmt.Println()
-		fmt.Printf("%s Updated successfully to %s!\n", ui.Success("✓"), version.TagName)
+		fmt.Printf("Updated to llama.cpp %s\n", version.TagName)
 	},
 }
 

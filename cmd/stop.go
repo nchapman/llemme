@@ -92,7 +92,7 @@ func stopModel(proxyURL, modelName string) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("%s Unloaded %s\n", ui.Success("✓"), modelName)
+	fmt.Printf("Unloaded %s\n", modelName)
 }
 
 func stopAllModels(proxyURL string) {
@@ -113,7 +113,7 @@ func stopAllModels(proxyURL string) {
 	if result.Stopped == 0 {
 		fmt.Println(ui.Muted("No models were loaded"))
 	} else {
-		fmt.Printf("%s Unloaded %d models\n", ui.Success("✓"), result.Stopped)
+		fmt.Printf("Unloaded %d models\n", result.Stopped)
 	}
 }
 
@@ -134,14 +134,12 @@ func stopProxyServer(state *proxy.ProxyState) {
 	}
 
 	// Wait for process to exit
-	fmt.Print("Stopping proxy...")
 	for range 40 { // 4 seconds max
 		time.Sleep(100 * time.Millisecond)
 		if err := process.Signal(syscall.Signal(0)); err != nil {
 			// Process has exited
-			fmt.Println()
 			proxy.ClearProxyState()
-			fmt.Printf("%s Proxy stopped\n", ui.Success("✓"))
+			fmt.Println("Proxy stopped")
 			return
 		}
 	}
@@ -149,8 +147,7 @@ func stopProxyServer(state *proxy.ProxyState) {
 	// Force kill if still running
 	process.Kill()
 	proxy.ClearProxyState()
-	fmt.Println()
-	fmt.Printf("%s Proxy stopped (forced)\n", ui.Success("✓"))
+	fmt.Println("Proxy stopped")
 }
 
 func init() {

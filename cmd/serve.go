@@ -106,18 +106,23 @@ func startProxyForeground(proxyCfg *proxy.Config, appCfg *config.Config) {
 		fmt.Printf("%s Failed to save proxy state: %v\n", ui.ErrorMsg("Warning:"), err)
 	}
 
-	fmt.Printf("%s Proxy started on http://%s:%d\n", ui.Success("✓"), proxyCfg.Host, proxyCfg.Port)
+	fmt.Printf("Proxy started on http://%s:%d\n", proxyCfg.Host, proxyCfg.Port)
 	fmt.Println()
-	fmt.Println("Configuration:")
-	fmt.Printf("  • Max models: %d\n", proxyCfg.MaxModels)
-	fmt.Printf("  • Idle timeout: %v\n", proxyCfg.IdleTimeout)
-	fmt.Printf("  • Backend ports: %d-%d\n", proxyCfg.BackendPortMin, proxyCfg.BackendPortMax)
+	fmt.Printf("  %-14s %d\n", "Max models", proxyCfg.MaxModels)
+	fmt.Printf("  %-14s %v\n", "Idle timeout", proxyCfg.IdleTimeout)
+	fmt.Printf("  %-14s %d-%d\n", "Backend ports", proxyCfg.BackendPortMin, proxyCfg.BackendPortMax)
 	fmt.Println()
-	fmt.Println("Endpoints:")
-	fmt.Println("  • OpenAI:  /v1/chat/completions, /v1/completions")
-	fmt.Println("  • Models:  /v1/models")
-	fmt.Println("  • Status:  /api/status")
+	fmt.Println(ui.Header("Endpoints"))
+	fmt.Printf("  %-12s %s %s\n", "Chat", ui.Muted("POST"), "/v1/chat/completions")
+	fmt.Printf("  %-12s %s %s\n", "Completions", ui.Muted("POST"), "/v1/completions")
+	fmt.Printf("  %-12s %s %s\n", "Models", ui.Muted("GET"), "/v1/models")
+	fmt.Printf("  %-12s %s %s\n", "Status", ui.Muted("GET"), "/api/status")
 	fmt.Println()
+
+	installed, _ := llama.GetInstalledVersion()
+	if installed != nil {
+		fmt.Println(ui.LlamaCppCredit(installed.TagName))
+	}
 	fmt.Println(ui.Muted("Press Ctrl+C to stop"))
 
 	// Wait for interrupt
@@ -133,7 +138,7 @@ func startProxyForeground(proxyCfg *proxy.Config, appCfg *config.Config) {
 	}
 
 	proxy.ClearProxyState()
-	fmt.Println(ui.Muted("Proxy stopped"))
+	fmt.Println("Proxy stopped")
 }
 
 func startProxyDetached(proxyCfg *proxy.Config, _ *config.Config) {
@@ -179,9 +184,8 @@ func startProxyDetached(proxyCfg *proxy.Config, _ *config.Config) {
 
 	// Check if it started successfully
 	if state := proxy.GetRunningProxyState(); state != nil {
-		fmt.Printf("%s Proxy started in background on http://%s:%d (PID %d)\n",
-			ui.Success("✓"), state.Host, state.Port, state.PID)
-		fmt.Printf("Logs: %s\n", logFile)
+		fmt.Printf("Proxy started in background on http://%s:%d (PID %d)\n", state.Host, state.Port, state.PID)
+		fmt.Printf("Logs: %s\n", ui.Muted(logFile))
 	} else {
 		fmt.Printf("%s Proxy may have failed to start. Check logs: %s\n", ui.ErrorMsg("Warning:"), logFile)
 	}

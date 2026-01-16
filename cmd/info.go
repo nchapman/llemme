@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/nchapman/lemme/internal/config"
 	"github.com/nchapman/lemme/internal/hf"
@@ -44,43 +45,48 @@ var infoCmd = &cobra.Command{
 
 		quants := hf.ExtractQuantizations(files)
 
-		fmt.Printf("%s\n", ui.Bold(modelInfo.ModelId))
-		fmt.Printf("Author: %s\n", ui.Value(modelInfo.Author))
-		fmt.Printf("License: %s\n", ui.Value(modelInfo.CardData.License))
-		fmt.Printf("Created: %s\n", ui.Muted(modelInfo.CreatedAt.Format("2006-01-02")))
-		fmt.Printf("Last Modified: %s\n", ui.Muted(modelInfo.LastModified.Format("2006-01-02")))
+		fmt.Println(ui.Header(modelInfo.ModelId))
+		fmt.Println()
+		fmt.Printf("  %-12s %s\n", "Author", modelInfo.Author)
+		if modelInfo.CardData.License != "" {
+			fmt.Printf("  %-12s %s\n", "License", modelInfo.CardData.License)
+		}
+		fmt.Printf("  %-12s %s\n", "Updated", modelInfo.LastModified.Format("Jan 2, 2006"))
 
 		if modelInfo.Gated {
-			fmt.Printf("%s This model requires authentication\n\n", ui.Warning("⚠ "))
+			fmt.Println()
+			fmt.Printf("  %s This model requires authentication\n", ui.Warning("!"))
 		}
 
 		if len(quants) > 0 {
-			fmt.Printf("\n%s\n", ui.Bold("Available Quantizations"))
-			sortedQuants := hf.SortQuantizations(quants)
-			for _, q := range sortedQuants {
-				fmt.Printf("  • %s %s\n", ui.Bold(q.Name), ui.Muted(fmt.Sprintf("(%s)", ui.FormatBytes(q.Size))))
-			}
-		}
+			fmt.Println()
+			fmt.Println(ui.Header("Quantizations"))
+			fmt.Println()
 
-		if modelInfo.CardData.BaseModel != "" {
-			fmt.Printf("\n%s\n", ui.Bold("Base Model"))
-			fmt.Printf("  %s\n", ui.Value(modelInfo.CardData.BaseModel))
+			table := ui.NewTable().
+				AddColumn("NAME", 12, ui.AlignLeft).
+				AddColumn("SIZE", 12, ui.AlignRight)
+
+			sortedQuants := hf.SortQuantizations(quants)
+			bestQuant := hf.GetBestQuantization(quants)
+			for _, q := range sortedQuants {
+				size := ui.FormatBytes(q.Size)
+				if q.Name == bestQuant {
+					size += "  (recommended)"
+				}
+				table.AddRow(q.Name, size)
+			}
+			fmt.Print(table.Render())
 		}
 
 		if len(modelInfo.Tags) > 0 {
-			fmt.Printf("\n%s\n", ui.Bold("Tags"))
-			for _, tag := range modelInfo.Tags {
-				fmt.Printf("  • %s\n", ui.Muted(tag))
-			}
+			fmt.Println()
+			fmt.Printf("Tags: %s\n", ui.Muted(strings.Join(modelInfo.Tags, ", ")))
 		}
 
-		fmt.Printf("\n%s\n", ui.Bold("Actions"))
-		fmt.Printf("  lemme pull %s\n", ui.Value(modelRef))
-		if len(quants) > 0 {
-			bestQuant := hf.GetBestQuantization(quants)
-			fmt.Printf("  lemme pull %s:%s\n", ui.Value(modelRef), ui.Value(bestQuant))
-		}
-		fmt.Printf("  lemme run %s\n", ui.Value(modelRef))
+		fmt.Println()
+		fmt.Printf("  lemme pull %s\n", modelRef)
+		fmt.Printf("  lemme run %s\n", modelRef)
 	},
 }
 

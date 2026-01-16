@@ -95,7 +95,7 @@ func ensureProxyRunning(cfg *config.Config) (string, error) {
 	}
 
 	// Need to start proxy
-	fmt.Println("Starting proxy server...")
+	fmt.Println(ui.Muted("Starting proxy..."))
 
 	executable, err := os.Executable()
 	if err != nil {
@@ -149,7 +149,6 @@ func ensureProxyRunning(cfg *config.Config) (string, error) {
 		if err == nil {
 			resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
-				fmt.Println(ui.Success("✓") + " Proxy started")
 				return proxyURL, nil
 			}
 		}

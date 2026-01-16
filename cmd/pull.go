@@ -92,14 +92,11 @@ var pullCmd = &cobra.Command{
 		}
 
 		selectedQuant, _ := hf.FindQuantization(quants, quant)
-		message := fmt.Sprintf("Pulling %s/%s:%s", user, repo, quant)
-		fmt.Printf("%s\n", ui.Bold(message))
-		fmt.Printf("  Model info:\n")
-		fmt.Printf("    • Size: %s\n", ui.FormatBytes(selectedQuant.Size))
+		fmt.Printf("Pulling %s/%s:%s (%s)\n", user, repo, quant, ui.FormatBytes(selectedQuant.Size))
 		fmt.Println()
 
 		progressBar := ui.NewProgressBar("", selectedQuant.Size)
-		progressBar.Start(message, selectedQuant.Size)
+		progressBar.Start("", selectedQuant.Size)
 
 		downloaderWithProgress := hf.NewDownloaderWithProgress(client, func(downloaded, total int64, speed float64, eta time.Duration) {
 			progressBar.Update(downloaded)
@@ -112,7 +109,7 @@ var pullCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		progressBar.Finish("Pulled " + user + "/" + repo + ":" + quant + " successfully!")
+		progressBar.Finish(fmt.Sprintf("Downloaded %s/%s:%s", user, repo, quant))
 		fmt.Println()
 	},
 }
