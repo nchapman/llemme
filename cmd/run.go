@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/nchapman/gollama/internal/config"
 	"github.com/nchapman/gollama/internal/hf"
 	"github.com/nchapman/gollama/internal/llama"
@@ -122,9 +123,18 @@ var runCmd = &cobra.Command{
 		if promptArg != "" {
 			runOneShot(api, modelRef, promptArg, cfg, true)
 		} else {
-			runInteractive(api, modelRef, cfg)
+			runTUI(api, modelRef, cfg)
 		}
 	},
+}
+
+func runTUI(api *server.APIClient, model string, cfg *config.Config) {
+	chat := initialChatModel(api, model, cfg.Temperature, cfg.TopP)
+	p := tea.NewProgram(chat)
+
+	if _, err := p.Run(); err != nil {
+		fmt.Printf("%s Failed to run TUI: %v\n", ui.ErrorMsg("Error:"), err)
+	}
 }
 
 func runInteractive(api *server.APIClient, model string, cfg *config.Config) {
