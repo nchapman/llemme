@@ -15,6 +15,7 @@ type progressModel struct {
 	downloaded int64
 	message    string
 	done       bool
+	startTime  time.Time
 }
 
 type progressTickMsg struct{}
@@ -43,6 +44,7 @@ func initialProgressModel(message string, total int64) progressModel {
 		downloaded: 0,
 		message:    message,
 		done:       false,
+		startTime:  time.Now(),
 	}
 }
 
@@ -83,14 +85,49 @@ func (m progressModel) View() string {
 	filled := int(float64(width) * percent)
 	bar := strings.Repeat("█", filled) + strings.Repeat("░", width-filled)
 
+	// Calculate speed and ETA
+	elapsed := time.Since(m.startTime).Seconds()
+	var speedMBps float64
+	var eta string
+
+	if elapsed > 0 && m.downloaded > 0 {
+		speedMBps = float64(m.downloaded) / elapsed / (1024 * 1024)
+		remaining := m.total - m.downloaded
+		if speedMBps > 0 {
+			etaSeconds := float64(remaining) / (speedMBps * 1024 * 1024)
+			eta = formatETA(etaSeconds)
+		} else {
+			eta = "calculating..."
+		}
+	} else {
+		eta = "calculating..."
+	}
+
 	return fmt.Sprintf("\n  %s  %.0f%% │ %s / %s │ %.1f MB/s │ ETA %s\n",
 		bar,
 		percent*100,
 		FormatBytes(m.downloaded),
 		FormatBytes(m.total),
-		0.0,
-		"0s",
+		speedMBps,
+		eta,
 	)
+}
+
+func formatETA(seconds float64) string {
+	if seconds < 0 || seconds > 86400*7 {
+		return "calculating..."
+	}
+	if seconds < 60 {
+		return fmt.Sprintf("%.0fs", seconds)
+	}
+	if seconds < 3600 {
+		mins := int(seconds) / 60
+		secs := int(seconds) % 60
+		return fmt.Sprintf("%dm %ds", mins, secs)
+	}
+	hours := int(seconds) / 3600
+	mins := (int(seconds) % 3600) / 60
+	return fmt.Sprintf("%dh %dm", hours, mins)
 }
 
 func FormatBytes(b int64) string {

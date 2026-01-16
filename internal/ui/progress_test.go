@@ -174,6 +174,34 @@ func TestCalculateProgress(t *testing.T) {
 	}
 }
 
+func TestFormatETA(t *testing.T) {
+	tests := []struct {
+		seconds float64
+		want    string
+	}{
+		{0, "0s"},
+		{30, "30s"},
+		{59, "59s"},
+		{60, "1m 0s"},
+		{90, "1m 30s"},
+		{3599, "59m 59s"},
+		{3600, "1h 0m"},
+		{3660, "1h 1m"},
+		{7200, "2h 0m"},
+		{-1, "calculating..."},
+		{86400 * 8, "calculating..."}, // > 7 days
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.want, func(t *testing.T) {
+			got := formatETA(tt.seconds)
+			if got != tt.want {
+				t.Errorf("formatETA(%v) = %v, want %v", tt.seconds, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestProgressModelUpdate(t *testing.T) {
 	model := initialProgressModel("test", 1000)
 
