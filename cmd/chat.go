@@ -6,6 +6,7 @@ import (
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/nchapman/gollama/internal/server"
 )
@@ -21,6 +22,7 @@ type (
 type chatModel struct {
 	viewport    viewport.Model
 	messages    []string
+	history     []server.ChatMessage
 	textarea    textarea.Model
 	senderStyle lipgloss.Style
 	aiStyle     lipgloss.Style
@@ -31,6 +33,7 @@ type chatModel struct {
 	model       string
 	cfg         *configWrapper
 	streamChan  chan string
+	renderer    *glamour.TermRenderer
 }
 
 type configWrapper struct {
@@ -57,9 +60,15 @@ func initialChatModel(api *server.APIClient, model string, temperature, topP flo
 
 	ta.KeyMap.InsertNewline.SetEnabled(false)
 
+	renderer, _ := glamour.NewTermRenderer(
+		glamour.WithAutoStyle(),
+		glamour.WithWordWrap(80),
+	)
+
 	return chatModel{
 		textarea:    ta,
 		messages:    []string{},
+		history:     []server.ChatMessage{},
 		viewport:    vp,
 		senderStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("10")),
 		aiStyle:     lipgloss.NewStyle().Foreground(lipgloss.Color("13")),
@@ -67,6 +76,7 @@ func initialChatModel(api *server.APIClient, model string, temperature, topP flo
 		api:         api,
 		model:       model,
 		streamChan:  make(chan string),
+		renderer:    renderer,
 		cfg: &configWrapper{
 			Temperature: temperature,
 			TopP:        topP,
@@ -93,8 +103,13 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.textarea.SetWidth(msg.Width)
 		m.viewport.Height = msg.Height - m.textarea.Height() - lipgloss.Height(gap)
 
-		if len(m.messages) > 0 {
-			m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(joinMessages(m.messages, m.currentAI)))
+		m.renderer, _ = glamour.NewTermRenderer(
+			glamour.WithAutoStyle(),
+			glamour.WithWordWrap(msg.Width-4),
+		)
+
+		if len(m.messages) > 0 || m.currentAI != "" {
+			m.viewport.SetContent(m.renderMessages())
 		}
 		m.viewport.GotoBottom()
 
@@ -110,13 +125,14 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				prompt := m.textarea.Value()
 				userMsg := m.senderStyle.Render("You: ") + prompt
 				m.messages = append(m.messages, userMsg)
-				m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(joinMessages(m.messages, "")))
+				m.history = append(m.history, server.ChatMessage{Role: "user", Content: prompt})
+				m.viewport.SetContent(m.renderMessages())
 				m.textarea.Reset()
 				m.viewport.GotoBottom()
 
 				m.generating = true
 				return m, tea.Batch(
-					m.startGeneration(prompt),
+					m.startGeneration(),
 					m.waitForStream(),
 				)
 			}
@@ -124,16 +140,18 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case streamMsg:
 		m.currentAI += string(msg)
-		m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(joinMessages(m.messages, m.currentAI)))
+		m.viewport.SetContent(m.renderMessages())
 		m.viewport.GotoBottom()
 		return m, m.waitForStream()
 
 	case streamDoneMsg:
 		m.generating = false
-		finalMsg := m.aiStyle.Render("AI: ") + m.currentAI
+		rendered, _ := m.renderer.Render(m.currentAI)
+		finalMsg := m.aiStyle.Render("AI:\n") + rendered
 		m.messages = append(m.messages, finalMsg)
+		m.history = append(m.history, server.ChatMessage{Role: "assistant", Content: m.currentAI})
 		m.currentAI = ""
-		m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(joinMessages(m.messages, "")))
+		m.viewport.SetContent(m.renderMessages())
 		m.viewport.GotoBottom()
 
 	case errMsg:
@@ -145,15 +163,11 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(tiCmd, vpCmd)
 }
 
-func (m chatModel) startGeneration(prompt string) tea.Cmd {
+func (m chatModel) startGeneration() tea.Cmd {
 	return func() tea.Msg {
-		messages := []server.ChatMessage{
-			{Role: "user", Content: prompt},
-		}
-
 		req := &server.ChatCompletionRequest{
 			Model:       m.model,
-			Messages:    messages,
+			Messages:    m.history,
 			Stream:      true,
 			Temperature: m.cfg.Temperature,
 			TopP:        m.cfg.TopP,
@@ -201,18 +215,19 @@ func (m chatModel) View() string {
 	)
 }
 
-func joinMessages(messages []string, currentAI string) string {
-	if len(messages) == 0 && currentAI == "" {
+func (m chatModel) renderMessages() string {
+	if len(m.messages) == 0 && m.currentAI == "" {
 		return ""
 	}
 
 	result := ""
-	for _, msg := range messages {
-		result += msg + "\n"
+	for _, msg := range m.messages {
+		result += msg + "\n\n"
 	}
 
-	if currentAI != "" {
-		result += lipgloss.NewStyle().Foreground(lipgloss.Color("13")).Render("AI: ") + currentAI
+	if m.currentAI != "" {
+		rendered, _ := m.renderer.Render(m.currentAI)
+		result += m.aiStyle.Render("AI:\n") + rendered
 	}
 
 	return result

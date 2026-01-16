@@ -1,4 +1,4 @@
-.PHONY: build test test-verbose test-coverage test-race clean help check
+.PHONY: build test test-verbose test-coverage test-race clean help check lint
 
 BINARY_NAME=gollama
 BUILD_DIR=build
@@ -12,13 +12,19 @@ build:  ## Build gollama binary
 	@mkdir -p $(BUILD_DIR)
 	$(GO) build -o $(BUILD_DIR)/$(BINARY_NAME) .
 
-check:  ## Run format, vet, and tests
+check:  ## Run format, vet, lint, and tests
 	@echo "Checking code formatting..."
 	@test -z "$$($(GO) fmt ./...)" || (echo "Code formatting issues found. Run 'go fmt ./...' to fix." && exit 1)
 	@echo "Running go vet..."
 	@$(GO) vet ./...
+	@echo "Running golangci-lint..."
+	@golangci-lint run
 	@echo "Running tests..."
 	@$(GO) test ./...
+
+lint:  ## Run golangci-lint
+	@echo "Running golangci-lint..."
+	@golangci-lint run
 
 test:  ## Run all tests
 	@echo "Running tests..."
