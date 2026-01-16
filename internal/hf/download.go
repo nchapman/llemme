@@ -14,6 +14,8 @@ import (
 	"github.com/nchapman/gollama/internal/config"
 )
 
+type ProgressCallback func(downloaded, total int64, speed float64, eta time.Duration)
+
 type DownloadProgress struct {
 	Downloaded int64
 	Total      int64
@@ -23,6 +25,7 @@ type DownloadProgress struct {
 
 type Downloader struct {
 	client     *Client
+	progress   ProgressCallback
 	startTime  time.Time
 	lastUpdate time.Time
 	lastBytes  int64
@@ -31,6 +34,13 @@ type Downloader struct {
 func NewDownloader(client *Client) *Downloader {
 	return &Downloader{
 		client: client,
+	}
+}
+
+func NewDownloaderWithProgress(client *Client, progress ProgressCallback) *Downloader {
+	return &Downloader{
+		client:   client,
+		progress: progress,
 	}
 }
 
@@ -102,6 +112,11 @@ func (d *Downloader) DownloadModel(user, repo, branch, filename string, destPath
 		}
 		if err != nil {
 			return nil, err
+		}
+
+		if d.progress != nil {
+			progress := d.calculateProgress(written, totalSize)
+			d.progress(progress.Downloaded, progress.Total, progress.Speed, progress.ETA)
 		}
 	}
 

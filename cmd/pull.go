@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/nchapman/gollama/internal/config"
 	"github.com/nchapman/gollama/internal/hf"
@@ -31,7 +32,6 @@ var pullCmd = &cobra.Command{
 		}
 
 		client := hf.NewClient(cfg)
-		downloader := hf.NewDownloader(client)
 
 		modelInfo, err := client.GetModel(user, repo)
 		if err != nil {
@@ -98,13 +98,22 @@ var pullCmd = &cobra.Command{
 		fmt.Printf("    • Size: %s\n", formatBytes(selectedQuant.Size))
 		fmt.Println()
 
-		_, err = downloader.DownloadModel(user, repo, "main", selectedQuant.File, modelPath)
+		progressBar := ui.NewProgressBar("", selectedQuant.Size)
+		progressBar.Start(message, selectedQuant.Size)
+
+		downloaderWithProgress := hf.NewDownloaderWithProgress(client, func(downloaded, total int64, speed float64, eta time.Duration) {
+			progressBar.Update(downloaded)
+		})
+
+		_, err = downloaderWithProgress.DownloadModel(user, repo, "main", selectedQuant.File, modelPath)
 		if err != nil {
+			progressBar.Stop()
 			fmt.Printf("%s Failed to download: %v\n", ui.ErrorMsg("Error:"), err)
 			os.Exit(1)
 		}
 
-		fmt.Printf("%s Pulled %s/%s:%s successfully!\n", ui.Success("✓"), user, repo, quant)
+		progressBar.Finish("Pulled " + user + "/" + repo + ":" + quant + " successfully!")
+		fmt.Println()
 	},
 }
 

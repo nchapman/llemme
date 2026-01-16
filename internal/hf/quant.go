@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	quantPattern = regexp.MustCompile(`(?i)[._-](Q[0-9]+(?:_[A-Z])?|Q[0-9]+(?:_[A-Z][A-Z])?|FP16|FP32|F16|F32|I[0-9]+)\.gguf`)
+	quantPattern = regexp.MustCompile(`(?i)[._-](Q[0-9]+[^.]+|FP16|FP32|F16|F32|I[0-9]+)\.gguf`)
 	quantOrder   = []string{
 		"Q4_K_M",
 		"Q4_K_S",
@@ -45,6 +45,7 @@ func ParseQuantization(filename string) string {
 	}
 
 	quant := strings.ToUpper(matches[1])
+	quant = strings.ReplaceAll(quant, "-", "_")
 
 	normalizations := map[string]string{
 		"F16": "FP16",
