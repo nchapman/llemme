@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"github.com/nchapman/gollama/internal/config"
@@ -116,7 +117,8 @@ func IsRunning(state *ServerState) bool {
 		return false
 	}
 
-	return process != nil
+	err = process.Signal(syscall.Signal(0))
+	return err == nil
 }
 
 func GetServerURL(state *ServerState) string {

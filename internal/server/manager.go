@@ -89,8 +89,9 @@ func (sm *ServerManager) Stop() error {
 		return fmt.Errorf("failed to load server state: %w", err)
 	}
 
-	if !IsRunning(state) {
-		return fmt.Errorf("server is not running")
+	if state == nil || !IsRunning(state) {
+		ClearState()
+		return nil
 	}
 
 	process, err := os.FindProcess(state.PID)
@@ -100,7 +101,8 @@ func (sm *ServerManager) Stop() error {
 	}
 
 	if err := process.Signal(syscall.SIGTERM); err != nil {
-		return fmt.Errorf("failed to send SIGTERM: %w", err)
+		ClearState()
+		return nil
 	}
 
 	time.Sleep(100 * time.Millisecond)
@@ -108,7 +110,8 @@ func (sm *ServerManager) Stop() error {
 	process, _ = os.FindProcess(state.PID)
 	if process != nil {
 		if err := process.Kill(); err != nil {
-			return fmt.Errorf("failed to kill process: %w", err)
+			ClearState()
+			return nil
 		}
 	}
 
