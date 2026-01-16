@@ -1,232 +1,82 @@
-# Lemme
+# lemme
 
-A beautiful Go CLI wrapper around [llama.cpp](https://github.com/ggerganov/llama.cpp) that brings the simplicity of [Ollama](https://ollama.com) with direct Hugging Face integration.
+A fast, simple CLI for running LLMs locally. Powered by [llama.cpp](https://github.com/ggerganov/llama.cpp) with direct [Hugging Face](https://huggingface.co) integration.
 
-## Features
-
-- 🚀 **Run any GGUF model** from Hugging Face with a single command
-- 🤖 **Interactive chat mode** or one-shot inference
-- 📦 **Automatic model downloads** with progress bars
-- 🔧 **Auto-managed llama.cpp** - no manual installation needed
-- 🎨 **Beautiful terminal output** powered by Charm libraries
-- ⚡ **Server-first architecture** - OpenAI-compatible HTTP API
-- 📝 **Configuration via YAML** or command-line flags
-
-## Quick Start
-
-### Install
+## Install
 
 ```bash
-# Clone and build
+go install github.com/nchapman/lemme@latest
+```
+
+Or build from source:
+
+```bash
 git clone https://github.com/nchapman/lemme
 cd lemme
-make build
-sudo cp build/lemme /usr/local/bin/
+go build -o lemme .
 ```
 
-### First Run
-
-Lemme automatically downloads llama.cpp on first use:
+## Usage
 
 ```bash
-lemme run TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF:Q6_K "Hello, world!"
-```
-
-### Interactive Chat
-
-```bash
+# Run a model (downloads automatically)
 lemme run TheBloke/Llama-2-7B-GGUF
 
-# Start chatting
-You: What is the capital of France?
-AI: The capital of France is Paris.
-You: /bye
-```
+# One-shot prompt
+lemme run llama "Explain quantum computing in one sentence"
 
-### One-Shot Inference
+# Search for models
+lemme search mistral
 
-```bash
-# Pass prompt as argument
-lemme run model:quant "Write a haiku about code"
+# List downloaded models
+lemme list
 
-# Or pipe input
-echo "Summarize this text" | lemme run model:quant
+# Show running models
+lemme ps
 ```
 
 ## Commands
 
-```bash
-lemme run <user/repo>[:quant]    # Interactive chat or one-shot inference
-lemme serve                        # Start llama.cpp server
-lemme pull <user/repo>[:quant]    # Download a model
-lemme list                         # List downloaded models
-lemme ps                           # Show server status
-lemme stop                          # Stop server
-lemme rm <user/repo>[:quant]    # Remove a model
-lemme version                       # Show versions
-lemme update                       # Update llama.cpp
-```
+| Command | Description |
+|---------|-------------|
+| `run <model>` | Chat with a model (auto-downloads if needed) |
+| `pull <model>` | Download a model from Hugging Face |
+| `list` | List downloaded models |
+| `search <query>` | Search Hugging Face for models |
+| `ps` | Show proxy status and loaded models |
+| `stop <model>` | Unload a model |
+| `serve` | Start the proxy server |
+| `info <model>` | Show model details |
+| `rm <model>` | Delete a downloaded model |
+| `update` | Update llama.cpp binaries |
 
-## Model Management
+## Multi-Model Support
 
-### Pull a Model
-
-```bash
-# Pull specific quantization
-lemme pull TheBloke/Llama-2-7B-GGUF:Q4_K_M
-
-# Pull and auto-select best quant
-lemme pull TheBloke/Llama-2-7B-GGUF
-```
-
-### List Models
+Lemme runs a proxy that manages multiple llama.cpp backends. Models load on demand and unload after 10 minutes idle.
 
 ```bash
-lemme list
-
-Downloaded Models
-
-  MODEL                               QUANT     SIZE      MODIFIED
-  TheBloke/Llama-2-7B-GGUF         Q4_K_M    4.1 GB    2 hours ago
-  TheBloke/TinyLlama-1.1B-Chat      Q6_K      862 MB    1 day ago
-
-Total: 2 models, 4.9 GB
-```
-
-### Remove a Model
-
-```bash
-lemme rm TheBloke/Llama-2-7B-GGUF:Q4_K_M
-```
-
-## Server Mode
-
-Lemme runs inference through `llama-server`, exposing an OpenAI-compatible HTTP API.
-
-### Start Server
-
-```bash
-lemme serve --model TheBloke/Llama-2-7B-GGUF:Q4_K_M --detach
-```
-
-### Server Endpoints
-
-```bash
-# OpenAI-compatible
-curl -X POST http://127.0.0.1:8080/v1/chat/completions \
+# Use the OpenAI-compatible API
+curl http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -d '{
-    "model": "model",
-    "messages": [{"role": "user", "content": "Hello"}],
-    "stream": true
-  }'
-
-# Ollama-compatible
-curl -X POST http://127.0.0.1:8080/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "model",
-    "message": "Hello"
-  }'
+  -d '{"model": "llama", "messages": [{"role": "user", "content": "Hello!"}]}'
 ```
 
 ## Configuration
 
-Create `~/.lemme/config.yaml`:
+Config lives at `~/.lemme/config.yaml`:
 
 ```yaml
-server:
-  host: "127.0.0.1"
-  port: 8080
-
-# Default inference parameters
 context_length: 4096
 temperature: 0.7
-top_p: 0.9
-top_k: 40
-repeat_penalty: 1.1
-gpu_layers: -1
-threads: 0
-
-# Default quantization preference
 default_quant: Q4_K_M
+gpu_layers: -1
 
-# Hugging Face token (optional)
-hf_token: ""
-```
-
-## CLI Flags
-
-### Run/Chat Flags
-
-```bash
--c, --ctx <n>           Context length (default: from config)
--n, --predict <n>       Max tokens to generate
--t, --temp <f>          Temperature
---top-p <f>             Top-p sampling
---top-k <n>             Top-k sampling
---repeat-penalty        Repeat penalty
---gpu-layers <n>        GPU layers to offload
---threads <n>           CPU threads
---system <prompt>        System prompt
-```
-
-### Server Flags
-
-```bash
---host <addr>           Server host (default: 127.0.0.1)
---port <n>              Server port (default: 8080)
---detach                Run server in background
-```
-
-## Development
-
-### Build
-
-```bash
-make build
-```
-
-### Test
-
-```bash
-make test
-```
-
-### Check (format, vet, test)
-
-```bash
-make check
-```
-
-### Coverage
-
-```bash
-make test-coverage
-open build/coverage.html
-```
-
-## Architecture
-
-Lemme uses a **server-first architecture** where all inference goes through `llama-server`. This provides:
-
-- Unified model loading and state management
-- Easy concurrent request handling
-- Simple process management
-- Better observability (centralized logs)
-- OpenAI-compatible API out of the box
-
-```
-lemme run → llama-server → HTTP API → Inference
+proxy:
+  port: 8080
+  max_models: 3
+  idle_timeout_mins: 10
 ```
 
 ## License
 
 MIT
-
-## Acknowledgments
-
-- [llama.cpp](https://github.com/ggerganov/llama.cpp) - LLM inference backend
-- [Ollama](https://github.com/ollama/ollama) - CLI design inspiration
-- [Charm](https://charm.sh) - Beautiful terminal components
-- [Hugging Face](https://huggingface.co) - Model hosting
