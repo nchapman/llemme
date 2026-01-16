@@ -42,15 +42,6 @@ func TestParseModelRef(t *testing.T) {
 	}
 }
 
-func TestIsPipedInput(t *testing.T) {
-	t.Run("not piped", func(t *testing.T) {
-		result := isPipedInput()
-		if result {
-			t.Error("isPipedInput() = true, want false")
-		}
-	})
-}
-
 func TestParseCommandArgs(t *testing.T) {
 	tests := []struct {
 		name       string

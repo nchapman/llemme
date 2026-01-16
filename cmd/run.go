@@ -10,7 +10,6 @@ import (
 	"syscall"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/nchapman/lemme/internal/config"
 	"github.com/nchapman/lemme/internal/hf"
 	"github.com/nchapman/lemme/internal/llama"
@@ -91,11 +90,7 @@ Models are loaded on-demand and unloaded after idle timeout.`,
 		// Use the resolved full model name
 		modelName := resolvedModel.FullName
 
-		if promptArg != "" {
-			runOneShot(api, modelName, promptArg, cfg, true)
-		} else {
-			runTUI(api, modelName, cfg)
-		}
+		runChat(api, modelName, promptArg, cfg)
 	},
 }
 
@@ -337,22 +332,48 @@ func ensureProxyRunning(cfg *config.Config) (string, error) {
 	return "", fmt.Errorf("proxy did not become ready")
 }
 
-func runTUI(api *server.APIClient, model string, cfg *config.Config) {
-	chat := initialChatModel(api, model, cfg.Temperature, cfg.TopP)
-	p := tea.NewProgram(chat)
-
-	if _, err := p.Run(); err != nil {
-		fmt.Printf("%s Failed to run TUI: %v\n", ui.ErrorMsg("Error:"), err)
-	}
-}
-
-func runInteractive(api *server.APIClient, model string, cfg *config.Config) {
-	fmt.Printf("\n%s  %s\n", ui.Box(model), ui.Muted("Ctrl+D to exit, Ctrl+C to stop generation"))
+func runChat(api *server.APIClient, model, initialPrompt string, cfg *config.Config) {
+	// Check if input is piped (non-interactive)
+	stat, _ := os.Stdin.Stat()
+	isPiped := (stat.Mode() & os.ModeCharDevice) == 0
 
 	reader := bufio.NewReader(os.Stdin)
+	messages := []server.ChatMessage{}
+
+	// Add system prompt (use default if not specified)
+	sysPrompt := systemPrompt
+	if sysPrompt == "" {
+		sysPrompt = "You are a helpful assistant. Respond directly and conversationally to the user."
+	}
+	messages = append(messages, server.ChatMessage{Role: "system", Content: sysPrompt})
+
+	if !isPiped {
+		fmt.Printf("\n%s  %s\n\n", ui.Box(model), ui.Muted("Ctrl+D to exit"))
+	}
+
+	// Handle initial prompt if provided
+	if initialPrompt != "" {
+		if !isPiped {
+			fmt.Printf("%s %s\n\n", ui.Muted("You:"), initialPrompt)
+		}
+		messages = append(messages, server.ChatMessage{Role: "user", Content: initialPrompt})
+		response := streamResponse(api, model, messages, cfg, !isPiped)
+		if response != "" {
+			messages = append(messages, server.ChatMessage{Role: "assistant", Content: response})
+		}
+		if isPiped {
+			return // Exit after one-shot when piped
+		}
+		fmt.Println()
+	}
+
+	// Interactive loop (skip if piped with no initial prompt)
+	if isPiped {
+		return
+	}
 
 	for {
-		fmt.Print("You: ")
+		fmt.Print(ui.Muted("You: "))
 		input, err := reader.ReadString('\n')
 		if err != nil {
 			fmt.Println()
@@ -364,56 +385,22 @@ func runInteractive(api *server.APIClient, model string, cfg *config.Config) {
 			continue
 		}
 
-		if input == "/bye" {
+		if input == "/bye" || input == "/exit" || input == "/quit" {
 			fmt.Println(ui.Muted("Goodbye!"))
 			return
 		}
 
-		messages := []server.ChatMessage{
-			{Role: "user", Content: input},
-		}
-
-		req := &server.ChatCompletionRequest{
-			Model:       model,
-			Messages:    messages,
-			Stream:      true,
-			Temperature: cfg.Temperature,
-			TopP:        cfg.TopP,
-			MaxTokens:   -1,
-		}
-
-		fmt.Print("AI: ")
-
-		spinner := ui.NewSpinner("")
-		spinner.Start("Thinking...")
-		spinnerStarted := true
-
-		time.Sleep(10 * time.Millisecond)
-
-		if err := api.StreamChatCompletion(req, func(content string) {
-			if spinnerStarted {
-				spinner.Stop(true, "")
-				spinnerStarted = false
-			}
-			fmt.Print(content)
-		}); err != nil {
-			if spinnerStarted {
-				spinner.Stop(false, "")
-			}
-			fmt.Printf("\n%s %v\n", ui.ErrorMsg("Error:"), err)
-			continue
-		}
-
 		fmt.Println()
+		messages = append(messages, server.ChatMessage{Role: "user", Content: input})
+		response := streamResponse(api, model, messages, cfg, true)
+		if response != "" {
+			messages = append(messages, server.ChatMessage{Role: "assistant", Content: response})
+		}
 		fmt.Println()
 	}
 }
 
-func runOneShot(api *server.APIClient, model, prompt string, cfg *config.Config, exitAfter bool) {
-	messages := []server.ChatMessage{
-		{Role: "user", Content: prompt},
-	}
-
+func streamResponse(api *server.APIClient, model string, messages []server.ChatMessage, cfg *config.Config, showSpinner bool) string {
 	req := &server.ChatCompletionRequest{
 		Model:       model,
 		Messages:    messages,
@@ -423,26 +410,36 @@ func runOneShot(api *server.APIClient, model, prompt string, cfg *config.Config,
 		MaxTokens:   tokens,
 	}
 
-	if err := api.StreamChatCompletion(req, func(content string) {
+	var spinner *ui.Spinner
+	spinnerRunning := false
+	if showSpinner {
+		spinner = ui.NewSpinner("")
+		spinner.Start("Thinking...")
+		spinnerRunning = true
+	}
+
+	var fullResponse strings.Builder
+
+	err := api.StreamChatCompletion(req, func(content string) {
+		if spinnerRunning {
+			spinner.Stop(true, "")
+			spinnerRunning = false
+		}
+		fullResponse.WriteString(content)
 		fmt.Print(content)
-	}); err != nil {
+	})
+
+	if spinnerRunning {
+		spinner.Stop(false, "")
+	}
+
+	if err != nil {
 		fmt.Printf("\n%s %v\n", ui.ErrorMsg("Error:"), err)
-		os.Exit(1)
+		return ""
 	}
 
 	fmt.Println()
-
-	if exitAfter {
-		return
-	}
-
-	fmt.Println()
-	runInteractive(api, model, cfg)
-}
-
-func isPipedInput() bool {
-	stat, _ := os.Stdin.Stat()
-	return (stat.Mode() & os.ModeCharDevice) == 0
+	return fullResponse.String()
 }
 
 func init() {
