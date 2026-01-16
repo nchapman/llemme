@@ -7,10 +7,10 @@ Building blocks from foundation to features. Each phase builds on the previous.
 ## Phase 1: Foundation
 
 ### 1.1 Project Setup
-- [ ] Initialize Go module (`go mod init github.com/nchapman/gollama`)
-- [ ] Set up Cobra CLI skeleton with root command
-- [ ] Add `version` command (just gollama version for now)
-- [ ] Set up basic project structure:
+- [x] Initialize Go module (`go mod init github.com/nchapman/gollama`)
+- [x] Set up Cobra CLI skeleton with root command
+- [x] Add `version` command (just gollama version for now)
+- [x] Set up basic project structure:
   ```
   cmd/
     root.go
@@ -24,15 +24,15 @@ Building blocks from foundation to features. Each phase builds on the previous.
   ```
 
 ### 1.2 Configuration & Paths
-- [ ] Define paths: `~/.gollama/`, `models/`, `bin/`
-- [ ] Create config struct and YAML parsing
-- [ ] Auto-create directories on first run
-- [ ] Load config with defaults → file → env var precedence
+- [x] Define paths: `~/.gollama/`, `models/`, `bin/`
+- [x] Create config struct and YAML parsing
+- [x] Auto-create directories on first run
+- [x] Load config with defaults → file → env var precedence
 
 ### 1.3 Pretty Output Foundation
-- [ ] Add Lip Gloss styles (errors, success, headers, tables)
-- [ ] Add Log for debug/verbose output
-- [ ] Create reusable UI components (spinner, progress bar wrappers)
+- [x] Add Lip Gloss styles (errors, success, headers, tables)
+- [x] Add Log for debug/verbose output
+- [x] Create reusable UI components (spinner, progress bar wrappers)
 
 **Checkpoint:** `gollama version` works with styled output
 
@@ -41,26 +41,23 @@ Building blocks from foundation to features. Each phase builds on the previous.
 ## Phase 2: Hugging Face Integration
 
 ### 2.1 HF API Client
-- [ ] HTTP client with proper User-Agent
-- [ ] Token discovery (env → file → config)
-- [ ] Rate limiting / retry logic
-- [ ] API methods:
-  - [ ] `GetModel(repo)` - fetch model metadata
-  - [ ] `ListFiles(repo)` - get repo file tree
-  - [ ] `SearchModels(query)` - search with GGUF filter
+- [x] HTTP client with proper User-Agent
+- [x] Token discovery (env → file → config)
+- [x] Rate limiting / retry logic
+- [x] API methods:
+  - [x] `GetModel(repo)` - fetch model metadata
+  - [x] `ListFiles(repo)` - get repo file tree
+  - [x] `SearchModels(query)` - search with GGUF filter
 
 ### 2.2 GGUF Detection
-- [ ] Parse filenames to extract quantization (Q4_K_M, Q8_0, etc.)
-- [ ] Handle naming variations (`model.Q4_K_M.gguf`, `model-q4_k_m.gguf`, etc.)
-- [ ] Rank quantizations by preference (Q4_K_M > Q4_K_S > Q5_K_M > ...)
-- [ ] Auto-select best quant when not specified
+- [x] Parse filenames to extract quantization (Q4_K_M, Q8_0, etc.)
+- [x] Handle naming variations (`model.Q4_K_M.gguf`, `model-q4_k_m.gguf`, etc.)
+- [x] Rank quantizations by preference (Q4_K_M > Q4_K_S > Q5_K_M > ...)
+- [x] Auto-select best quant when not specified
 
 ### 2.3 Model Downloads
-- [ ] Streaming download with progress callback
-- [ ] Resume support via HTTP Range headers
-- [ ] SHA256 verification (HF provides hashes)
-- [ ] Atomic writes (download to `.partial`, rename on complete)
-- [ ] Clean up partial files on interrupt
+- [x] Streaming download with resume support via HTTP Range headers
+- [x] Atomic writes (download to `.partial`, rename on complete)
 
 **Checkpoint:** Can fetch model info and download files from HF
 
@@ -69,84 +66,165 @@ Building blocks from foundation to features. Each phase builds on the previous.
 ## Phase 3: Model Management
 
 ### 3.1 Local Model Storage
-- [ ] Human-friendly directory structure (`models/user/repo/quant.gguf`)
+- [x] Human-friendly directory structure (`models/user/repo/quant.gguf`)
 - [ ] `metadata.json` schema and read/write
 - [ ] Track: repo, quants downloaded, file sizes, SHA256, fetch date
 
 ### 3.2 `pull` Command
-- [ ] Parse model reference (`user/repo` or `user/repo:quant`)
-- [ ] Check if already downloaded
-- [ ] Show progress with Bubbles progress bar
-- [ ] Write metadata on success
-- [ ] Pretty error messages (auth required, not found, no GGUF files)
+- [x] Parse model reference (`user/repo` or `user/repo:quant`)
+- [x] Check if already downloaded
+- [x] Show download progress
+- [x] Pretty error messages (auth required, not found, no GGUF files)
 
 ### 3.3 `list` Command
-- [ ] Scan models directory
-- [ ] Display table: model, quant, size, modified date
-- [ ] Show total count and disk usage
+- [x] Scan models directory
+- [x] Display table: model, quant, size, modified date
+- [x] Show total count and disk usage
 
 ### 3.4 `rm` Command
-- [ ] Delete model files and metadata
-- [ ] Support removing specific quant or entire repo
-- [ ] Confirmation prompt (Huh)
+- [x] Delete model files and metadata
+- [x] Support removing specific quant or entire repo
+- [x] Confirmation prompt (Huh)
 
 **Checkpoint:** `pull`, `list`, `rm` all working
 
 ---
 
-## Phase 4: llama.cpp Integration
+## Phase 4: llama.cpp Binary Management
 
 ### 4.1 Binary Management
-- [ ] Detect platform (darwin/linux, amd64/arm64)
-- [ ] Map to llama.cpp release asset names
-- [ ] Download binary from GitHub releases
-- [ ] Extract and set executable permissions
-- [ ] Store version in `bin/version.json`
+- [x] Detect platform (darwin/linux, amd64/arm64)
+- [x] Map to llama.cpp release asset names
+- [x] Download binary from GitHub releases
+- [x] Extract binaries and dylibs from tarball
+- [x] Set executable permissions
+- [x] Store version in `bin/version.json`
 
 ### 4.2 `update` Command
-- [ ] Check GitHub API for latest release
-- [ ] Compare with installed version
-- [ ] Download and replace if newer
+- [x] Check GitHub API for latest release
+- [x] Compare with installed version
+- [x] Download and replace if newer
 - [ ] Support `--version` flag to pin specific build
 
 ### 4.3 Version Display
-- [ ] Update `version` command to show llama.cpp version
-- [ ] Show backend type (Metal/CPU)
-- [ ] Show paths (models, binary)
+- [x] Update `version` command to show llama.cpp version
+- [x] Show backend type (Metal/CPU)
+- [x] Show paths (models, binary)
 
 **Checkpoint:** llama.cpp auto-downloads, `update` works
 
 ---
 
-## Phase 5: Inference
+## Phase 5: Server Management (SINGLE BACKEND)
 
-### 5.1 Basic `run` Command
-- [ ] Resolve model reference to GGUF path
-- [ ] Spawn `llama-cli` subprocess
-- [ ] Pass through flags (-c, -n, --temp, etc.)
-- [ ] Stream stdout to terminal
-- [ ] Handle process exit codes
+**Architecture Note:** All inference goes through `llama-server`. Server is single source of truth.
 
-### 5.2 Interactive Mode
-- [ ] Detect TTY vs piped input
-- [ ] Chat loop with Bubbles text input
-- [ ] Display model info header
-- [ ] Stream tokens as they arrive
-- [ ] Handle Ctrl+C gracefully (stop generation, don't exit)
-- [ ] `/bye` or Ctrl+D to exit
+### 5.1 Server Process Management
+- [ ] Start llama-server subprocess with model flag
+- [ ] Store PID in `~/.gollama/server.pid`
+- [ ] Store current model in `~/.gollama/server-state.json`
+- [ ] Check PID before starting (avoid duplicate servers)
+- [ ] Send SIGTERM for graceful shutdown
+- [ ] Clean up PID file on exit
+- [ ] Handle server crashes gracefully
 
-### 5.3 One-Shot Mode
-- [ ] Detect prompt argument or piped input
-- [ ] Run inference, print result
-- [ ] Exit after completion (piped) or stay interactive (prompt arg)
+### 5.2 Server Configuration
+- [ ] Map config.yaml settings to llama-server flags:
+  - `--host`, `--port`
+  - `--ctx-size`, `--temp`, `--top-p`, `--top-k`
+  - `--n-gpu-layers`, `--threads`
+- [ ] Parse server logs for startup success/failure
+- [ ] Extract server URL from config
 
-**Checkpoint:** `gollama run user/repo` works interactively
+### 5.3 Server Status Tracking
+- [ ] `server-state.json` schema:
+  ```json
+  {
+    "pid": 12345,
+    "model": "TheBloke/Llama-2-7B-GGUF:Q4_K_M",
+    "model_path": "/Users/.../Q4_K_M.gguf",
+    "host": "127.0.0.1",
+    "port": 8080,
+    "started_at": "2024-01-15T12:00:00Z"
+  }
+  ```
+- [ ] Write state on successful server start
+- [ ] Read state to check current model
+- [ ] Clean state on server stop
+
+### 5.4 `serve` Command
+- [ ] Start server (optionally with initial model)
+- [ ] Pretty startup message with endpoints
+- [ ] Show logs (or forward to file)
+- [ ] Handle Ctrl+C gracefully (stop server)
+- [ ] Support `--detach` flag for background mode
+
+**Checkpoint:** Server starts/stops cleanly, state tracked
 
 ---
 
-## Phase 6: Smart Matching
+## Phase 6: Inference via HTTP API
 
-### 6.1 Model Matcher
+### 6.1 HTTP Client for Server API
+- [ ] Create client for llama-server API
+- [ ] Implement request builders:
+  - Chat completion (OpenAI-compatible)
+  - Completion (Ollama-style)
+- [ ] Handle streaming responses
+- [ ] Parse generation results
+
+### 6.2 `run` Command (Server Mode)
+- [ ] Check if server is running (read PID file)
+- [ ] If server not running or wrong model:
+  - Stop existing server (if running)
+  - Start server with requested model
+  - Wait for server to be ready
+- [ ] Send completion request via HTTP
+- [ ] Stream tokens to terminal
+- [ ] Detect TTY vs piped input
+- [ ] Chat loop: read input, send to API, display response
+- [ ] Handle Ctrl+C (stop generation, stay in chat)
+- [ ] `/bye` or Ctrl+D to exit
+
+### 6.3 One-Shot Mode
+- [ ] Detect prompt argument or piped input
+- [ ] Send completion request
+- [ ] Print result
+- [ ] Exit after completion (piped) or stay interactive (prompt arg)
+
+### 6.4 Inference Parameters
+- [ ] Pass flags to completion API:
+  - `--ctx`, `-n`, `--temp`
+  - `--top-p`, `--top-k`
+  - `--repeat-penalty`
+  - `--system` prompt
+- [ ] Merge with config.yaml defaults
+
+**Checkpoint:** `gollama run user/repo` works via HTTP API
+
+---
+
+## Phase 7: Server Operations
+
+### 7.1 `ps` Command
+- [ ] Check server state file
+- [ ] If server not running, show "Server not running"
+- [ ] Display current model, uptime, endpoint
+- [ ] Pretty table format
+
+### 7.2 `stop` Command
+- [ ] Stop server: read PID, send SIGTERM
+- [ ] Clean up state files
+- [ ] Show confirmation message
+- [ ] Support stopping specific model vs entire server
+
+**Checkpoint:** `ps` and `stop` work
+
+---
+
+## Phase 8: Smart Matching
+
+### 8.1 Model Matcher
 - [ ] Build index of downloaded models
 - [ ] Implement matching priority:
   1. Exact match
@@ -154,7 +232,7 @@ Building blocks from foundation to features. Each phase builds on the previous.
   3. Contains (case-insensitive)
   4. Fuzzy (Levenshtein distance)
 
-### 6.2 Suggestions
+### 8.2 Suggestions
 - [ ] "Did you mean?" for close typos
 - [ ] "Multiple matches" with list
 - [ ] Apply to: `run`, `stop`, `rm`, `info`
@@ -163,15 +241,15 @@ Building blocks from foundation to features. Each phase builds on the previous.
 
 ---
 
-## Phase 7: Discovery
+## Phase 9: Discovery
 
-### 7.1 `search` Command
+### 9.1 `search` Command
 - [ ] Query HF API for GGUF models
 - [ ] Display results table (repo, downloads, updated)
 - [ ] Client-side filter for actual GGUF files (API filter unreliable)
 - [ ] Pagination or limit results
 
-### 7.2 `info` Command
+### 9.2 `info` Command
 - [ ] Fetch and display model details
 - [ ] Show available quantizations with sizes
 - [ ] Show which quants are downloaded locally
@@ -181,53 +259,26 @@ Building blocks from foundation to features. Each phase builds on the previous.
 
 ---
 
-## Phase 8: Server Mode
+## Phase 10: Polish
 
-### 8.1 `serve` Command
-- [ ] Spawn `llama-server` subprocess
-- [ ] Configure host/port from flags or config
-- [ ] Pretty startup message with endpoints
-- [ ] Forward logs to file and optionally terminal
-- [ ] Graceful shutdown on Ctrl+C
-
-### 8.2 Model Loading
-- [ ] Load model on first request (lazy)
-- [ ] Track loaded models and memory usage
-- [ ] Unload models on timeout or memory pressure
-
-### 8.3 `ps` Command
-- [ ] Query server for loaded models
-- [ ] Display table: model, quant, VRAM, load time
-
-### 8.4 `stop` Command
-- [ ] Send unload request to server
-- [ ] Support smart matching for model name
-- [ ] Confirm unload success
-
-**Checkpoint:** Full server mode with `serve`, `ps`, `stop`
-
----
-
-## Phase 9: Polish
-
-### 9.1 Error Handling
+### 10.1 Error Handling
 - [ ] Actionable error messages for common failures
-- [ ] llama.cpp crash handling (OOM, etc.)
+- [ ] Server crash handling (OOM, etc.)
 - [ ] Network errors with retry suggestions
 - [ ] Auth errors with setup instructions
 
-### 9.2 Signal Handling
+### 10.2 Signal Handling
 - [ ] Ctrl+C during download → clean up partial files
 - [ ] Ctrl+C during inference → stop generation gracefully
-- [ ] Ctrl+C in chat → exit cleanly with message
+- [ ] Ctrl+C in chat → exit cleanly
 
-### 9.3 Edge Cases
+### 10.3 Edge Cases
 - [ ] Split GGUF files (multi-part models)
 - [ ] Disk space check before download
 - [ ] Handle missing/corrupted metadata
 - [ ] Concurrent access (multiple gollama processes)
 
-### 9.4 Testing
+### 10.4 Testing
 - [ ] Unit tests for HF client, matcher, config
 - [ ] Integration tests for commands
 - [ ] Test on macOS (Intel + Apple Silicon)
@@ -235,15 +286,15 @@ Building blocks from foundation to features. Each phase builds on the previous.
 
 ---
 
-## Phase 10: Release
+## Phase 11: Release
 
-### 10.1 Distribution
+### 11.1 Distribution
 - [ ] GoReleaser config for cross-compilation
 - [ ] Homebrew formula
 - [ ] GitHub releases with binaries
 - [ ] Install script (`curl | sh`)
 
-### 10.2 Documentation
+### 11.2 Documentation
 - [ ] README with quick start
 - [ ] Examples for common workflows
 - [ ] Troubleshooting guide
@@ -270,10 +321,10 @@ gopkg.in/yaml.v3                    # Config parsing
 1. **Foundation first** — Can't do anything without config and pretty output
 2. **HF before models** — Need API to know what to download
 3. **Storage before run** — Need models on disk before inference
-4. **llama.cpp before run** — Need the binary to execute
-5. **Basic run before smart** — Get it working, then make it clever
-6. **Discovery is independent** — Can parallelize with Phase 5-6
-7. **Server after run** — Similar patterns, more complexity
+4. **llama.cpp before run** — Need binary to execute
+5. **Server before inference** — All inference goes through server
+6. **Basic run before smart** — Get it working, then make it clever
+7. **Discovery is independent** — Can parallelize with Phase 5-8
 8. **Polish last** — Know what edge cases exist from building
 
 Each phase produces a working (if incomplete) tool. Ship early, iterate.

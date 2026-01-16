@@ -1,6 +1,6 @@
 # Gollama - MVP Specification
 
-A beautiful Go CLI wrapper around llama.cpp that brings the simplicity of Ollama with direct Hugging Face integration.
+A beautiful Go CLI wrapper around llama.cpp that brings simplicity of Ollama with direct Hugging Face integration.
 
 ## Vision
 
@@ -14,26 +14,46 @@ Gollama makes running local LLMs effortless. Point it at any GGUF model on Huggi
 4. **Transparent** - Uses llama.cpp directly, no hidden abstraction layers
 5. **Lightweight** - Minimal dependencies, fast startup
 
+## Architecture
+
+**Single Backend Approach:** All Gollama commands interact with `llama-server` via HTTP API. The server is the single source of truth for model state, inference, and resource management.
+
+**How it works:**
+- `run` ensures server is running, then makes HTTP requests for completions
+- `serve` starts the server and keeps it running
+- `ps` queries server API for loaded models
+- `stop` tells server to unload models or shutdown
+- All inference goes through the same server process
+
+**Why server-only:**
+- Unified model loading and state management
+- Easy concurrent requests later
+- Simpler process management (single server process)
+- Better observability (centralized logs and metrics)
+- Matches Ollama's architecture
+
 ## MVP Features
 
 ### Commands
 
 ```
-gollama run <user/repo>          # Interactive chat (or one-shot with prompt)
-gollama serve                    # Start the API server
-gollama pull <user/repo>         # Download a model without running
-gollama list                     # List downloaded models
-gollama ps                       # Show models loaded in server
-gollama stop <user/repo>         # Unload a model from server
-gollama rm <user/repo>           # Remove a downloaded model
-gollama update                   # Update llama.cpp to latest release
-gollama version                  # Show gollama + llama.cpp versions
+gollama run <user/repo>[:quant]   # Interactive chat or one-shot inference
+gollama serve                       # Start llama.cpp server
+gollama pull <user/repo>[:quant]    # Download a model without running
+gollama list                         # List downloaded models
+gollama ps                           # Show models loaded in server
+gollama stop <user/repo>[:quant]    # Unload model from server
+gollama rm <user/repo>[:quant]      # Remove a downloaded model
+gollama search <query>               # Search Hugging Face for GGUF models
+gollama info <user/repo>             # Show model details
+gollama update                       # Update llama.cpp to latest release
+gollama version                      # Show gollama + llama.cpp versions
 ```
 
 **`run` behavior** (matches Ollama):
 ```
 gollama run user/repo              # Interactive chat session
-gollama run user/repo "prompt"     # One-shot: print response, then interactive
+gollama run user/repo "prompt"     # One-shot: print response, then stay in chat
 echo "prompt" | gollama run ...    # Piped: print response and exit
 ```
 
@@ -88,13 +108,6 @@ gollama run TheBloke/Llama-2-7B-GGUF:Q8_0
 
 If no quantization is specified, Gollama picks the best available (preferring Q4_K_M).
 
-### Model Discovery
-
-```
-gollama search llama           # Search Hugging Face for GGUF models
-gollama info <user/repo>       # Show model details and available quantizations
-```
-
 ## Technical Architecture
 
 ### Directory Structure
@@ -109,11 +122,12 @@ gollama info <user/repo>       # Show model details and available quantizations
 │           ├── Q4_K_M.gguf              # Actual model file, named by quantization
 │           ├── Q8_0.gguf                # Multiple quants can coexist
 │           └── metadata.json            # Repo info, available quants, etc.
-├── blobs/
-│   └── sha256-a1b2c3d4...               # Content-addressed storage for deduplication
 ├── bin/
-│   └── llama-cli                        # llama.cpp binary (auto-managed)
-└── config.yaml                          # User configuration
+│   ├── llama-server.bin                # llama.cpp server binary (auto-managed)
+│   ├── *.dylib                       # Dynamic libraries (macOS)
+│   └── version.json                  # Installed llama.cpp version
+├── server.pid                       # Server process ID (when running)
+└── config.yaml                      # User configuration
 ```
 
 **Why this structure:**
@@ -123,14 +137,6 @@ gollama info <user/repo>       # Show model details and available quantizations
 | `~/.ollama/models/manifests/...` | `~/.gollama/models/TheBloke/Llama-2-7B-GGUF/` | Browsable with standard tools |
 | `~/.ollama/blobs/sha256-abc123` | `~/.gollama/models/.../Q4_K_M.gguf` | Filename tells you the quantization |
 | Requires `ollama list` to understand | `ls` or Finder works fine | No CLI required to explore |
-
-**Blob storage (optional deduplication):**
-
-The `blobs/` directory is for advanced cases where the same GGUF file appears in multiple repos (rare but possible). The model files in `models/` are either:
-- Direct files (default, simple case)
-- Symlinks to `blobs/sha256-xxx` (when deduplication is detected)
-
-This keeps the common case simple while still allowing space savings for power users with many models.
 
 **Example: What `ls -la` looks like:**
 
@@ -155,7 +161,7 @@ metadata.json
 ### Dependencies
 
 **Runtime:**
-- llama.cpp CLI binary (auto-downloaded on first run)
+- llama.cpp server binary (auto-downloaded on first run)
 
 **Go Libraries:**
 - `github.com/charmbracelet/bubbletea` - TUI framework
@@ -213,46 +219,55 @@ Authorization: Bearer hf_xxxxxxxxxxxxx
 - Track installed version in `~/.gollama/bin/version.json`
 - `gollama update` fetches latest release from GitHub
 
-**Version Strategy:**
-- Pin to known-good releases by default (tested compatibility)
-- `gollama update` moves to latest stable release
-- `gollama update --version b4567` pins to specific build
-- Store version info for reproducibility
+**Server Mode (Single Backend):**
 
-**Execution:**
-- Spawn `llama-cli` as subprocess for `run` command
-- Stream stdout/stderr to terminal with pretty formatting
-- Pass through common flags: `-c`, `-n`, `--temp`, etc.
+All inference goes through `llama-server`. Gollama manages the server lifecycle:
 
-### Server Mode
+- Start server on-demand when needed
+- Keep server running for subsequent requests
+- Gracefully shutdown when idle or on explicit stop
+- Server exposes OpenAI-compatible HTTP API
+- Models loaded/unloaded via API calls
 
-Gollama wraps `llama-server` (included in llama.cpp releases) to provide an OpenAI-compatible API.
-
-**Starting the server:**
-```
-gollama serve                           # Start on default port 8080
-gollama serve --port 11434              # Custom port (Ollama-compatible)
-gollama serve --host 0.0.0.0            # Listen on all interfaces
+**Server Start:**
+```bash
+llama-server --host 127.0.0.1 --port 8080 --model /path/to/model.gguf
 ```
 
-**API Compatibility:**
-- Exposes OpenAI-compatible `/v1/chat/completions` endpoint
-- Also exposes `/api/generate` and `/api/chat` (Ollama-style)
-- Models loaded on-demand when first requested
+**Server API:**
+- OpenAI-compatible `/v1/chat/completions`
+- Ollama-style `/api/chat` and `/api/generate`
+- `/health` endpoint for status checks
 
-**Model management with running server:**
-```
-gollama ps                              # List loaded models
-gollama stop TheBloke/Llama-2-7B-GGUF   # Unload model from memory
-```
+**Process Management:**
+- Store PID in `~/.gollama/server.pid`
+- Check PID before starting (avoid duplicate servers)
+- Send SIGTERM for graceful shutdown
+- Clean up PID file on exit
+
+### Server Configuration
 
 **Server config in `~/.gollama/config.yaml`:**
 ```yaml
 server:
   host: "127.0.0.1"
   port: 8080
-  # Models to preload on server start (optional)
-  preload: []
+  # Context length for all requests
+  ctx_len: 4096
+  # Default generation parameters
+  temperature: 0.7
+  top_p: 0.9
+  top_k: 40
+  repeat_penalty: 1.1
+  # GPU layers to offload (-1 = all)
+  gpu_layers: -1
+  # CPU threads (0 = auto)
+  threads: 0
+```
+
+**CLI flags override config:**
+```
+gollama run user/repo --temp 0.5 --ctx 8192
 ```
 
 ## User Experience
@@ -262,12 +277,14 @@ server:
 ```
 Pulling TheBloke/Llama-2-7B-GGUF:Q4_K_M
 
-  ████████████████████░░░░░░░░░░  68% │ 2.8 GB / 4.1 GB │ 45 MB/s │ ETA 30s
+  Model info:
+    • Size: 4.1 GB
 
-Model info:
-  • Parameters: 7B
-  • Quantization: Q4_K_M (4.1 GB)
-  • License: META LLAMA 2
+  Downloading...
+
+  ████████████████████░░░░░░░░░  68% │ 2.8 GB / 4.1 GB │ 45 MB/s │ ETA 30s
+
+✓ Pulled TheBloke/Llama-2-7B-GGUF:Q4_K_M successfully!
 ```
 
 ### Interactive Mode
@@ -302,22 +319,6 @@ Downloaded Models
 Total: 3 models, 13.4 GB
 ```
 
-### Search Results
-
-```
-gollama search codellama
-
-Found 24 GGUF models for "codellama"
-
-  REPOSITORY                              DOWNLOADS    UPDATED
-  TheBloke/CodeLlama-7B-GGUF              125.4k       Oct 2024
-  TheBloke/CodeLlama-13B-GGUF             89.2k        Oct 2024
-  TheBloke/CodeLlama-34B-GGUF             45.1k        Oct 2024
-  ...
-
-Use 'gollama info <repo>' for details
-```
-
 ### Server & Process Management
 
 ```
@@ -329,26 +330,34 @@ Server started on http://127.0.0.1:8080
     • OpenAI:  /v1/chat/completions
     • Ollama:  /api/chat, /api/generate
 
-  Logs: ~/.gollama/server.log
-
 Press Ctrl+C to stop
 ```
 
 ```
 gollama ps
 
+Server Status
+
+  • Running on http://127.0.0.1:8080
+
 Loaded Models
 
-  MODEL                           QUANT     SIZE      VRAM      LOADED
+  MODEL                           QUANT     SIZE      MEMORY    LOADED
   TheBloke/Llama-2-7B-GGUF        Q4_K_M    4.1 GB    3.8 GB    2 min ago
 
-Total: 1 model, 3.8 GB VRAM used
+Total: 1 model, 3.8 GB memory used
 ```
 
 ```
 gollama stop TheBloke/Llama-2-7B-GGUF
 
-Unloaded TheBloke/Llama-2-7B-GGUF
+✓ Unloaded TheBloke/Llama-2-7B-GGUF from server
+```
+
+```
+gollama stop
+
+✓ Server stopped
 ```
 
 ### Version Info
@@ -357,11 +366,11 @@ Unloaded TheBloke/Llama-2-7B-GGUF
 gollama version
 
 Gollama v0.1.0 (darwin/arm64)
-llama.cpp b3847 (Metal)
+llama.cpp b7751 (Metal)
 
 Paths:
   Models:    ~/.gollama/models/
-  llama.cpp: ~/.gollama/bin/llama-cli
+  Server:    ~/.gollama/bin/llama-server.bin
 ```
 
 On Linux:
@@ -369,11 +378,11 @@ On Linux:
 gollama version
 
 Gollama v0.1.0 (linux/amd64)
-llama.cpp b3847 (CPU)
+llama.cpp b7751 (CPU)
 
 Paths:
   Models:    ~/.gollama/models/
-  llama.cpp: ~/.gollama/bin/llama-cli
+  Server:    ~/.gollama/bin/llama-server.bin
 ```
 
 ### Updating llama.cpp
@@ -384,19 +393,21 @@ gollama update
 Checking for updates...
 
   Current: b3847
-  Latest:  b3912
+  Latest:  b7751
 
-Downloading llama.cpp b3912 for darwin/arm64...
+Update llama.cpp from b3847 to b7751? [y/N] y
 
-  ████████████████████████████████  100% │ 48 MB │ Done
+Downloading llama.cpp b7751 for darwin/arm64...
 
-Updated successfully!
+Extracting...
+
+✓ Updated successfully to b7751!
 ```
 
 ```
 gollama update
 
-llama.cpp is already up to date (b3912)
+llama.cpp is already up to date (b7751)
 ```
 
 ## Configuration
@@ -404,20 +415,22 @@ llama.cpp is already up to date (b3912)
 **~/.gollama/config.yaml:**
 
 ```yaml
-# Default context length
+# Server configuration
+server:
+  host: "127.0.0.1"
+  port: 8080
+
+# Default inference parameters
 context_length: 4096
-
-# Default temperature
 temperature: 0.7
+top_p: 0.9
+top_k: 40
+repeat_penalty: 1.1
 
-# Preferred quantization (when not specified)
+# Model configuration
 default_quant: Q4_K_M
-
-# GPU layers to offload (-1 = all)
 gpu_layers: -1
-
-# Custom llama.cpp path (optional)
-llama_path: ""
+threads: 0
 
 # Hugging Face token (fallback - prefers HF_TOKEN env var or ~/.cache/huggingface/token)
 hf_token: ""
@@ -436,15 +449,23 @@ hf_token: ""
 ### Run/Chat Flags
 
 ```
--c, --ctx <n>       Context length (default: 4096)
+-c, --ctx <n>       Context length (default: from config, 4096)
 -n, --predict <n>   Max tokens to generate (default: -1, infinite)
--t, --temp <f>      Temperature (default: 0.7)
---top-p <f>         Top-p sampling (default: 0.9)
---top-k <n>         Top-k sampling (default: 40)
---repeat-penalty    Repeat penalty (default: 1.1)
+-t, --temp <f>      Temperature (default: from config, 0.7)
+--top-p <f>         Top-p sampling (default: from config, 0.9)
+--top-k <n>         Top-k sampling (default: from config, 40)
+--repeat-penalty    Repeat penalty (default: from config, 1.1)
 --gpu-layers <n>    Layers to offload to GPU (-1 = all)
---threads <n>       CPU threads to use
+--threads <n>       CPU threads to use (default: auto)
 --system <prompt>   System prompt
+```
+
+### Server Flags
+
+```
+--host <addr>       Server host (default: 127.0.0.1)
+--port <n>          Server port (default: 8080)
+--detach            Run server in background (don't keep terminal open)
 ```
 
 ## Error Handling
@@ -486,16 +507,25 @@ Error: Authentication required
        Or set: export HF_TOKEN=hf_xxxxx
 ```
 
+```
+Error: Server not running
+
+  The llama.cpp server is not running.
+
+  Start it with: gollama serve
+  Or use: gollama run <model> (will auto-start server)
+```
+
 ## MVP Scope
 
 ### In Scope (v0.1)
 
-- [x] `run` - Interactive chat / one-shot inference
-- [x] `serve` - Start API server (wraps llama-server)
+- [x] `run` - Interactive chat / one-shot inference (via HTTP API)
+- [x] `serve` - Start llama.cpp server
 - [x] `pull` - Download model
 - [x] `list` - List local models
-- [x] `ps` - Show models loaded in server
-- [x] `stop` - Unload model from server
+- [x] `ps` - Show server status and loaded models
+- [x] `stop` - Unload model or stop server
 - [x] `rm` - Remove model
 - [x] `search` - Search Hugging Face
 - [x] `info` - Show model details
@@ -504,6 +534,7 @@ Error: Authentication required
 - [x] Auto-download llama.cpp binary on first run
 - [x] Progress bars for downloads
 - [x] Basic configuration file
+- [x] Server-mode inference (single backend)
 - [x] macOS support (Intel + Apple Silicon with Metal)
 - [x] Linux support (x86_64 + arm64, CPU)
 
@@ -529,11 +560,12 @@ Error: Authentication required
 
 1. **llama.cpp version pinning** - Pin to specific release or track latest?
 2. **Model naming collisions** - How to handle `user/repo` that matches multiple quantizations?
-3. **Streaming** - Real-time token streaming vs buffered output?
+3. **Server auto-start** - Always auto-start server on `run`, or require explicit `serve`?
 
 ## References
 
 - [llama.cpp](https://github.com/ggerganov/llama.cpp)
+- [llama.cpp Server](https://github.com/ggerganov/llama.cpp/tree/master/examples/server)
 - [Hugging Face Hub API](https://huggingface.co/docs/hub/api)
 - [Hugging Face Environment Variables](https://huggingface.co/docs/huggingface_hub/en/package_reference/environment_variables)
 - [Ollama](https://github.com/ollama/ollama)
