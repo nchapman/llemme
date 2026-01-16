@@ -343,7 +343,7 @@ func runChat(api *server.APIClient, model, initialPrompt string, cfg *config.Con
 	// Add system prompt (use default if not specified)
 	sysPrompt := systemPrompt
 	if sysPrompt == "" {
-		sysPrompt = "You are a helpful assistant. Respond directly and conversationally to the user."
+		sysPrompt = "You are a helpful assistant."
 	}
 	messages = append(messages, server.ChatMessage{Role: "system", Content: sysPrompt})
 

@@ -224,7 +224,13 @@ func (m *ModelManager) StopBackend(modelName string) error {
 	defer m.mu.Unlock()
 
 	backend.SetStatus(BackendStopped)
-	close(backend.ReadyChan)
+	// Only close ReadyChan if not already closed (it's closed when backend becomes ready)
+	select {
+	case <-backend.ReadyChan:
+		// Already closed
+	default:
+		close(backend.ReadyChan)
+	}
 	m.portAllocator.Release(backend.Port)
 	delete(m.backends, modelName)
 	m.removeLRU(modelName)
