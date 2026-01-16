@@ -169,7 +169,7 @@ func runInteractive(api *server.APIClient, model string, cfg *config.Config) {
 		spinner.Start("Thinking...")
 		spinnerStarted := true
 
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 
 		if err := api.StreamChatCompletion(req, func(content string) {
 			if spinnerStarted {
