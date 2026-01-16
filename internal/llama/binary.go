@@ -119,7 +119,11 @@ func DownloadBinary(downloadURL, destPath string, progress func(int64, int64)) e
 
 	req.Header.Set("User-Agent", "gollama/0.1.0")
 
-	client := &http.Client{Timeout: 0}
+	// Use transport timeouts for connection setup, but no overall timeout for large downloads
+	transport := &http.Transport{
+		ResponseHeaderTimeout: 30 * time.Second,
+	}
+	client := &http.Client{Transport: transport}
 	resp, err := client.Do(req)
 	if err != nil {
 		return err

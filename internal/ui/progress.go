@@ -18,9 +18,15 @@ type progressModel struct {
 }
 
 type progressTickMsg struct{}
+type progressUpdateMsg struct {
+	downloaded int64
+}
+type progressFinishMsg struct {
+	message string
+}
 
 func tickProgress() tea.Cmd {
-	return tea.Tick(time.Second*100, func(t time.Time) tea.Msg {
+	return tea.Tick(time.Millisecond*100, func(t time.Time) tea.Msg {
 		return progressTickMsg{}
 	})
 }
@@ -41,7 +47,7 @@ func initialProgressModel(message string, total int64) progressModel {
 }
 
 func (m progressModel) Init() tea.Cmd {
-	return nil
+	return tickProgress()
 }
 
 func (m progressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -51,6 +57,13 @@ func (m progressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "ctrl+c":
 			return m, tea.Quit
 		}
+	case progressUpdateMsg:
+		m.downloaded = msg.downloaded
+		return m, nil
+	case progressFinishMsg:
+		m.done = true
+		m.message = msg.message
+		return m, tea.Quit
 	case progressTickMsg:
 		if m.done {
 			return m, tea.Quit
@@ -94,19 +107,15 @@ func FormatBytes(b int64) string {
 }
 
 type ProgressBar struct {
-	model   *progressModel
 	program *tea.Program
 }
 
 func NewProgressBar(message string, total int64) *ProgressBar {
-	return &ProgressBar{
-		model: &progressModel{},
-	}
+	return &ProgressBar{}
 }
 
 func (p *ProgressBar) Start(message string, total int64) {
 	m := initialProgressModel(message, total)
-	p.model = &m
 	p.program = tea.NewProgram(m)
 	go func() {
 		p.program.Run()
@@ -114,16 +123,14 @@ func (p *ProgressBar) Start(message string, total int64) {
 }
 
 func (p *ProgressBar) Update(downloaded int64) {
-	if p.model != nil {
-		p.model.downloaded = downloaded
+	if p.program != nil {
+		p.program.Send(progressUpdateMsg{downloaded: downloaded})
 	}
 }
 
 func (p *ProgressBar) Finish(message string) {
 	if p.program != nil {
-		p.model.done = true
-		p.model.message = Success(message)
-		p.program.Quit()
+		p.program.Send(progressFinishMsg{message: Success(message)})
 	}
 }
 

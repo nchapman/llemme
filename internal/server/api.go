@@ -151,6 +151,9 @@ func (api *APIClient) StreamChatCompletion(req *ChatCompletionRequest, callback 
 	}
 
 	scanner := bufio.NewScanner(resp.Body)
+	parseErrors := 0
+	var lastParseErr error
+
 	for scanner.Scan() {
 		line := scanner.Text()
 
@@ -163,6 +166,8 @@ func (api *APIClient) StreamChatCompletion(req *ChatCompletionRequest, callback 
 
 			var chunk StreamChunk
 			if err := json.Unmarshal([]byte(jsonData), &chunk); err != nil {
+				parseErrors++
+				lastParseErr = err
 				continue
 			}
 
@@ -177,6 +182,10 @@ func (api *APIClient) StreamChatCompletion(req *ChatCompletionRequest, callback 
 
 	if err := scanner.Err(); err != nil {
 		return err
+	}
+
+	if parseErrors > 10 {
+		return fmt.Errorf("stream had %d JSON parse errors, last: %w", parseErrors, lastParseErr)
 	}
 
 	return nil

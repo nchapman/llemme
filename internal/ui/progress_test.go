@@ -119,37 +119,17 @@ func TestNewProgressBar(t *testing.T) {
 		t.Fatal("NewProgressBar() returned nil")
 	}
 
-	if bar.model == nil {
-		t.Error("bar.model is nil")
-	}
-
 	if bar.program != nil {
 		t.Error("bar.program should be nil before Start()")
 	}
 }
 
-func TestProgressBarUpdate(t *testing.T) {
+func TestProgressBarUpdateNilProgram(t *testing.T) {
 	bar := NewProgressBar("test", 1000)
 
+	// Update should not panic when program is nil (before Start is called)
 	bar.Update(500)
-
-	if bar.model.downloaded != 500 {
-		t.Errorf("bar.model.downloaded = %v, want 500", bar.model.downloaded)
-	}
-
 	bar.Update(1000)
-
-	if bar.model.downloaded != 1000 {
-		t.Errorf("bar.model.downloaded = %v, want 1000", bar.model.downloaded)
-	}
-}
-
-func TestProgressBarUpdateNilModel(t *testing.T) {
-	bar := &ProgressBar{
-		model: nil,
-	}
-
-	bar.Update(500)
 }
 
 func TestCalculateProgress(t *testing.T) {

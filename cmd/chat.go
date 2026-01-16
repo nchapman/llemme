@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -224,15 +225,17 @@ func (m chatModel) renderMessages() string {
 		return ""
 	}
 
-	result := ""
+	var sb strings.Builder
 	for _, msg := range m.messages {
-		result += msg + "\n\n"
+		sb.WriteString(msg)
+		sb.WriteString("\n\n")
 	}
 
 	if m.currentAI != "" {
 		rendered, _ := m.renderer.Render(m.currentAI)
-		result += m.aiStyle.Render("AI:\n") + rendered
+		sb.WriteString(m.aiStyle.Render("AI:\n"))
+		sb.WriteString(rendered)
 	}
 
-	return result
+	return sb.String()
 }

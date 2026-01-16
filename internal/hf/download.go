@@ -59,6 +59,7 @@ func (d *Downloader) DownloadModel(user, repo, branch, filename string, destPath
 		return nil, err
 	}
 
+	req.Header.Set("User-Agent", userAgent)
 	if d.client.token != "" {
 		req.Header.Set("Authorization", "Bearer "+d.client.token)
 	}
@@ -67,7 +68,7 @@ func (d *Downloader) DownloadModel(user, repo, branch, filename string, destPath
 		req.Header.Set("Range", fmt.Sprintf("bytes=%d-", fileSize))
 	}
 
-	resp, err := d.client.httpClient.Do(req)
+	resp, err := d.client.downloadClient.Do(req)
 	if err != nil {
 		return nil, err
 	}

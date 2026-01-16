@@ -21,8 +21,9 @@ const (
 )
 
 type Client struct {
-	httpClient *http.Client
-	token      string
+	httpClient     *http.Client
+	downloadClient *http.Client
+	token          string
 }
 
 type ModelInfo struct {
@@ -69,6 +70,11 @@ func NewClient(cfg *config.Config) *Client {
 	return &Client{
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
+		},
+		downloadClient: &http.Client{
+			Transport: &http.Transport{
+				ResponseHeaderTimeout: 30 * time.Second,
+			},
 		},
 		token: getToken(cfg),
 	}
