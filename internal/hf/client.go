@@ -57,14 +57,19 @@ type FileTree struct {
 }
 
 type SearchResult struct {
-	ModelId      string    `json:"modelId"`
+	ID           string    `json:"id"` // Full model ID: "author/repo"
 	Author       string    `json:"author"`
 	LastModified time.Time `json:"lastModified"`
 	Private      bool      `json:"private"`
 	Gated        bool      `json:"gated"`
 	Downloads    int64     `json:"downloads"`
-	LibraryName  string    `json:"library_name"`
-	Tags         []string  `json:"tags"`
+	Likes        int64     `json:"likes"`
+}
+
+// searchResponse wraps the models-json API response.
+type searchResponse struct {
+	Models        []SearchResult `json:"models"`
+	NumTotalItems int            `json:"numTotalItems"`
 }
 
 // ManifestLFS contains Git LFS metadata including the sha256 hash for verification.
@@ -194,8 +199,8 @@ func (c *Client) ListFiles(user, repo, branch string) ([]FileTree, error) {
 }
 
 func (c *Client) SearchModels(query string, limit int) ([]SearchResult, error) {
-	// Always filter by gguf library for relevant results
-	searchURL := fmt.Sprintf("%s/models?search=%s&filter=gguf&limit=%d", apiBase, url.QueryEscape(query), limit)
+	// Use models-json endpoint with trending sort for better results
+	searchURL := fmt.Sprintf("%s/models-json?search=%s&library=gguf&sort=trending", baseURL, url.QueryEscape(query))
 	req, err := http.NewRequest("GET", searchURL, nil)
 	if err != nil {
 		return nil, err
@@ -212,9 +217,15 @@ func (c *Client) SearchModels(query string, limit int) ([]SearchResult, error) {
 		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
 	}
 
-	var results []SearchResult
-	if err := json.NewDecoder(resp.Body).Decode(&results); err != nil {
+	var response searchResponse
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		return nil, err
+	}
+
+	// Limit results
+	results := response.Models
+	if limit > 0 && len(results) > limit {
+		results = results[:limit]
 	}
 
 	return results, nil

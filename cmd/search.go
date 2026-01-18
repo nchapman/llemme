@@ -44,17 +44,16 @@ var searchCmd = &cobra.Command{
 		fmt.Println()
 
 		table := ui.NewTable().
-			AddColumn("MODEL", 40, ui.AlignLeft).
+			AddColumn("MODEL", 50, ui.AlignLeft).
 			AddColumn("DOWNLOADS", 10, ui.AlignRight).
-			AddColumn("FORMAT", 12, ui.AlignLeft)
+			AddColumn("LIKES", 8, ui.AlignRight)
 
 		for _, result := range results {
-			modelName := fmt.Sprintf("%s/%s", result.Author, result.ModelId)
-			format := result.LibraryName
+			modelName := result.ID
 			if result.Gated {
-				format += " (gated)"
+				modelName += " (gated)"
 			}
-			table.AddRow(modelName, formatNumber(result.Downloads), format)
+			table.AddRow(modelName, formatNumber(result.Downloads), formatNumber(result.Likes))
 		}
 
 		fmt.Print(table.Render())
