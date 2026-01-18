@@ -15,7 +15,7 @@ var versionCmd = &cobra.Command{
 	Short:   "Show version information",
 	GroupID: "config",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("llemme v0.1.0 (%s/%s)\n", runtime.GOOS, runtime.GOARCH)
+		fmt.Printf("llemme %s (%s/%s)\n", Version, runtime.GOOS, runtime.GOARCH)
 
 		installed, _ := llama.GetInstalledVersion()
 		if installed != nil {
