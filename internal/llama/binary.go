@@ -73,8 +73,22 @@ func isSharedLibrary(name string) bool {
 	if strings.HasSuffix(name, ".dylib") {
 		return true
 	}
-	// Match .so or .so.X.Y.Z (versioned Linux shared libraries)
-	if strings.Contains(name, ".so") {
+	// Match .so at end (e.g., libfoo.so)
+	if strings.HasSuffix(name, ".so") {
+		return true
+	}
+	// Match versioned .so (e.g., libfoo.so.1.2.3)
+	// Check for .so. followed by only digits and dots
+	if idx := strings.Index(name, ".so."); idx != -1 {
+		suffix := name[idx+4:]
+		if len(suffix) == 0 {
+			return false
+		}
+		for _, c := range suffix {
+			if c != '.' && (c < '0' || c > '9') {
+				return false
+			}
+		}
 		return true
 	}
 	return false

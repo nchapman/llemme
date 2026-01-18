@@ -27,7 +27,9 @@ func TestGetPlatform(t *testing.T) {
 		if runtime.GOARCH == "amd64" && result != "ubuntu-x64" {
 			t.Errorf("Expected platform ubuntu-x64, got %s", result)
 		}
-		// Linux ARM64 is not supported (llama.cpp doesn't ship ARM64 Linux binaries)
+		if runtime.GOARCH == "arm64" && result != "" {
+			t.Errorf("Expected empty platform for Linux ARM64 (unsupported), got %s", result)
+		}
 	}
 }
 
@@ -366,6 +368,13 @@ func TestIsSharedLibrary(t *testing.T) {
 		{"LICENSE", false},
 		{"README.md", false},
 		{"libggml.a", false}, // Static library
+
+		// False positive prevention - contains ".so" but not a library
+		{"reason.txt", false},
+		{"person.log", false},
+		{"also_something", false},
+		{"my.socket", false},
+		{"something.socket", false},
 	}
 
 	for _, tt := range tests {
