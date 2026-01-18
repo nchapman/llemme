@@ -193,8 +193,13 @@ func TestWriteTemplateCache(t *testing.T) {
 	os.Setenv("LLEMME_BIN_PATH", tmpDir)
 	defer os.Setenv("LLEMME_BIN_PATH", originalBinPath)
 
+	// Create a fake model file (needed for mtime-based cache key)
+	modelPath := filepath.Join(tmpDir, "model.gguf")
+	if err := os.WriteFile(modelPath, []byte("fake"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
 	template := `{% if (tools is not none and tools | length > 0) %}tools{% endif %}`
-	modelPath := "/path/to/model.gguf"
 
 	cachePath, err := writeTemplateCache(modelPath, template)
 	if err != nil {
@@ -228,10 +233,15 @@ func TestWriteTemplateCacheConsistentHash(t *testing.T) {
 	os.Setenv("LLEMME_BIN_PATH", tmpDir)
 	defer os.Setenv("LLEMME_BIN_PATH", originalBinPath)
 
-	template := `test template`
-	modelPath := "/path/to/model.gguf"
+	// Create a fake model file
+	modelPath := filepath.Join(tmpDir, "model.gguf")
+	if err := os.WriteFile(modelPath, []byte("fake"), 0644); err != nil {
+		t.Fatal(err)
+	}
 
-	// Write twice with same model path
+	template := `test template`
+
+	// Write twice with same model path (without modifying the file)
 	path1, err := writeTemplateCache(modelPath, template)
 	if err != nil {
 		t.Fatalf("First writeTemplateCache() error = %v", err)
@@ -242,7 +252,7 @@ func TestWriteTemplateCacheConsistentHash(t *testing.T) {
 		t.Fatalf("Second writeTemplateCache() error = %v", err)
 	}
 
-	// Should produce same path (deterministic hash)
+	// Should produce same path (deterministic hash based on path + mtime)
 	if path1 != path2 {
 		t.Errorf("Cache paths differ for same model: %q vs %q", path1, path2)
 	}
@@ -255,14 +265,24 @@ func TestWriteTemplateCacheDifferentModels(t *testing.T) {
 	os.Setenv("LLEMME_BIN_PATH", tmpDir)
 	defer os.Setenv("LLEMME_BIN_PATH", originalBinPath)
 
+	// Create two fake model files
+	modelPath1 := filepath.Join(tmpDir, "model1.gguf")
+	modelPath2 := filepath.Join(tmpDir, "model2.gguf")
+	if err := os.WriteFile(modelPath1, []byte("fake1"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(modelPath2, []byte("fake2"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
 	template := `test template`
 
-	path1, err := writeTemplateCache("/path/to/model1.gguf", template)
+	path1, err := writeTemplateCache(modelPath1, template)
 	if err != nil {
 		t.Fatalf("First writeTemplateCache() error = %v", err)
 	}
 
-	path2, err := writeTemplateCache("/path/to/model2.gguf", template)
+	path2, err := writeTemplateCache(modelPath2, template)
 	if err != nil {
 		t.Fatalf("Second writeTemplateCache() error = %v", err)
 	}
@@ -270,6 +290,41 @@ func TestWriteTemplateCacheDifferentModels(t *testing.T) {
 	// Should produce different paths
 	if path1 == path2 {
 		t.Errorf("Cache paths should differ for different models: both got %q", path1)
+	}
+}
+
+func TestWriteTemplateCacheInvalidatesOnMtimeChange(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	originalBinPath := os.Getenv("LLEMME_BIN_PATH")
+	os.Setenv("LLEMME_BIN_PATH", tmpDir)
+	defer os.Setenv("LLEMME_BIN_PATH", originalBinPath)
+
+	modelPath := filepath.Join(tmpDir, "model.gguf")
+	if err := os.WriteFile(modelPath, []byte("version1"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	template := `test template`
+
+	path1, err := writeTemplateCache(modelPath, template)
+	if err != nil {
+		t.Fatalf("First writeTemplateCache() error = %v", err)
+	}
+
+	// Update the model file (changes mtime)
+	if err := os.WriteFile(modelPath, []byte("version2"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	path2, err := writeTemplateCache(modelPath, template)
+	if err != nil {
+		t.Fatalf("Second writeTemplateCache() error = %v", err)
+	}
+
+	// Should produce different paths due to mtime change
+	if path1 == path2 {
+		t.Errorf("Cache paths should differ after model update: both got %q", path1)
 	}
 }
 

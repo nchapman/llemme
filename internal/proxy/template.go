@@ -256,8 +256,13 @@ func writeTemplateCache(modelPath, template string) (string, error) {
 		return "", fmt.Errorf("failed to create template cache dir: %w", err)
 	}
 
-	// Use hash of model path for consistent cache filenames
-	hash := sha256.Sum256([]byte(modelPath))
+	// Hash model path + mtime so cache invalidates when model is updated
+	info, err := os.Stat(modelPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to stat model: %w", err)
+	}
+	hashInput := fmt.Sprintf("%s:%d", modelPath, info.ModTime().UnixNano())
+	hash := sha256.Sum256([]byte(hashInput))
 	filename := fmt.Sprintf("%x.jinja", hash[:8])
 	cachePath := filepath.Join(cacheDir, filename)
 
