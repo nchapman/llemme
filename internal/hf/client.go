@@ -61,9 +61,24 @@ type SearchResult struct {
 	Author       string    `json:"author"`
 	LastModified time.Time `json:"lastModified"`
 	Private      bool      `json:"private"`
-	Gated        bool      `json:"gated"`
+	Gated        GatedStatus `json:"gated"`
 	Downloads    int64     `json:"downloads"`
 	Likes        int64     `json:"likes"`
+}
+
+// GatedStatus handles the HuggingFace "gated" field which can be bool or string.
+type GatedStatus bool
+
+func (g *GatedStatus) UnmarshalJSON(data []byte) error {
+	// Try bool first
+	var b bool
+	if err := json.Unmarshal(data, &b); err == nil {
+		*g = GatedStatus(b)
+		return nil
+	}
+	// Must be a string like "manual" or "auto" - treat as gated
+	*g = true
+	return nil
 }
 
 // searchResponse wraps the models-json API response.
