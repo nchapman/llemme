@@ -17,7 +17,7 @@ var pullCmd = &cobra.Command{
 	Use:     "pull <user/repo>[:quant]",
 	Short:   "Download a model from Hugging Face",
 	GroupID: "model",
-	Args:  cobra.ExactArgs(1),
+	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		modelRef := args[0]
 
