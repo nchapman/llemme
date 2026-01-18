@@ -32,19 +32,22 @@ changelog:
       - "^test:"
       - "^chore:"
 
-homebrew_casks:
+brews:
   - name: llemme
-    binaries:
-      - llemme
-    homepage: "https://github.com/nchapman/llemme"
-    description: "Run local LLMs with llama.cpp and Hugging Face"
-    hooks:
-      post:
-        install: |
-          if OS.mac?
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/llemme"]
-          end
     repository:
       owner: nchapman
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    directory: Formula
+    homepage: "https://github.com/nchapman/llemme"
+    description: "Run local LLMs with llama.cpp and Hugging Face"
+    license: "MIT"
+    install: |
+      bin.install "llemme"
+    post_install: |
+      system "/usr/bin/xattr", "-dr", "com.apple.quarantine", bin/"llemme"
+    service: |
+      run [opt_bin/"llemme", "serve"]
+      keep_alive crashed: true
+      log_path var/"log/llemme.log"
+      error_log_path var/"log/llemme.log"
