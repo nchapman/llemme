@@ -10,7 +10,6 @@ builds:
     goos:
       - linux
       - darwin
-      - windows
     goarch:
       - amd64
       - arm64
@@ -19,11 +18,8 @@ builds:
     binary: llemme
 
 archives:
-  - format: tar.gz
+  - formats: [tar.gz]
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
-    format_overrides:
-      - goos: windows
-        format: zip
 
 checksum:
   name_template: "checksums.txt"
@@ -36,14 +32,12 @@ changelog:
       - "^test:"
       - "^chore:"
 
-brews:
-  - repository:
-      owner: nchapman
-      name: homebrew-tap
+homebrew_casks:
+  - name: llemme
+    binaries:
+      - llemme
     homepage: "https://github.com/nchapman/llemme"
     description: "Run local LLMs with llama.cpp and Hugging Face"
-    license: "MIT"
-    install: |
-      bin.install "llemme"
-    test: |
-      system "#{bin}/llemme", "--version"
+    repository:
+      owner: nchapman
+      name: homebrew-tap
