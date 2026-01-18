@@ -32,14 +32,12 @@ changelog:
       - "^test:"
       - "^chore:"
 
-brews:
-  - repository:
-      owner: nchapman
-      name: homebrew-tap
+homebrew_casks:
+  - name: llemme
+    binaries:
+      - llemme
     homepage: "https://github.com/nchapman/llemme"
     description: "Run local LLMs with llama.cpp and Hugging Face"
-    license: "MIT"
-    install: |
-      bin.install "llemme"
-    test: |
-      system "#{bin}/llemme", "--version"
+    repository:
+      owner: nchapman
+      name: homebrew-tap
