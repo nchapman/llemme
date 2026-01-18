@@ -130,14 +130,17 @@ Examples:
 
 		// Remove models
 		removed := 0
+		var freedSize int64
 		for _, m := range models {
 			modelPath := hf.GetModelFilePath(m.User, m.Repo, m.Quant)
 			if err := os.Remove(modelPath); err != nil {
 				fmt.Printf("%s Failed to remove %s/%s:%s: %v\n", ui.ErrorMsg("Error:"), m.User, m.Repo, m.Quant, err)
 				continue
 			}
+			freedSize += m.Size
 
-			// Also remove associated files (manifest, mmproj)
+			// Also remove associated files (manifest, mmproj, metadata)
+			// These may not exist; errors are expected and safe to ignore
 			os.Remove(hf.GetManifestFilePath(m.User, m.Repo, m.Quant))
 			os.Remove(hf.GetMMProjFilePath(m.User, m.Repo, m.Quant))
 
@@ -154,14 +157,18 @@ Examples:
 			m := models[0]
 			fmt.Printf("Removed %s/%s:%s\n", m.User, m.Repo, m.Quant)
 		} else {
-			fmt.Printf("Removed %d models, %s freed\n", removed, ui.FormatBytes(totalSize))
+			fmt.Printf("Removed %d models, %s freed\n", removed, ui.FormatBytes(freedSize))
 		}
 	},
 }
 
 // findModels returns models matching the pattern and filters
 func findModels(pattern string, olderThan time.Duration, largerThan int64) ([]ModelInfo, error) {
-	modelsDir := config.ModelsPath()
+	return findModelsInDir(config.ModelsPath(), pattern, olderThan, largerThan)
+}
+
+// findModelsInDir is the testable version of findModels
+func findModelsInDir(modelsDir, pattern string, olderThan time.Duration, largerThan int64) ([]ModelInfo, error) {
 	var models []ModelInfo
 
 	// Convert glob pattern to regex
@@ -265,7 +272,7 @@ func parseDuration(s string) (time.Duration, error) {
 	unit := s[len(s)-1]
 	valueStr := s[:len(s)-1]
 	value, err := strconv.Atoi(valueStr)
-	if err != nil {
+	if err != nil || value <= 0 {
 		return 0, fmt.Errorf("invalid duration: %s", s)
 	}
 
@@ -331,7 +338,7 @@ func cleanEmptyDir(dir string) {
 
 func init() {
 	rmCmd.Flags().BoolVarP(&rmForce, "force", "f", false, "Skip confirmation prompt")
-	rmCmd.Flags().StringVar(&rmOlderThan, "older-than", "", "Remove models not used in this duration (e.g., 30d, 1w)")
-	rmCmd.Flags().StringVar(&rmLargerThan, "larger-than", "", "Remove models larger than this size (e.g., 10GB)")
+	rmCmd.Flags().StringVar(&rmOlderThan, "older-than", "", "Remove models not used in this duration (e.g., 24h, 7d, 4w)")
+	rmCmd.Flags().StringVar(&rmLargerThan, "larger-than", "", "Remove models larger than this size (e.g., 500MB, 10GB)")
 	rootCmd.AddCommand(rmCmd)
 }
