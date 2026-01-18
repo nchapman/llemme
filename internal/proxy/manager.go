@@ -341,6 +341,12 @@ func (m *ModelManager) buildArgs(backend *Backend) []string {
 		"--port", fmt.Sprintf("%d", backend.Port),
 	}
 
+	// Apply template patches to work around llama-server issues.
+	// See template.go for the patch registry and documentation.
+	if templatePath, err := ExtractAndPatchTemplate(backend.ModelPath); err == nil && templatePath != "" {
+		args = append(args, "--chat-template-file", templatePath)
+	}
+
 	if m.appConfig.ContextLength > 0 {
 		args = append(args, "--ctx-size", fmt.Sprintf("%d", m.appConfig.ContextLength))
 	}
