@@ -18,8 +18,8 @@ func TestDefaultConfig(t *testing.T) {
 	}
 
 	// LlamaCpp defaults
-	if cfg.LlamaCpp.Path != "" {
-		t.Errorf("Expected empty LlamaCpp.Path, got %s", cfg.LlamaCpp.Path)
+	if cfg.LlamaCpp.ServerPath != "" {
+		t.Errorf("Expected empty LlamaCpp.ServerPath, got %s", cfg.LlamaCpp.ServerPath)
 	}
 	if cfg.LlamaCpp.ContextLength != 4096 {
 		t.Errorf("Expected LlamaCpp.ContextLength 4096, got %d", cfg.LlamaCpp.ContextLength)
@@ -93,7 +93,7 @@ func TestLoad(t *testing.T) {
   token: test-token
   default_quant: Q5_K
 llamacpp:
-  path: /custom/path
+  server_path: /custom/path
   context_length: 2048
   gpu_layers: 35
   temperature: 0.8
@@ -127,8 +127,8 @@ server:
 		}
 
 		// LlamaCpp
-		if cfg.LlamaCpp.Path != "/custom/path" {
-			t.Errorf("Expected LlamaCpp.Path /custom/path, got %s", cfg.LlamaCpp.Path)
+		if cfg.LlamaCpp.ServerPath != "/custom/path" {
+			t.Errorf("Expected LlamaCpp.ServerPath /custom/path, got %s", cfg.LlamaCpp.ServerPath)
 		}
 		if cfg.LlamaCpp.ContextLength != 2048 {
 			t.Errorf("Expected LlamaCpp.ContextLength 2048, got %d", cfg.LlamaCpp.ContextLength)
@@ -201,7 +201,7 @@ func TestSave(t *testing.T) {
 			DefaultQuant: "Q2_K",
 		},
 		LlamaCpp: LlamaCpp{
-			Path:          "/test/path",
+			ServerPath:    "/test/path",
 			ContextLength: 1024,
 			GPULayers:     20,
 			Temperature:   0.5,
@@ -238,7 +238,7 @@ func TestSave(t *testing.T) {
 	expectedFields := []string{
 		"token: test-token",
 		"default_quant: Q2_K",
-		"path: /test/path",
+		"server_path: /test/path",
 		"context_length: 1024",
 		"gpu_layers: 20",
 		"temperature: 0.5",

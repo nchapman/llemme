@@ -20,7 +20,7 @@ type HuggingFace struct {
 }
 
 type LlamaCpp struct {
-	Path          string         `yaml:"path"`
+	ServerPath    string         `yaml:"server_path"`
 	ContextLength int            `yaml:"context_length"`
 	GPULayers     int            `yaml:"gpu_layers"`
 	Temperature   float64        `yaml:"temperature"`
@@ -83,7 +83,7 @@ func DefaultConfig() *Config {
 			DefaultQuant: "Q4_K_M",
 		},
 		LlamaCpp: LlamaCpp{
-			Path:          "",
+			ServerPath:    "",
 			ContextLength: 4096,
 			GPULayers:     -1,
 			Temperature:   0.7,
