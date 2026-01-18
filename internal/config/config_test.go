@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -17,24 +18,12 @@ func TestDefaultConfig(t *testing.T) {
 		t.Errorf("Expected HuggingFace.DefaultQuant Q4_K_M, got %s", cfg.HuggingFace.DefaultQuant)
 	}
 
-	// LlamaCpp defaults
+	// LlamaCpp defaults - should be empty (let llama-server use its defaults)
 	if cfg.LlamaCpp.ServerPath != "" {
 		t.Errorf("Expected empty LlamaCpp.ServerPath, got %s", cfg.LlamaCpp.ServerPath)
 	}
-	if cfg.LlamaCpp.ContextLength != 4096 {
-		t.Errorf("Expected LlamaCpp.ContextLength 4096, got %d", cfg.LlamaCpp.ContextLength)
-	}
-	if cfg.LlamaCpp.GPULayers != -1 {
-		t.Errorf("Expected LlamaCpp.GPULayers -1, got %d", cfg.LlamaCpp.GPULayers)
-	}
-	if cfg.LlamaCpp.Temperature != 0.7 {
-		t.Errorf("Expected LlamaCpp.Temperature 0.7, got %f", cfg.LlamaCpp.Temperature)
-	}
-	if cfg.LlamaCpp.TopP != 0.9 {
-		t.Errorf("Expected LlamaCpp.TopP 0.9, got %f", cfg.LlamaCpp.TopP)
-	}
-	if cfg.LlamaCpp.TopK != 40 {
-		t.Errorf("Expected LlamaCpp.TopK 40, got %d", cfg.LlamaCpp.TopK)
+	if cfg.LlamaCpp.Options != nil {
+		t.Errorf("Expected nil LlamaCpp.Options, got %v", cfg.LlamaCpp.Options)
 	}
 
 	// Server defaults
@@ -46,18 +35,6 @@ func TestDefaultConfig(t *testing.T) {
 	}
 	if cfg.Server.MaxModels != 3 {
 		t.Errorf("Expected Server.MaxModels 3, got %d", cfg.Server.MaxModels)
-	}
-	if cfg.Server.IdleTimeoutMins != 10 {
-		t.Errorf("Expected Server.IdleTimeoutMins 10, got %d", cfg.Server.IdleTimeoutMins)
-	}
-	if cfg.Server.StartupTimeoutS != 120 {
-		t.Errorf("Expected Server.StartupTimeoutS 120, got %d", cfg.Server.StartupTimeoutS)
-	}
-	if cfg.Server.BackendPortMin != 49152 {
-		t.Errorf("Expected Server.BackendPortMin 49152, got %d", cfg.Server.BackendPortMin)
-	}
-	if cfg.Server.BackendPortMax != 49200 {
-		t.Errorf("Expected Server.BackendPortMax 49200, got %d", cfg.Server.BackendPortMax)
 	}
 }
 
@@ -78,12 +55,12 @@ func TestLoad(t *testing.T) {
 			t.Fatal("Expected config to be non-nil")
 		}
 
-		if cfg.LlamaCpp.ContextLength != 4096 {
-			t.Errorf("Expected default LlamaCpp.ContextLength 4096, got %d", cfg.LlamaCpp.ContextLength)
+		if cfg.Server.Port != 8080 {
+			t.Errorf("Expected default Server.Port 8080, got %d", cfg.Server.Port)
 		}
 	})
 
-	t.Run("parses valid config file", func(t *testing.T) {
+	t.Run("parses valid config file with options", func(t *testing.T) {
 		configDir := filepath.Join(tmpDir, ".llemme")
 		if err := os.MkdirAll(configDir, 0755); err != nil {
 			t.Fatalf("Failed to create test config dir: %v", err)
@@ -94,19 +71,14 @@ func TestLoad(t *testing.T) {
   default_quant: Q5_K
 llamacpp:
   server_path: /custom/path
-  context_length: 2048
-  gpu_layers: 35
-  temperature: 0.8
-  top_p: 0.95
-  top_k: 50
+  options:
+    ctx-size: 2048
+    gpu-layers: 35
+    temp: 0.8
 server:
   host: 0.0.0.0
   port: 9000
   max_models: 5
-  idle_timeout_mins: 15
-  startup_timeout_secs: 60
-  backend_port_min: 50000
-  backend_port_max: 50100
 `
 		configPath := filepath.Join(configDir, "config.yaml")
 		if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
@@ -130,20 +102,21 @@ server:
 		if cfg.LlamaCpp.ServerPath != "/custom/path" {
 			t.Errorf("Expected LlamaCpp.ServerPath /custom/path, got %s", cfg.LlamaCpp.ServerPath)
 		}
-		if cfg.LlamaCpp.ContextLength != 2048 {
-			t.Errorf("Expected LlamaCpp.ContextLength 2048, got %d", cfg.LlamaCpp.ContextLength)
+
+		// Options
+		ctxSize := cfg.LlamaCpp.GetIntOption("ctx-size", 0)
+		if ctxSize != 2048 {
+			t.Errorf("Expected ctx-size 2048, got %d", ctxSize)
 		}
-		if cfg.LlamaCpp.GPULayers != 35 {
-			t.Errorf("Expected LlamaCpp.GPULayers 35, got %d", cfg.LlamaCpp.GPULayers)
+
+		gpuLayers := cfg.LlamaCpp.GetIntOption("gpu-layers", 0)
+		if gpuLayers != 35 {
+			t.Errorf("Expected gpu-layers 35, got %d", gpuLayers)
 		}
-		if cfg.LlamaCpp.Temperature != 0.8 {
-			t.Errorf("Expected LlamaCpp.Temperature 0.8, got %f", cfg.LlamaCpp.Temperature)
-		}
-		if cfg.LlamaCpp.TopP != 0.95 {
-			t.Errorf("Expected LlamaCpp.TopP 0.95, got %f", cfg.LlamaCpp.TopP)
-		}
-		if cfg.LlamaCpp.TopK != 50 {
-			t.Errorf("Expected LlamaCpp.TopK 50, got %d", cfg.LlamaCpp.TopK)
+
+		temp := cfg.LlamaCpp.GetFloatOption("temp", 0)
+		if temp != 0.8 {
+			t.Errorf("Expected temp 0.8, got %f", temp)
 		}
 
 		// Server
@@ -155,18 +128,6 @@ server:
 		}
 		if cfg.Server.MaxModels != 5 {
 			t.Errorf("Expected Server.MaxModels 5, got %d", cfg.Server.MaxModels)
-		}
-		if cfg.Server.IdleTimeoutMins != 15 {
-			t.Errorf("Expected Server.IdleTimeoutMins 15, got %d", cfg.Server.IdleTimeoutMins)
-		}
-		if cfg.Server.StartupTimeoutS != 60 {
-			t.Errorf("Expected Server.StartupTimeoutS 60, got %d", cfg.Server.StartupTimeoutS)
-		}
-		if cfg.Server.BackendPortMin != 50000 {
-			t.Errorf("Expected Server.BackendPortMin 50000, got %d", cfg.Server.BackendPortMin)
-		}
-		if cfg.Server.BackendPortMax != 50100 {
-			t.Errorf("Expected Server.BackendPortMax 50100, got %d", cfg.Server.BackendPortMax)
 		}
 	})
 
@@ -188,40 +149,16 @@ server:
 	})
 }
 
-func TestSave(t *testing.T) {
+func TestSaveDefault(t *testing.T) {
 	tmpDir := t.TempDir()
 	oldHome := os.Getenv("HOME")
 	defer os.Setenv("HOME", oldHome)
 
 	os.Setenv("HOME", tmpDir)
 
-	cfg := &Config{
-		HuggingFace: HuggingFace{
-			Token:        "test-token",
-			DefaultQuant: "Q2_K",
-		},
-		LlamaCpp: LlamaCpp{
-			ServerPath:    "/test/path",
-			ContextLength: 1024,
-			GPULayers:     20,
-			Temperature:   0.5,
-			TopP:          0.8,
-			TopK:          30,
-		},
-		Server: Server{
-			Host:            "localhost",
-			Port:            7000,
-			MaxModels:       2,
-			IdleTimeoutMins: 5,
-			StartupTimeoutS: 30,
-			BackendPortMin:  40000,
-			BackendPortMax:  40100,
-		},
-	}
-
-	err := Save(cfg)
+	err := SaveDefault()
 	if err != nil {
-		t.Fatalf("Expected no error saving config, got %v", err)
+		t.Fatalf("Expected no error saving default config, got %v", err)
 	}
 
 	configPath := filepath.Join(tmpDir, ".llemme", "config.yaml")
@@ -231,33 +168,71 @@ func TestSave(t *testing.T) {
 	}
 
 	content := string(data)
-	if content == "" {
-		t.Error("Expected non-empty config file")
+
+	// Should contain commented options
+	expectedStrings := []string{
+		"huggingface:",
+		"llamacpp:",
+		"server:",
+		"# threads:",
+		"# ctx-size:",
+		"# gpu-layers:",
+		"# temp:",
 	}
 
-	expectedFields := []string{
-		"token: test-token",
-		"default_quant: Q2_K",
-		"server_path: /test/path",
-		"context_length: 1024",
-		"gpu_layers: 20",
-		"temperature: 0.5",
-		"top_p: 0.8",
-		"top_k: 30",
-		"host: localhost",
-		"port: 7000",
-		"max_models: 2",
-		"idle_timeout_mins: 5",
-		"startup_timeout_secs: 30",
-		"backend_port_min: 40000",
-		"backend_port_max: 40100",
-	}
-
-	for _, field := range expectedFields {
-		if !contains(content, field) {
-			t.Errorf("Expected config to contain '%s', got:\n%s", field, content)
+	for _, s := range expectedStrings {
+		if !strings.Contains(content, s) {
+			t.Errorf("Expected config to contain '%s'", s)
 		}
 	}
+}
+
+func TestGetOptionHelpers(t *testing.T) {
+	llama := &LlamaCpp{
+		Options: map[string]any{
+			"ctx-size":   4096,
+			"temp":       0.7,
+			"gpu-layers": -1,
+			"mlock":      true,
+		},
+	}
+
+	t.Run("GetIntOption", func(t *testing.T) {
+		if v := llama.GetIntOption("ctx-size", 0); v != 4096 {
+			t.Errorf("Expected 4096, got %d", v)
+		}
+		if v := llama.GetIntOption("gpu-layers", 0); v != -1 {
+			t.Errorf("Expected -1, got %d", v)
+		}
+		if v := llama.GetIntOption("nonexistent", 999); v != 999 {
+			t.Errorf("Expected default 999, got %d", v)
+		}
+	})
+
+	t.Run("GetFloatOption", func(t *testing.T) {
+		if v := llama.GetFloatOption("temp", 0); v != 0.7 {
+			t.Errorf("Expected 0.7, got %f", v)
+		}
+		if v := llama.GetFloatOption("nonexistent", 0.5); v != 0.5 {
+			t.Errorf("Expected default 0.5, got %f", v)
+		}
+	})
+
+	t.Run("GetOption", func(t *testing.T) {
+		if v, ok := llama.GetOption("mlock"); !ok || v != true {
+			t.Errorf("Expected mlock=true, got %v, %v", v, ok)
+		}
+		if _, ok := llama.GetOption("nonexistent"); ok {
+			t.Error("Expected nonexistent to not be found")
+		}
+	})
+
+	t.Run("nil options", func(t *testing.T) {
+		empty := &LlamaCpp{}
+		if v := empty.GetIntOption("ctx-size", 100); v != 100 {
+			t.Errorf("Expected default 100, got %d", v)
+		}
+	})
 }
 
 func TestEnsureDirectories(t *testing.T) {
@@ -318,18 +293,4 @@ func TestPathHelpers(t *testing.T) {
 	if blobsPath != expectedBlobsPath {
 		t.Errorf("Expected BlobsPath %s, got %s", expectedBlobsPath, blobsPath)
 	}
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
-		(len(s) > 0 && indexOfSubstring(s, substr) >= 0))
-}
-
-func indexOfSubstring(s, substr string) int {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return i
-		}
-	}
-	return -1
 }

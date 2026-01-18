@@ -133,16 +133,27 @@ func (sm *ServerManager) buildArgs(modelPath string) []string {
 		"--port", fmt.Sprintf("%d", sm.config.Server.Port),
 	}
 
-	if sm.config.LlamaCpp.ContextLength > 0 {
-		args = append(args, "--ctx-size", fmt.Sprintf("%d", sm.config.LlamaCpp.ContextLength))
-	}
-
-	if sm.config.LlamaCpp.Temperature > 0 {
-		args = append(args, "--temp", fmt.Sprintf("%.2f", sm.config.LlamaCpp.Temperature))
-	}
-
-	if sm.config.LlamaCpp.GPULayers != 0 {
-		args = append(args, "--gpu-layers", fmt.Sprintf("%d", sm.config.LlamaCpp.GPULayers))
+	// Pass through all llama-server options from config
+	for key, value := range sm.config.LlamaCpp.Options {
+		flag := "--" + key
+		switch v := value.(type) {
+		case bool:
+			if v {
+				args = append(args, flag)
+			}
+		case int:
+			args = append(args, flag, fmt.Sprintf("%d", v))
+		case float64:
+			if v == float64(int(v)) {
+				args = append(args, flag, fmt.Sprintf("%d", int(v)))
+			} else {
+				args = append(args, flag, fmt.Sprintf("%g", v))
+			}
+		case string:
+			if v != "" {
+				args = append(args, flag, v)
+			}
+		}
 	}
 
 	return args

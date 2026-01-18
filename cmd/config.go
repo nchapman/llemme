@@ -50,8 +50,7 @@ Examples:
 }
 
 func resetToDefaults(path string) {
-	cfg := config.DefaultConfig()
-	if err := config.Save(cfg); err != nil {
+	if err := config.SaveDefault(); err != nil {
 		fmt.Printf("%s Failed to reset config: %v\n", ui.ErrorMsg("Error:"), err)
 		os.Exit(1)
 	}

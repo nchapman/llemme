@@ -3,6 +3,7 @@ package server
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -334,10 +335,11 @@ func TestNewServerState(t *testing.T) {
 
 func TestBuildArgs(t *testing.T) {
 	tests := []struct {
-		name         string
-		config       *config.Config
-		modelPath    string
-		expectedArgs []string
+		name          string
+		config        *config.Config
+		modelPath     string
+		expectedArgs  []string
+		expectedFlags map[string]string // for checking flags that may appear in any order
 	}{
 		{
 			name: "minimal config",
@@ -351,61 +353,73 @@ func TestBuildArgs(t *testing.T) {
 			expectedArgs: []string{"--model", "/path/to/model.gguf", "--host", "127.0.0.1", "--port", "8080"},
 		},
 		{
-			name: "with context length",
+			name: "with context size option",
 			config: &config.Config{
-				Server:   config.Server{Host: "0.0.0.0", Port: 9000},
-				LlamaCpp: config.LlamaCpp{ContextLength: 2048},
-			},
-			modelPath: "/path/to/model.gguf",
-			expectedArgs: []string{
-				"--model", "/path/to/model.gguf",
-				"--host", "0.0.0.0", "--port", "9000",
-				"--ctx-size", "2048",
-			},
-		},
-		{
-			name: "with temperature",
-			config: &config.Config{
-				Server:   config.Server{Host: "127.0.0.1", Port: 8080},
-				LlamaCpp: config.LlamaCpp{Temperature: 0.5},
-			},
-			modelPath: "/path/to/model.gguf",
-			expectedArgs: []string{
-				"--model", "/path/to/model.gguf",
-				"--host", "127.0.0.1", "--port", "8080",
-				"--temp", "0.50",
-			},
-		},
-		{
-			name: "with GPU layers",
-			config: &config.Config{
-				Server:   config.Server{Host: "127.0.0.1", Port: 8080},
-				LlamaCpp: config.LlamaCpp{GPULayers: 35},
-			},
-			modelPath: "/path/to/model.gguf",
-			expectedArgs: []string{
-				"--model", "/path/to/model.gguf",
-				"--host", "127.0.0.1", "--port", "8080",
-				"--gpu-layers", "35",
-			},
-		},
-		{
-			name: "full config",
-			config: &config.Config{
-				Server: config.Server{Host: "127.0.0.1", Port: 8080},
+				Server: config.Server{Host: "0.0.0.0", Port: 9000},
 				LlamaCpp: config.LlamaCpp{
-					ContextLength: 4096,
-					Temperature:   0.7,
-					GPULayers:     20,
+					Options: map[string]any{"ctx-size": 2048},
 				},
 			},
 			modelPath: "/path/to/model.gguf",
-			expectedArgs: []string{
-				"--model", "/path/to/model.gguf",
-				"--host", "127.0.0.1", "--port", "8080",
-				"--ctx-size", "4096",
-				"--temp", "0.70",
-				"--gpu-layers", "20",
+			expectedFlags: map[string]string{
+				"model":    "/path/to/model.gguf",
+				"host":     "0.0.0.0",
+				"port":     "9000",
+				"ctx-size": "2048",
+			},
+		},
+		{
+			name: "with temperature option",
+			config: &config.Config{
+				Server: config.Server{Host: "127.0.0.1", Port: 8080},
+				LlamaCpp: config.LlamaCpp{
+					Options: map[string]any{"temp": 0.5},
+				},
+			},
+			modelPath: "/path/to/model.gguf",
+			expectedFlags: map[string]string{
+				"model": "/path/to/model.gguf",
+				"host":  "127.0.0.1",
+				"port":  "8080",
+				"temp":  "0.5",
+			},
+		},
+		{
+			name: "with GPU layers option",
+			config: &config.Config{
+				Server: config.Server{Host: "127.0.0.1", Port: 8080},
+				LlamaCpp: config.LlamaCpp{
+					Options: map[string]any{"gpu-layers": 35},
+				},
+			},
+			modelPath: "/path/to/model.gguf",
+			expectedFlags: map[string]string{
+				"model":      "/path/to/model.gguf",
+				"host":       "127.0.0.1",
+				"port":       "8080",
+				"gpu-layers": "35",
+			},
+		},
+		{
+			name: "with multiple options",
+			config: &config.Config{
+				Server: config.Server{Host: "127.0.0.1", Port: 8080},
+				LlamaCpp: config.LlamaCpp{
+					Options: map[string]any{
+						"ctx-size":   4096,
+						"temp":       0.7,
+						"gpu-layers": 20,
+					},
+				},
+			},
+			modelPath: "/path/to/model.gguf",
+			expectedFlags: map[string]string{
+				"model":      "/path/to/model.gguf",
+				"host":       "127.0.0.1",
+				"port":       "8080",
+				"ctx-size":   "4096",
+				"temp":       "0.7",
+				"gpu-layers": "20",
 			},
 		},
 	}
@@ -419,20 +433,54 @@ func TestBuildArgs(t *testing.T) {
 
 			args := sm.buildArgs(tt.modelPath)
 
-			if len(args) != len(tt.expectedArgs) {
-				t.Errorf("Expected %d args, got %d", len(tt.expectedArgs), len(args))
-				t.Logf("Expected: %v", tt.expectedArgs)
-				t.Logf("Got:      %v", args)
-				return
+			if tt.expectedArgs != nil {
+				// Exact order matching for simple cases
+				if len(args) != len(tt.expectedArgs) {
+					t.Errorf("Expected %d args, got %d", len(tt.expectedArgs), len(args))
+					t.Logf("Expected: %v", tt.expectedArgs)
+					t.Logf("Got:      %v", args)
+					return
+				}
+
+				for i, expected := range tt.expectedArgs {
+					if args[i] != expected {
+						t.Errorf("Arg %d: expected %s, got %s", i, expected, args[i])
+					}
+				}
 			}
 
-			for i, expected := range tt.expectedArgs {
-				if args[i] != expected {
-					t.Errorf("Arg %d: expected %s, got %s", i, expected, args[i])
+			if tt.expectedFlags != nil {
+				// Parse args into a map for order-independent comparison
+				argsMap := parseArgsToMap(args)
+				for key, expectedVal := range tt.expectedFlags {
+					actualVal, exists := argsMap[key]
+					if !exists {
+						t.Errorf("Expected flag --%s not found in args: %v", key, args)
+						continue
+					}
+					if actualVal != expectedVal {
+						t.Errorf("Flag --%s: expected %s, got %s", key, expectedVal, actualVal)
+					}
 				}
 			}
 		})
 	}
+}
+
+// parseArgsToMap converts ["--flag", "value", "--bool"] to {"flag": "value", "bool": ""}
+func parseArgsToMap(args []string) map[string]string {
+	m := make(map[string]string)
+	for i := 0; i < len(args); i++ {
+		if key, ok := strings.CutPrefix(args[i], "--"); ok {
+			if i+1 < len(args) && !strings.HasPrefix(args[i+1], "--") {
+				m[key] = args[i+1]
+				i++
+			} else {
+				m[key] = "" // boolean flag
+			}
+		}
+	}
+	return m
 }
 
 func TestStatus(t *testing.T) {

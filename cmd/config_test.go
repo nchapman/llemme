@@ -163,8 +163,9 @@ func TestOpenInEditorCreatesDefaultConfig(t *testing.T) {
 		t.Errorf("Created config is not valid YAML: %v", err)
 	}
 
-	if loaded.LlamaCpp.ContextLength != 4096 {
-		t.Errorf("Expected default context_length 4096, got %d", loaded.LlamaCpp.ContextLength)
+	// Verify default values
+	if loaded.HuggingFace.DefaultQuant != "Q4_K_M" {
+		t.Errorf("Expected default_quant Q4_K_M, got %s", loaded.HuggingFace.DefaultQuant)
 	}
 }
 
@@ -191,9 +192,11 @@ func TestConfigCommandFlags(t *testing.T) {
 func TestConfigYAMLRoundTrip(t *testing.T) {
 	// Test that config survives a round-trip through YAML
 	original := config.DefaultConfig()
-	original.LlamaCpp.Temperature = 0.5
-	original.LlamaCpp.ContextLength = 8192
-	original.LlamaCpp.GPULayers = 32
+	original.LlamaCpp.Options = map[string]any{
+		"temp":       0.5,
+		"ctx-size":   8192,
+		"gpu-layers": 32,
+	}
 
 	// Marshal to YAML
 	data, err := yaml.Marshal(original)
@@ -208,14 +211,14 @@ func TestConfigYAMLRoundTrip(t *testing.T) {
 	}
 
 	// Verify values preserved
-	if restored.LlamaCpp.Temperature != original.LlamaCpp.Temperature {
-		t.Errorf("Temperature: expected %v, got %v", original.LlamaCpp.Temperature, restored.LlamaCpp.Temperature)
+	if restored.LlamaCpp.GetFloatOption("temp", 0) != 0.5 {
+		t.Errorf("temp: expected 0.5, got %v", restored.LlamaCpp.GetFloatOption("temp", 0))
 	}
-	if restored.LlamaCpp.ContextLength != original.LlamaCpp.ContextLength {
-		t.Errorf("ContextLength: expected %v, got %v", original.LlamaCpp.ContextLength, restored.LlamaCpp.ContextLength)
+	if restored.LlamaCpp.GetIntOption("ctx-size", 0) != 8192 {
+		t.Errorf("ctx-size: expected 8192, got %d", restored.LlamaCpp.GetIntOption("ctx-size", 0))
 	}
-	if restored.LlamaCpp.GPULayers != original.LlamaCpp.GPULayers {
-		t.Errorf("GPULayers: expected %v, got %v", original.LlamaCpp.GPULayers, restored.LlamaCpp.GPULayers)
+	if restored.LlamaCpp.GetIntOption("gpu-layers", 0) != 32 {
+		t.Errorf("gpu-layers: expected 32, got %d", restored.LlamaCpp.GetIntOption("gpu-layers", 0))
 	}
 }
 
@@ -248,9 +251,12 @@ func TestResetToDefaults(t *testing.T) {
 
 	// Create a modified config
 	cfg := config.DefaultConfig()
-	cfg.LlamaCpp.Temperature = 0.9
-	cfg.LlamaCpp.ContextLength = 16384
-	cfg.LlamaCpp.GPULayers = 99
+	cfg.LlamaCpp.Options = map[string]any{
+		"temp":       0.9,
+		"ctx-size":   16384,
+		"gpu-layers": 99,
+	}
+	cfg.HuggingFace.DefaultQuant = "Q6_K"
 	if err := config.Save(cfg); err != nil {
 		t.Fatalf("Failed to save modified config: %v", err)
 	}
@@ -264,32 +270,27 @@ func TestResetToDefaults(t *testing.T) {
 	if err := yaml.Unmarshal(data, &modified); err != nil {
 		t.Fatalf("Failed to unmarshal: %v", err)
 	}
-	if modified.LlamaCpp.GPULayers != 99 {
-		t.Fatalf("Expected modified gpu_layers 99, got %d", modified.LlamaCpp.GPULayers)
+	if modified.HuggingFace.DefaultQuant != "Q6_K" {
+		t.Fatalf("Expected modified default_quant Q6_K, got %s", modified.HuggingFace.DefaultQuant)
 	}
 
 	// Reset to defaults
 	resetToDefaults(configPath)
 
-	// Verify config was reset
+	// Verify config was reset by reading the file content
+	// Note: SaveDefault writes a template with comments, so we check the file contains defaults
 	data, err = os.ReadFile(configPath)
 	if err != nil {
 		t.Fatalf("Failed to read reset config: %v", err)
 	}
-	var reset config.Config
-	if err := yaml.Unmarshal(data, &reset); err != nil {
-		t.Fatalf("Failed to unmarshal reset config: %v", err)
-	}
 
-	defaults := config.DefaultConfig()
-	if reset.LlamaCpp.Temperature != defaults.LlamaCpp.Temperature {
-		t.Errorf("Expected default temperature %v, got %v", defaults.LlamaCpp.Temperature, reset.LlamaCpp.Temperature)
+	content := string(data)
+	// Check for default values in template
+	if !strings.Contains(content, "default_quant: Q4_K_M") {
+		t.Error("Expected reset config to contain default_quant: Q4_K_M")
 	}
-	if reset.LlamaCpp.ContextLength != defaults.LlamaCpp.ContextLength {
-		t.Errorf("Expected default context_length %d, got %d", defaults.LlamaCpp.ContextLength, reset.LlamaCpp.ContextLength)
-	}
-	if reset.LlamaCpp.GPULayers != defaults.LlamaCpp.GPULayers {
-		t.Errorf("Expected default gpu_layers %d, got %d", defaults.LlamaCpp.GPULayers, reset.LlamaCpp.GPULayers)
+	if !strings.Contains(content, "# threads:") {
+		t.Error("Expected reset config to contain commented options")
 	}
 }
 
