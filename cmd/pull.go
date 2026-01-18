@@ -82,18 +82,12 @@ var pullCmd = &cobra.Command{
 		modelDir := hf.GetModelPath(user, repo)
 		modelPath := hf.GetModelFilePath(user, repo, quant)
 
-		// Check if model is already complete by verifying against saved manifest
-		if isModelComplete(user, repo, quant) {
-			fmt.Printf("Model already downloaded: %s\n", ui.Bold(modelPath))
-			return
-		}
-
 		if err := os.MkdirAll(modelDir, 0755); err != nil {
 			fmt.Printf("%s Failed to create model directory: %v\n", ui.ErrorMsg("Error:"), err)
 			os.Exit(1)
 		}
 
-		// Get manifest to find exact filenames and check for mmproj (vision model support)
+		// Fetch remote manifest to check for updates and get file info
 		manifest, manifestJSON, err := client.GetManifest(user, repo, quant)
 		if err != nil {
 			fmt.Printf("%s Failed to get manifest: %v\n", ui.ErrorMsg("Error:"), err)
@@ -103,6 +97,18 @@ var pullCmd = &cobra.Command{
 		if manifest.GGUFFile == nil {
 			fmt.Printf("%s Manifest does not contain a GGUF file\n", ui.ErrorMsg("Error:"))
 			os.Exit(1)
+		}
+
+		// Check if local files are up to date with remote manifest
+		upToDate, saveManifest := isUpToDate(user, repo, quant, manifest, manifestJSON)
+		if upToDate {
+			if saveManifest {
+				// Legacy model without manifest - save it now
+				manifestPath := hf.GetManifestFilePath(user, repo, quant)
+				os.WriteFile(manifestPath, manifestJSON, 0644)
+			}
+			fmt.Printf("Model is up to date: %s\n", ui.Bold(modelPath))
+			return
 		}
 
 		// Calculate total download size
@@ -187,40 +193,72 @@ func parseModelRef(ref string) (user, repo, quant string, err error) {
 	return repoParts[0], repoParts[1], quantPart, nil
 }
 
-// isModelComplete checks if all expected files exist based on the saved manifest.
-// If no manifest exists, falls back to just checking if the model file exists.
-func isModelComplete(user, repo, quant string) bool {
-	modelPath := hf.GetModelFilePath(user, repo, quant)
+// isUpToDate checks if local files match the remote manifest by comparing sha256 hashes.
+// Returns (up-to-date, should-save-manifest).
+func isUpToDate(user, repo, quant string, remote *hf.Manifest, manifestJSON []byte) (bool, bool) {
 	manifestPath := hf.GetManifestFilePath(user, repo, quant)
+	modelPath := hf.GetModelFilePath(user, repo, quant)
 
-	// Check if model file exists
-	if _, err := os.Stat(modelPath); err != nil {
-		return false
-	}
-
-	// Try to load the saved manifest
+	// Load saved manifest
 	manifestData, err := os.ReadFile(manifestPath)
 	if err != nil {
-		// No manifest - legacy download, trust that model exists
-		return true
+		// No local manifest - check if this is a legacy download we can upgrade
+		modelInfo, statErr := os.Stat(modelPath)
+		if statErr == nil && modelInfo.Size() == remote.GGUFFile.Size {
+			// Model exists with matching size - likely a legacy download
+			// Check if vision model needs mmproj
+			if remote.MMProjFile != nil {
+				mmprojPath := hf.GetMMProjFilePath(user, repo, quant)
+				if _, err := os.Stat(mmprojPath); err != nil {
+					return false, false // Need to download mmproj
+				}
+			}
+			// Save manifest for this legacy model and consider it up to date
+			return true, true
+		}
+		return false, false
 	}
 
-	// Parse manifest to check if mmproj is expected
-	var manifest hf.Manifest
-	if err := json.Unmarshal(manifestData, &manifest); err != nil {
-		// Can't parse manifest - trust that model exists
-		return true
+	var local hf.Manifest
+	if err := json.Unmarshal(manifestData, &local); err != nil {
+		return false, false // Can't parse, need to download
 	}
 
-	// If manifest specifies an mmproj file, verify it exists
-	if manifest.MMProjFile != nil {
+	// Compare GGUF file hash
+	if !hashesMatch(local.GGUFFile, remote.GGUFFile) {
+		return false, false
+	}
+
+	// Compare mmproj hash if remote has one
+	if remote.MMProjFile != nil {
+		if !hashesMatch(local.MMProjFile, remote.MMProjFile) {
+			return false, false
+		}
+		// Also verify the mmproj file actually exists
 		mmprojPath := hf.GetMMProjFilePath(user, repo, quant)
 		if _, err := os.Stat(mmprojPath); err != nil {
-			return false
+			return false, false
 		}
 	}
 
-	return true
+	// Verify the model file actually exists
+	if _, err := os.Stat(modelPath); err != nil {
+		return false, false
+	}
+
+	return true, false
+}
+
+// hashesMatch compares the sha256 hashes of two manifest files.
+func hashesMatch(local, remote *hf.ManifestFile) bool {
+	if local == nil || remote == nil {
+		return local == nil && remote == nil
+	}
+	if local.LFS == nil || remote.LFS == nil {
+		// No hash info, fall back to size comparison
+		return local.Size == remote.Size
+	}
+	return local.LFS.SHA256 == remote.LFS.SHA256
 }
 
 func handleModelError(err error, user, repo string) {

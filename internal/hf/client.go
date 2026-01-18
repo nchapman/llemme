@@ -66,10 +66,17 @@ type SearchResult struct {
 	Tags         []string  `json:"tags"`
 }
 
+// ManifestLFS contains Git LFS metadata including the sha256 hash for verification.
+type ManifestLFS struct {
+	SHA256 string `json:"sha256"`
+	Size   int64  `json:"size"`
+}
+
 // ManifestFile represents a file entry in the HuggingFace manifest API response.
 type ManifestFile struct {
-	RFilename string `json:"rfilename"`
-	Size      int64  `json:"size"`
+	RFilename string       `json:"rfilename"`
+	Size      int64        `json:"size"`
+	LFS       *ManifestLFS `json:"lfs"`
 }
 
 // Manifest represents the HuggingFace manifest API response.
