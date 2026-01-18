@@ -334,6 +334,7 @@ func (m *ModelManager) buildArgs(backend *Backend) []string {
 		"--model", backend.ModelPath,
 		"--host", m.config.Host,
 		"--port", fmt.Sprintf("%d", backend.Port),
+		"--embeddings", // Enable /v1/embeddings endpoint
 	}
 
 	// Apply template patches to work around llama-server issues.

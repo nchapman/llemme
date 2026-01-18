@@ -16,9 +16,8 @@ import (
 )
 
 const (
-	llamaRepo    = "ggml-org/llama.cpp"
-	apiBase      = "https://api.github.com/repos/" + llamaRepo
-	downloadBase = "https://github.com/" + llamaRepo + "/releases/download"
+	llamaRepo = "ggml-org/llama.cpp"
+	apiBase   = "https://api.github.com/repos/" + llamaRepo
 )
 
 type Release struct {
@@ -50,7 +49,11 @@ func getPlatform() string {
 		}
 		return "macos-x64"
 	case "linux":
-		return "ubuntu-x64"
+		if arch == "amd64" {
+			return "ubuntu-x64"
+		}
+		// llama.cpp does not ship Linux ARM64 binaries
+		return ""
 	default:
 		return ""
 	}
@@ -63,6 +66,18 @@ func getBinaryPattern(release *Release) string {
 	}
 
 	return "llama-" + release.TagName + "-bin-" + platform + ".tar.gz"
+}
+
+// isSharedLibrary returns true for .dylib (macOS) and .so/.so.X (Linux) files
+func isSharedLibrary(name string) bool {
+	if strings.HasSuffix(name, ".dylib") {
+		return true
+	}
+	// Match .so or .so.X.Y.Z (versioned Linux shared libraries)
+	if strings.Contains(name, ".so") {
+		return true
+	}
+	return false
 }
 
 func GetLatestVersion() (*Release, error) {
@@ -213,7 +228,8 @@ func extractTarGz(archivePath, destDir string) error {
 			destName = "llama-cli"
 		} else if strings.Contains(entry.Name(), "llama-server") {
 			destName = "llama-server"
-		} else if !strings.HasSuffix(entry.Name(), ".dylib") {
+		} else if !isSharedLibrary(entry.Name()) {
+			// Skip non-library files (keep .dylib on macOS, .so on Linux)
 			continue
 		}
 

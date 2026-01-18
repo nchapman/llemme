@@ -24,9 +24,10 @@ func TestGetPlatform(t *testing.T) {
 			t.Errorf("Expected platform macos-x64, got %s", result)
 		}
 	case "linux":
-		if result != "ubuntu-x64" {
+		if runtime.GOARCH == "amd64" && result != "ubuntu-x64" {
 			t.Errorf("Expected platform ubuntu-x64, got %s", result)
 		}
+		// Linux ARM64 is not supported (llama.cpp doesn't ship ARM64 Linux binaries)
 	}
 }
 
@@ -337,6 +338,43 @@ func TestVersionInfoJSON(t *testing.T) {
 	}
 	if decoded.InstalledAt != version.InstalledAt {
 		t.Errorf("Expected InstalledAt %s, got %s", version.InstalledAt, decoded.InstalledAt)
+	}
+}
+
+func TestIsSharedLibrary(t *testing.T) {
+	tests := []struct {
+		name     string
+		expected bool
+	}{
+		// macOS libraries
+		{"libggml.dylib", true},
+		{"Metal.dylib", true},
+
+		// Linux libraries (plain .so)
+		{"libggml.so", true},
+		{"libllama.so", true},
+
+		// Linux libraries (versioned .so.X.Y.Z)
+		{"libggml.so.0", true},
+		{"libggml.so.0.9.5", true},
+		{"libllama.so.0.0.7769", true},
+		{"libggml-cpu-haswell.so", true},
+
+		// Not libraries
+		{"llama-cli", false},
+		{"llama-server", false},
+		{"LICENSE", false},
+		{"README.md", false},
+		{"libggml.a", false}, // Static library
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isSharedLibrary(tt.name)
+			if result != tt.expected {
+				t.Errorf("isSharedLibrary(%q) = %v, want %v", tt.name, result, tt.expected)
+			}
+		})
 	}
 }
 
