@@ -57,13 +57,13 @@ type FileTree struct {
 }
 
 type SearchResult struct {
-	ID           string    `json:"id"` // Full model ID: "author/repo"
-	Author       string    `json:"author"`
-	LastModified time.Time `json:"lastModified"`
-	Private      bool      `json:"private"`
+	ID           string      `json:"id"` // Full model ID: "author/repo"
+	Author       string      `json:"author"`
+	LastModified time.Time   `json:"lastModified"`
+	Private      bool        `json:"private"`
 	Gated        GatedStatus `json:"gated"`
-	Downloads    int64     `json:"downloads"`
-	Likes        int64     `json:"likes"`
+	Downloads    int64       `json:"downloads"`
+	Likes        int64       `json:"likes"`
 }
 
 // GatedStatus handles the HuggingFace "gated" field which can be bool or string.
@@ -214,8 +214,11 @@ func (c *Client) ListFiles(user, repo, branch string) ([]FileTree, error) {
 }
 
 func (c *Client) SearchModels(query string, limit int) ([]SearchResult, error) {
-	// Use models-json endpoint with trending sort for better results
-	searchURL := fmt.Sprintf("%s/models-json?search=%s&library=gguf&sort=trending", baseURL, url.QueryEscape(query))
+	// Use models-json endpoint with apps=llama.cpp filter for llama.cpp compatible models
+	searchURL := fmt.Sprintf("%s/models-json?apps=llama.cpp&sort=trending", baseURL)
+	if query != "" {
+		searchURL += "&search=" + url.QueryEscape(query)
+	}
 	req, err := http.NewRequest("GET", searchURL, nil)
 	if err != nil {
 		return nil, err

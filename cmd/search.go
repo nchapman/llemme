@@ -11,9 +11,10 @@ import (
 )
 
 var searchCmd = &cobra.Command{
-	Use:   "search <query>",
-	Short: "Search Hugging Face for GGUF models",
-	Args:  cobra.ExactArgs(1),
+	Use:   "search [query]",
+	Short: "Search Hugging Face for llama.cpp compatible models",
+	Long:  "Search Hugging Face for llama.cpp compatible models. If no query is provided, shows trending models.",
+	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg, err := config.Load()
 		if err != nil {
@@ -22,29 +23,34 @@ var searchCmd = &cobra.Command{
 		}
 
 		client := hf.NewClient(cfg)
-		query := args[0]
+		query := ""
+		if len(args) > 0 {
+			query = args[0]
+		}
 
-		results, err := client.SearchModels(query, 10)
+		results, err := client.SearchModels(query, 15)
 		if err != nil {
 			fmt.Printf("%s Failed to search: %v\n", ui.ErrorMsg("Error:"), err)
 			os.Exit(1)
 		}
 
 		if len(results) == 0 {
-			fmt.Printf("No results found for '%s'\n", query)
+			if query != "" {
+				fmt.Printf("No results found for '%s'\n", query)
+			} else {
+				fmt.Println("No models found")
+			}
 			fmt.Println()
 			fmt.Println("Tips:")
 			fmt.Println("  Try a different search term")
 			fmt.Println("  Check spelling")
-			fmt.Println("  Browse Hugging Face: https://huggingface.co/models?library=gguf")
+			fmt.Println("  Browse Hugging Face: https://huggingface.co/models?apps=llama.cpp")
 			os.Exit(1)
 		}
 
-		fmt.Printf("Search results for %s\n", ui.Value("\""+query+"\""))
-		fmt.Println()
-
 		table := ui.NewTable().
-			AddColumn("MODEL", 50, ui.AlignLeft).
+			Indent(0).
+			AddColumn("MODEL", 52, ui.AlignLeft).
 			AddColumn("DOWNLOADS", 10, ui.AlignRight).
 			AddColumn("LIKES", 8, ui.AlignRight)
 
@@ -57,10 +63,6 @@ var searchCmd = &cobra.Command{
 		}
 
 		fmt.Print(table.Render())
-		fmt.Println()
-		fmt.Printf("%d models found\n", len(results))
-		fmt.Println()
-		fmt.Println("Use 'llemme info <model>' for details")
 	},
 }
 

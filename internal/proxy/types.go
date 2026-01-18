@@ -186,11 +186,11 @@ type OpenAIModelsResponse struct {
 
 // OpenAIModelInfo represents a single model in the models list
 type OpenAIModelInfo struct {
-	ID      string       `json:"id"`
-	Object  string       `json:"object"`
-	Created int64        `json:"created"`
-	OwnedBy string       `json:"owned_by"`
-	Llemme *LlemmeStatus `json:"llemme,omitempty"`
+	ID      string        `json:"id"`
+	Object  string        `json:"object"`
+	Created int64         `json:"created"`
+	OwnedBy string        `json:"owned_by"`
+	Llemme  *LlemmeStatus `json:"llemme,omitempty"`
 }
 
 // LlemmeStatus contains llemme-specific model status

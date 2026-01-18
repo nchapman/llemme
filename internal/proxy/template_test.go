@@ -575,10 +575,10 @@ func createTestGGUFWithTypes(t *testing.T, chatTemplate string) string {
 
 	// array of u8 (type 9)
 	writeKVKey(&buf, "test.array")
-	binary.Write(&buf, binary.LittleEndian, uint32(9))      // array type
-	binary.Write(&buf, binary.LittleEndian, uint32(0))      // element type: u8
-	binary.Write(&buf, binary.LittleEndian, uint64(3))      // array length
-	buf.Write([]byte{1, 2, 3})                              // array data
+	binary.Write(&buf, binary.LittleEndian, uint32(9)) // array type
+	binary.Write(&buf, binary.LittleEndian, uint32(0)) // element type: u8
+	binary.Write(&buf, binary.LittleEndian, uint64(3)) // array length
+	buf.Write([]byte{1, 2, 3})                         // array data
 
 	// chat_template (string, type 8) - at the end
 	writeKVKey(&buf, "tokenizer.chat_template")

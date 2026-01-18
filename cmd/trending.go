@@ -1,0 +1,18 @@
+package cmd
+
+import (
+	"github.com/spf13/cobra"
+)
+
+var trendingCmd = &cobra.Command{
+	Use:   "trending",
+	Short: "Show trending llama.cpp compatible models on Hugging Face",
+	Args:  cobra.NoArgs,
+	Run: func(cmd *cobra.Command, args []string) {
+		searchCmd.Run(cmd, []string{})
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(trendingCmd)
+}
