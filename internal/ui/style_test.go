@@ -33,6 +33,9 @@ func TestStyleFunctions(t *testing.T) {
 			if !strings.Contains(result, "test text") {
 				t.Errorf("%s() result does not contain input text", tc.name)
 			}
+
+			// Note: lipgloss disables ANSI codes when not in a terminal,
+			// so we can't assert result != input in test environment
 		})
 	}
 }

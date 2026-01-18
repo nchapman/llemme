@@ -45,12 +45,24 @@ func TestSpinModelView(t *testing.T) {
 }
 
 func TestSpinModelUpdate(t *testing.T) {
-	t.Run("handles quit key", func(t *testing.T) {
+	t.Run("handles q key", func(t *testing.T) {
 		m := initialSpinModel("Test")
 		newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
 		updated := newModel.(spinModel)
 		if !updated.quitting {
 			t.Error("Expected quitting to be true after 'q' key")
+		}
+		if cmd == nil {
+			t.Error("Expected quit command")
+		}
+	})
+
+	t.Run("handles ctrl+c", func(t *testing.T) {
+		m := initialSpinModel("Test")
+		newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+		updated := newModel.(spinModel)
+		if !updated.quitting {
+			t.Error("Expected quitting to be true after Ctrl+C")
 		}
 		if cmd == nil {
 			t.Error("Expected quit command")

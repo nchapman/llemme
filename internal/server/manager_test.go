@@ -278,7 +278,8 @@ func TestIsRunning(t *testing.T) {
 	})
 
 	t.Run("returns false for non-existent PID", func(t *testing.T) {
-		// Use a very high PID that's unlikely to exist
+		// PID_MAX is typically 32768 on Linux (or 4194304 with pid_max tuning)
+		// and 99999 on macOS. 999999999 exceeds all reasonable limits.
 		state := &ServerState{PID: 999999999}
 		if IsRunning(state) {
 			t.Error("Expected IsRunning to return false for non-existent PID")
