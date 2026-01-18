@@ -253,8 +253,10 @@ func TestStreamChatCompletion(t *testing.T) {
 		}
 
 		var receivedChunks []string
-		err := api.StreamChatCompletion(&expectedReq, func(content string) {
-			receivedChunks = append(receivedChunks, content)
+		err := api.StreamChatCompletion(&expectedReq, StreamCallback{
+			ContentCallback: func(content string) {
+				receivedChunks = append(receivedChunks, content)
+			},
 		})
 
 		if err != nil {
@@ -289,8 +291,10 @@ func TestStreamChatCompletion(t *testing.T) {
 		}
 
 		callCount := 0
-		err := api.StreamChatCompletion(&ChatCompletionRequest{}, func(string) {
-			callCount++
+		err := api.StreamChatCompletion(&ChatCompletionRequest{}, StreamCallback{
+			ContentCallback: func(string) {
+				callCount++
+			},
 		})
 
 		if err != nil {
@@ -320,7 +324,7 @@ func TestStreamChatCompletion(t *testing.T) {
 			Stream:   true,
 		}
 
-		err := api.StreamChatCompletion(req, func(string) {})
+		err := api.StreamChatCompletion(req, StreamCallback{})
 		if err == nil {
 			t.Error("Expected error for failed request, got nil")
 		}
@@ -356,8 +360,10 @@ func TestStreamChatCompletion(t *testing.T) {
 		}
 
 		callCount := 0
-		err := api.StreamChatCompletion(&ChatCompletionRequest{}, func(string) {
-			callCount++
+		err := api.StreamChatCompletion(&ChatCompletionRequest{}, StreamCallback{
+			ContentCallback: func(string) {
+				callCount++
+			},
 		})
 
 		if err != nil {
@@ -366,6 +372,155 @@ func TestStreamChatCompletion(t *testing.T) {
 
 		if callCount != 1 {
 			t.Errorf("Expected 1 callback call (valid chunk), got %d", callCount)
+		}
+	})
+
+	t.Run("handles reasoning_content separately from content", func(t *testing.T) {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			flusher, ok := w.(http.Flusher)
+			if !ok {
+				t.Fatal("Expected streaming support")
+			}
+
+			w.Header().Set("Content-Type", "text/event-stream")
+			w.WriteHeader(http.StatusOK)
+
+			// First send reasoning content
+			reasoningChunk := StreamChunk{
+				ID:      "test-id",
+				Object:  "chat.completion.chunk",
+				Created: 1234567890,
+				Model:   "test-model",
+				Choices: []StreamChoice{
+					{
+						Index: 0,
+						Delta: StreamDelta{ReasoningContent: "Let me think..."},
+					},
+				},
+			}
+			jsonData, _ := json.Marshal(reasoningChunk)
+			fmt.Fprintf(w, "data: %s\n\n", string(jsonData))
+			flusher.Flush()
+
+			// Then send actual content
+			contentChunk := StreamChunk{
+				ID:      "test-id",
+				Object:  "chat.completion.chunk",
+				Created: 1234567890,
+				Model:   "test-model",
+				Choices: []StreamChoice{
+					{
+						Index: 0,
+						Delta: StreamDelta{Content: "The answer is 42"},
+					},
+				},
+			}
+			jsonData, _ = json.Marshal(contentChunk)
+			fmt.Fprintf(w, "data: %s\n\n", string(jsonData))
+			flusher.Flush()
+
+			fmt.Fprintf(w, "data: [DONE]\n\n")
+			flusher.Flush()
+		}))
+		defer ts.Close()
+
+		api := &APIClient{
+			baseURL: ts.URL,
+			client:  ts.Client(),
+		}
+
+		var reasoningChunks []string
+		var contentChunks []string
+		err := api.StreamChatCompletion(&ChatCompletionRequest{}, StreamCallback{
+			ReasoningCallback: func(reasoning string) {
+				reasoningChunks = append(reasoningChunks, reasoning)
+			},
+			ContentCallback: func(content string) {
+				contentChunks = append(contentChunks, content)
+			},
+		})
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		if len(reasoningChunks) != 1 || reasoningChunks[0] != "Let me think..." {
+			t.Errorf("Expected reasoning chunk 'Let me think...', got %v", reasoningChunks)
+		}
+
+		if len(contentChunks) != 1 || contentChunks[0] != "The answer is 42" {
+			t.Errorf("Expected content chunk 'The answer is 42', got %v", contentChunks)
+		}
+	})
+
+	t.Run("handles reasoning_content with nil ReasoningCallback", func(t *testing.T) {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			flusher, ok := w.(http.Flusher)
+			if !ok {
+				t.Fatal("Expected streaming support")
+			}
+
+			w.Header().Set("Content-Type", "text/event-stream")
+			w.WriteHeader(http.StatusOK)
+
+			// Send reasoning content (should be ignored since no callback)
+			reasoningChunk := StreamChunk{
+				ID:      "test-id",
+				Object:  "chat.completion.chunk",
+				Created: 1234567890,
+				Model:   "test-model",
+				Choices: []StreamChoice{
+					{
+						Index: 0,
+						Delta: StreamDelta{ReasoningContent: "Thinking..."},
+					},
+				},
+			}
+			jsonData, _ := json.Marshal(reasoningChunk)
+			fmt.Fprintf(w, "data: %s\n\n", string(jsonData))
+			flusher.Flush()
+
+			// Send actual content
+			contentChunk := StreamChunk{
+				ID:      "test-id",
+				Object:  "chat.completion.chunk",
+				Created: 1234567890,
+				Model:   "test-model",
+				Choices: []StreamChoice{
+					{
+						Index: 0,
+						Delta: StreamDelta{Content: "Hello"},
+					},
+				},
+			}
+			jsonData, _ = json.Marshal(contentChunk)
+			fmt.Fprintf(w, "data: %s\n\n", string(jsonData))
+			flusher.Flush()
+
+			fmt.Fprintf(w, "data: [DONE]\n\n")
+			flusher.Flush()
+		}))
+		defer ts.Close()
+
+		api := &APIClient{
+			baseURL: ts.URL,
+			client:  ts.Client(),
+		}
+
+		var contentChunks []string
+		// Only provide ContentCallback, no ReasoningCallback - should not panic
+		err := api.StreamChatCompletion(&ChatCompletionRequest{}, StreamCallback{
+			ContentCallback: func(content string) {
+				contentChunks = append(contentChunks, content)
+			},
+		})
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		if len(contentChunks) != 1 || contentChunks[0] != "Hello" {
+			t.Errorf("Expected content chunk 'Hello', got %v", contentChunks)
 		}
 	})
 }

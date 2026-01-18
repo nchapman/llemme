@@ -21,7 +21,7 @@ type spinFinishMsg struct {
 
 func initialSpinModel(message string) spinModel {
 	s := spinner.New()
-	s.Spinner = spinner.Points
+	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("12"))
 	return spinModel{
 		spinner: s,
@@ -59,6 +59,10 @@ func (m spinModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m spinModel) View() string {
 	if m.quitting {
+		if m.message == "" {
+			// Clear the line and stay on it (no newline)
+			return "\r\033[K"
+		}
 		return m.message + "\n"
 	}
 	return fmt.Sprintf("%s %s", m.spinner.View(), m.message)
@@ -69,10 +73,8 @@ type Spinner struct {
 	prog  *tea.Program
 }
 
-func NewSpinner(message string) *Spinner {
-	return &Spinner{
-		model: &spinModel{},
-	}
+func NewSpinner() *Spinner {
+	return &Spinner{}
 }
 
 func (s *Spinner) Start(message string) {
@@ -92,7 +94,7 @@ func (s *Spinner) Stop(success bool, message string) {
 }
 
 func WithSpinner(message string, fn func() error) error {
-	s := NewSpinner(message)
+	s := NewSpinner()
 	s.Start(message)
 	err := fn()
 	if err != nil {

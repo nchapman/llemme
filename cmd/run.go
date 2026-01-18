@@ -354,7 +354,7 @@ func runChat(api *server.APIClient, model, initialPrompt string, cfg *config.Con
 	// Handle initial prompt if provided
 	if initialPrompt != "" {
 		if !isPiped {
-			fmt.Printf("%s %s\n\n", ui.Muted("You:"), initialPrompt)
+			fmt.Printf("%s %s\n", ui.Muted("You:"), initialPrompt)
 		}
 		messages = append(messages, server.ChatMessage{Role: "user", Content: initialPrompt})
 		response := streamResponse(api, model, messages, cfg, !isPiped)
@@ -390,7 +390,6 @@ func runChat(api *server.APIClient, model, initialPrompt string, cfg *config.Con
 			return
 		}
 
-		fmt.Println()
 		messages = append(messages, server.ChatMessage{Role: "user", Content: input})
 		response := streamResponse(api, model, messages, cfg, true)
 		if response != "" {
@@ -402,35 +401,62 @@ func runChat(api *server.APIClient, model, initialPrompt string, cfg *config.Con
 
 func streamResponse(api *server.APIClient, model string, messages []server.ChatMessage, cfg *config.Config, showSpinner bool) string {
 	req := &server.ChatCompletionRequest{
-		Model:       model,
-		Messages:    messages,
-		Stream:      true,
-		Temperature: cfg.Temperature,
-		TopP:        cfg.TopP,
-		MaxTokens:   tokens,
+		Model:           model,
+		Messages:        messages,
+		Stream:          true,
+		Temperature:     cfg.Temperature,
+		TopP:            cfg.TopP,
+		MaxTokens:       tokens,
+		ReasoningFormat: "auto",
 	}
 
 	var spinner *ui.Spinner
 	spinnerRunning := false
 	if showSpinner {
-		spinner = ui.NewSpinner("")
-		spinner.Start("Thinking...")
+		spinner = ui.NewSpinner()
+		spinner.Start("")
 		spinnerRunning = true
 	}
 
 	var fullResponse strings.Builder
+	hadReasoning := false
+	inReasoning := false
 
-	err := api.StreamChatCompletion(req, func(content string) {
+	stopSpinner := func() {
 		if spinnerRunning {
 			spinner.Stop(true, "")
 			spinnerRunning = false
 		}
-		fullResponse.WriteString(content)
-		fmt.Print(content)
-	})
+	}
+
+	cb := server.StreamCallback{
+		ReasoningCallback: func(reasoning string) {
+			stopSpinner()
+			inReasoning = true
+			hadReasoning = true
+			fmt.Print(ui.Muted(reasoning))
+		},
+		ContentCallback: func(content string) {
+			stopSpinner()
+			if inReasoning {
+				// Transitioning from reasoning to content
+				fmt.Print("\n\n")
+				inReasoning = false
+			}
+			fullResponse.WriteString(content)
+			fmt.Print(content)
+		},
+	}
+
+	err := api.StreamChatCompletion(req, cb)
 
 	if spinnerRunning {
 		spinner.Stop(false, "")
+	}
+
+	// If we only had reasoning and no content, add a newline
+	if hadReasoning && fullResponse.Len() == 0 {
+		fmt.Println()
 	}
 
 	if err != nil {

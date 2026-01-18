@@ -21,13 +21,14 @@ type ChatMessage struct {
 }
 
 type ChatCompletionRequest struct {
-	Model       string        `json:"model"`
-	Messages    []ChatMessage `json:"messages"`
-	Stream      bool          `json:"stream"`
-	Temperature float64       `json:"temperature,omitempty"`
-	TopP        float64       `json:"top_p,omitempty"`
-	TopK        int           `json:"top_k,omitempty"`
-	MaxTokens   int           `json:"max_tokens,omitempty"`
+	Model           string        `json:"model"`
+	Messages        []ChatMessage `json:"messages"`
+	Stream          bool          `json:"stream"`
+	Temperature     float64       `json:"temperature,omitempty"`
+	TopP            float64       `json:"top_p,omitempty"`
+	TopK            int           `json:"top_k,omitempty"`
+	MaxTokens       int           `json:"max_tokens,omitempty"`
+	ReasoningFormat string        `json:"reasoning_format,omitempty"`
 }
 
 type ChatCompletionResponse struct {
@@ -51,8 +52,9 @@ type StreamChoice struct {
 }
 
 type StreamDelta struct {
-	Role    string `json:"role,omitempty"`
-	Content string `json:"content,omitempty"`
+	Role             string `json:"role,omitempty"`
+	Content          string `json:"content,omitempty"`
+	ReasoningContent string `json:"reasoning_content,omitempty"`
 }
 
 type StreamChunk struct {
@@ -131,7 +133,15 @@ func (api *APIClient) ChatCompletion(req *ChatCompletionRequest) (*ChatCompletio
 	return &response, nil
 }
 
-func (api *APIClient) StreamChatCompletion(req *ChatCompletionRequest, callback func(string)) error {
+// StreamCallback holds callbacks for streaming chat completion responses.
+// ContentCallback is called for regular response content.
+// ReasoningCallback is called for reasoning/thinking content (optional).
+type StreamCallback struct {
+	ContentCallback   func(string)
+	ReasoningCallback func(string)
+}
+
+func (api *APIClient) StreamChatCompletion(req *ChatCompletionRequest, cb StreamCallback) error {
 	url := fmt.Sprintf("%s/v1/chat/completions", api.baseURL)
 
 	body, err := json.Marshal(req)
@@ -179,9 +189,12 @@ func (api *APIClient) StreamChatCompletion(req *ChatCompletionRequest, callback 
 			}
 
 			if len(chunk.Choices) > 0 {
-				content := chunk.Choices[0].Delta.Content
-				if content != "" {
-					callback(content)
+				delta := chunk.Choices[0].Delta
+				if delta.ReasoningContent != "" && cb.ReasoningCallback != nil {
+					cb.ReasoningCallback(delta.ReasoningContent)
+				}
+				if delta.Content != "" && cb.ContentCallback != nil {
+					cb.ContentCallback(delta.Content)
 				}
 			}
 		}
