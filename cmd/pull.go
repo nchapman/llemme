@@ -118,15 +118,15 @@ var pullCmd = &cobra.Command{
 			totalSize += manifest.MMProjFile.Size
 		}
 
+		modelName := ui.Keyword(fmt.Sprintf("%s/%s:%s", user, repo, quant))
 		if hasMMProj {
-			fmt.Printf("Pulling %s/%s:%s (%s + %s mmproj)\n",
-				user, repo, quant,
+			fmt.Printf("Pulling %s (%s + %s mmproj)\n",
+				modelName,
 				ui.FormatBytes(manifest.GGUFFile.Size),
 				ui.FormatBytes(manifest.MMProjFile.Size))
 		} else {
-			fmt.Printf("Pulling %s/%s:%s (%s)\n", user, repo, quant, ui.FormatBytes(manifest.GGUFFile.Size))
+			fmt.Printf("Pulling %s (%s)\n", modelName, ui.FormatBytes(manifest.GGUFFile.Size))
 		}
-		fmt.Println()
 
 		progressBar := ui.NewProgressBar()
 		progressBar.Start("", totalSize)
@@ -209,11 +209,10 @@ var pullCmd = &cobra.Command{
 		}
 
 		if hasMMProj {
-			fmt.Printf("Pulled %s/%s:%s (vision model)\n", user, repo, quant)
+			fmt.Printf("Pulled %s (vision model)\n", modelName)
 		} else {
-			fmt.Printf("Pulled %s/%s:%s\n", user, repo, quant)
+			fmt.Printf("Pulled %s\n", modelName)
 		}
-		fmt.Println()
 	},
 }
 

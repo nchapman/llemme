@@ -21,7 +21,7 @@ var (
 	warningStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("11"))
 	mutedStyle    = lipgloss.NewStyle().Faint(true)
 	boldStyle     = lipgloss.NewStyle().Bold(true)
-	keywordStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("13"))
+	keywordStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("13"))
 	valueStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
 	borderStyle   = lipgloss.NewStyle().Border(lipgloss.RoundedBorder())
 	borderPadding = lipgloss.NewStyle().Padding(1, 2)
