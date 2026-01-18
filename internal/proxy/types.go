@@ -5,6 +5,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"github.com/nchapman/llemme/internal/config"
 )
 
 // BackendStatus represents the current state of a backend server
@@ -116,32 +118,32 @@ func DefaultConfig() *Config {
 }
 
 // ConfigFromAppConfig creates a proxy Config from the app config
-func ConfigFromAppConfig(host string, port int, maxModels int, idleTimeoutMins int, backendPortMin int, backendPortMax int, startupTimeoutS int, corsOrigins []string) *Config {
+func ConfigFromAppConfig(s config.Server) *Config {
 	cfg := DefaultConfig()
 
-	if host != "" {
-		cfg.Host = host
+	if s.Host != "" {
+		cfg.Host = s.Host
 	}
-	if port > 0 {
-		cfg.Port = port
+	if s.Port > 0 {
+		cfg.Port = s.Port
 	}
-	if maxModels > 0 {
-		cfg.MaxModels = maxModels
+	if s.MaxModels > 0 {
+		cfg.MaxModels = s.MaxModels
 	}
-	if idleTimeoutMins > 0 {
-		cfg.IdleTimeout = time.Duration(idleTimeoutMins) * time.Minute
+	if s.IdleTimeoutMins > 0 {
+		cfg.IdleTimeout = time.Duration(s.IdleTimeoutMins) * time.Minute
 	}
-	if backendPortMin > 0 {
-		cfg.BackendPortMin = backendPortMin
+	if s.BackendPortMin > 0 {
+		cfg.BackendPortMin = s.BackendPortMin
 	}
-	if backendPortMax > 0 {
-		cfg.BackendPortMax = backendPortMax
+	if s.BackendPortMax > 0 {
+		cfg.BackendPortMax = s.BackendPortMax
 	}
-	if startupTimeoutS > 0 {
-		cfg.StartupTimeout = time.Duration(startupTimeoutS) * time.Second
+	if s.StartupTimeoutS > 0 {
+		cfg.StartupTimeout = time.Duration(s.StartupTimeoutS) * time.Second
 	}
-	if len(corsOrigins) > 0 {
-		cfg.CORSOrigins = corsOrigins
+	if len(s.CORSOrigins) > 0 {
+		cfg.CORSOrigins = s.CORSOrigins
 	}
 
 	return cfg
