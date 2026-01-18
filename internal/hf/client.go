@@ -45,7 +45,7 @@ type Sibling struct {
 
 type CardData struct {
 	License   string   `json:"license"`
-	BaseModel string   `json:"base_model"`
+	BaseModel any      `json:"base_model"` // Can be string or []string
 	Tags      []string `json:"tags"`
 }
 
