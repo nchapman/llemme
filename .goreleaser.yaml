@@ -44,8 +44,6 @@ brews:
     license: "MIT"
     install: |
       bin.install "llemme"
-    post_install: |
-      system "/usr/bin/xattr", "-dr", "com.apple.quarantine", bin/"llemme"
     service: |
       run [opt_bin/"llemme", "serve"]
       keep_alive crashed: true
