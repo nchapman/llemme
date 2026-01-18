@@ -111,11 +111,12 @@ func stopAllModels(proxyURL string) {
 	}
 	json.NewDecoder(resp.Body).Decode(&result)
 
-	if result.Stopped == 0 {
+	switch result.Stopped {
+	case 0:
 		fmt.Println(ui.Muted("No models were loaded"))
-	} else if result.Stopped == 1 {
+	case 1:
 		fmt.Println("Unloaded 1 model")
-	} else {
+	default:
 		fmt.Printf("Unloaded %d models\n", result.Stopped)
 	}
 }
