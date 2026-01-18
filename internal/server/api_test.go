@@ -22,6 +22,28 @@ func TestNewAPIClient(t *testing.T) {
 	}
 }
 
+func TestNewAPIClientFromURL(t *testing.T) {
+	t.Run("creates client with provided URL", func(t *testing.T) {
+		api := NewAPIClientFromURL("http://localhost:9000")
+		if api == nil {
+			t.Fatal("Expected non-nil APIClient")
+		}
+		if api.baseURL != "http://localhost:9000" {
+			t.Errorf("Expected baseURL http://localhost:9000, got %s", api.baseURL)
+		}
+		if api.client == nil {
+			t.Error("Expected non-nil HTTP client")
+		}
+	})
+
+	t.Run("preserves URL with path", func(t *testing.T) {
+		api := NewAPIClientFromURL("http://example.com/api/v1")
+		if api.baseURL != "http://example.com/api/v1" {
+			t.Errorf("Expected baseURL http://example.com/api/v1, got %s", api.baseURL)
+		}
+	})
+}
+
 func TestHealth(t *testing.T) {
 	t.Run("returns nil on successful health check", func(t *testing.T) {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

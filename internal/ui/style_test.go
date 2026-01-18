@@ -61,3 +61,28 @@ func TestStyleFunctionsEmptyInput(t *testing.T) {
 		})
 	}
 }
+
+func TestLlamaCppCredit(t *testing.T) {
+	result := LlamaCppCredit("b1234")
+	if result == "" {
+		t.Error("Expected non-empty result")
+	}
+	if !strings.Contains(result, "llama.cpp") {
+		t.Error("Expected result to contain 'llama.cpp'")
+	}
+	if !strings.Contains(result, "b1234") {
+		t.Error("Expected result to contain version 'b1234'")
+	}
+}
+
+func TestIconConstants(t *testing.T) {
+	if IconCheck == "" {
+		t.Error("Expected IconCheck to be non-empty")
+	}
+	if IconCross == "" {
+		t.Error("Expected IconCross to be non-empty")
+	}
+	if IconArrow == "" {
+		t.Error("Expected IconArrow to be non-empty")
+	}
+}
