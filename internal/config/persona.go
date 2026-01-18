@@ -32,6 +32,58 @@ func (p *Persona) GetFloatOption(key string, defaultVal float64) float64 {
 	return defaultVal
 }
 
+// GetIntOption returns an int option from the persona, with a default if not set.
+func (p *Persona) GetIntOption(key string, defaultVal int) int {
+	if p == nil || p.Options == nil {
+		return defaultVal
+	}
+	if val, ok := p.Options[key]; ok {
+		switch v := val.(type) {
+		case int:
+			return v
+		case float64:
+			return int(v)
+		}
+	}
+	return defaultVal
+}
+
+// HasOption returns true if the persona has the given option set.
+func (p *Persona) HasOption(key string) bool {
+	if p == nil || p.Options == nil {
+		return false
+	}
+	_, ok := p.Options[key]
+	return ok
+}
+
+// GetServerOptions returns a map of server options (ctx-size, gpu-layers, threads, etc.)
+// that should be passed to the model loading API.
+func (p *Persona) GetServerOptions() map[string]any {
+	if p == nil || p.Options == nil {
+		return nil
+	}
+
+	// Server options that affect model loading
+	serverOptionKeys := []string{
+		"ctx-size", "gpu-layers", "threads",
+		"batch-size", "ubatch-size", "flash-attn",
+		"mlock", "cache-type-k", "cache-type-v",
+	}
+
+	result := make(map[string]any)
+	for _, key := range serverOptionKeys {
+		if val, ok := p.Options[key]; ok {
+			result[key] = val
+		}
+	}
+
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
 const personasDir = "personas"
 
 // ValidatePersonaName checks if a persona name is valid for use as a filename.

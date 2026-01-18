@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bufio"
 	"fmt"
 	"net/http"
 	"os"
@@ -20,15 +19,18 @@ import (
 )
 
 var (
-	ctxLen        int
 	tokens        int
 	temperature   float64
 	topP          float64
 	topK          int
+	minP          float64
 	repeatPenalty float64
-	gpuLayers     int
-	threads       int
 	systemPrompt  string
+
+	// Server options (require model reload)
+	ctxSize   int
+	gpuLayers int
+	threads   int
 )
 
 var runCmd = &cobra.Command{
@@ -117,15 +119,71 @@ Models are loaded on-demand and unloaded after idle timeout.`,
 			os.Exit(1)
 		}
 
+		// Use the resolved full model name
+		modelName := resolvedModel.FullName
+
+		// Build server options from persona and CLI flags
+		// Priority: CLI flags > persona options > config defaults
+		ctxSizeSet := cmd.Flags().Changed("ctx-size")
+		gpuLayersSet := cmd.Flags().Changed("gpu-layers")
+		threadsSet := cmd.Flags().Changed("threads")
+
+		// Get persona server options (if any)
+		var personaOpts map[string]any
+		if activePersona != nil {
+			personaOpts = activePersona.GetServerOptions()
+		}
+
+		// Only call /api/run if we have options to pass
+		if ctxSizeSet || gpuLayersSet || threadsSet || personaOpts != nil {
+			opts := &server.RunOptions{
+				Options: personaOpts, // Base options from persona
+			}
+			// CLI flags override persona options
+			if ctxSizeSet {
+				opts.CtxSize = server.IntPtr(ctxSize)
+			}
+			if gpuLayersSet {
+				opts.GpuLayers = server.IntPtr(gpuLayers)
+			}
+			if threadsSet {
+				opts.Threads = server.IntPtr(threads)
+			}
+			if err := api.Run(modelName, opts); err != nil {
+				fmt.Printf("%s Failed to load model: %v\n", ui.ErrorMsg("Error:"), err)
+				os.Exit(1)
+			}
+		}
+
 		promptArg := ""
 		if len(args) > promptStartIdx {
 			promptArg = strings.Join(args[promptStartIdx:], " ")
 		}
 
-		// Use the resolved full model name
-		modelName := resolvedModel.FullName
+		// Start chat session
+		session := NewChatSession(api, modelName, cfg, activePersona)
 
-		runChat(api, modelName, promptArg, cfg, activePersona)
+		// Apply CLI server options to session (for /reload to preserve them)
+		session.SetInitialServerOptions(ctxSize, gpuLayers, threads, ctxSizeSet, gpuLayersSet, threadsSet)
+
+		// Apply CLI flags to session options (sampling parameters)
+		if temperature != 0 {
+			session.options.temp = temperature
+		}
+		if topP != 0 {
+			session.options.topP = topP
+		}
+		if topK != 0 {
+			session.options.topK = topK
+		}
+		if minP != 0 {
+			session.options.minP = minP
+		}
+		if repeatPenalty != 0 {
+			session.options.repeatPenalty = repeatPenalty
+		}
+
+		session.Run(promptArg)
 	},
 }
 
@@ -367,168 +425,20 @@ func ensureProxyRunning(cfg *config.Config) (string, error) {
 	return "", fmt.Errorf("proxy did not become ready")
 }
 
-func runChat(api *server.APIClient, model, initialPrompt string, cfg *config.Config, persona *config.Persona) {
-	// Check if input is piped (non-interactive)
-	stat, _ := os.Stdin.Stat()
-	isPiped := (stat.Mode() & os.ModeCharDevice) == 0
-
-	reader := bufio.NewReader(os.Stdin)
-	messages := []server.ChatMessage{}
-
-	// Add system prompt (use default if not specified)
-	sysPrompt := systemPrompt
-	if sysPrompt == "" {
-		sysPrompt = "You are a helpful assistant."
-	}
-	messages = append(messages, server.ChatMessage{Role: "system", Content: sysPrompt})
-
-	if !isPiped {
-		fmt.Printf("\n%s  %s\n\n", ui.Box(model), ui.Muted("Ctrl+D to exit"))
-	}
-
-	// Handle initial prompt if provided
-	if initialPrompt != "" {
-		if !isPiped {
-			fmt.Printf("%s %s\n", ui.Muted("You:"), initialPrompt)
-		}
-		messages = append(messages, server.ChatMessage{Role: "user", Content: initialPrompt})
-		response := streamResponse(api, model, messages, cfg, persona, !isPiped)
-		if response != "" {
-			messages = append(messages, server.ChatMessage{Role: "assistant", Content: response})
-		}
-		if isPiped {
-			return // Exit after one-shot when piped
-		}
-		fmt.Println()
-	}
-
-	// Interactive loop (skip if piped with no initial prompt)
-	if isPiped {
-		return
-	}
-
-	for {
-		fmt.Print(ui.Muted("You: "))
-		input, err := reader.ReadString('\n')
-		if err != nil {
-			fmt.Println()
-			break
-		}
-
-		input = strings.TrimSpace(input)
-		if input == "" {
-			continue
-		}
-
-		if input == "/bye" || input == "/exit" || input == "/quit" {
-			fmt.Println(ui.Muted("Goodbye!"))
-			return
-		}
-
-		messages = append(messages, server.ChatMessage{Role: "user", Content: input})
-		response := streamResponse(api, model, messages, cfg, persona, true)
-		if response != "" {
-			messages = append(messages, server.ChatMessage{Role: "assistant", Content: response})
-		}
-		fmt.Println()
-	}
-}
-
-func streamResponse(api *server.APIClient, model string, messages []server.ChatMessage, cfg *config.Config, persona *config.Persona, showSpinner bool) string {
-	req := &server.ChatCompletionRequest{
-		Model:           model,
-		Messages:        messages,
-		Stream:          true,
-		MaxTokens:       tokens,
-		ReasoningFormat: "auto",
-	}
-
-	// Apply temperature: CLI flag > persona > config > server default
-	if temperature != 0 {
-		req.Temperature = temperature
-	} else if persona != nil && persona.GetFloatOption("temp", 0) != 0 {
-		req.Temperature = persona.GetFloatOption("temp", 0)
-	} else if temp := cfg.LlamaCpp.GetFloatOption("temp", 0); temp != 0 {
-		req.Temperature = temp
-	}
-
-	// Apply top-p: CLI flag > persona > config > server default
-	if topP != 0 {
-		req.TopP = topP
-	} else if persona != nil && persona.GetFloatOption("top-p", 0) != 0 {
-		req.TopP = persona.GetFloatOption("top-p", 0)
-	} else if tp := cfg.LlamaCpp.GetFloatOption("top-p", 0); tp != 0 {
-		req.TopP = tp
-	}
-
-	var spinner *ui.Spinner
-	spinnerRunning := false
-	if showSpinner {
-		spinner = ui.NewSpinner()
-		spinner.Start("")
-		spinnerRunning = true
-	}
-
-	var fullResponse strings.Builder
-	hadReasoning := false
-	inReasoning := false
-
-	stopSpinner := func() {
-		if spinnerRunning {
-			spinner.Stop(true, "")
-			spinnerRunning = false
-		}
-	}
-
-	cb := server.StreamCallback{
-		ReasoningCallback: func(reasoning string) {
-			stopSpinner()
-			inReasoning = true
-			hadReasoning = true
-			fmt.Print(ui.Muted(reasoning))
-		},
-		ContentCallback: func(content string) {
-			stopSpinner()
-			if inReasoning {
-				// Transitioning from reasoning to content
-				fmt.Print("\n\n")
-				inReasoning = false
-			}
-			fullResponse.WriteString(content)
-			fmt.Print(content)
-		},
-	}
-
-	err := api.StreamChatCompletion(req, cb)
-
-	if spinnerRunning {
-		spinner.Stop(false, "")
-	}
-
-	// If we only had reasoning and no content, add a newline
-	if hadReasoning && fullResponse.Len() == 0 {
-		fmt.Println()
-	}
-
-	if err != nil {
-		fmt.Printf("\n%s %v\n", ui.ErrorMsg("Error:"), err)
-		return ""
-	}
-
-	fmt.Println()
-	return fullResponse.String()
-}
-
 func init() {
 	rootCmd.AddCommand(runCmd)
 
-	runCmd.Flags().IntVarP(&ctxLen, "ctx-size", "c", 0, "Context length")
-	runCmd.Flags().IntVarP(&tokens, "predict", "n", 0, "Max tokens to generate")
+	// Sampling options (apply per-request)
 	runCmd.Flags().Float64VarP(&temperature, "temp", "t", 0, "Temperature")
 	runCmd.Flags().Float64Var(&topP, "top-p", 0, "Top-p sampling")
 	runCmd.Flags().IntVar(&topK, "top-k", 0, "Top-k sampling")
+	runCmd.Flags().Float64Var(&minP, "min-p", 0, "Min-p sampling")
 	runCmd.Flags().Float64Var(&repeatPenalty, "repeat-penalty", 0, "Repeat penalty")
-	runCmd.Flags().IntVar(&gpuLayers, "gpu-layers", 0, "Layers to offload to GPU (-1 = all)")
-	runCmd.Flags().IntVar(&threads, "threads", 0, "CPU threads to use")
+	runCmd.Flags().IntVarP(&tokens, "predict", "n", 0, "Max tokens to generate")
 	runCmd.Flags().StringVar(&systemPrompt, "system", "", "System prompt")
+
+	// Server options (affect model loading)
+	runCmd.Flags().IntVar(&ctxSize, "ctx-size", 0, "Context size (0 = model default)")
+	runCmd.Flags().IntVar(&gpuLayers, "gpu-layers", 0, "GPU layers to offload (0 = auto)")
+	runCmd.Flags().IntVar(&threads, "threads", 0, "CPU threads (0 = auto)")
 }

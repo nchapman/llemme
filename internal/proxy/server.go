@@ -52,6 +52,7 @@ func NewServer(cfg *Config, appCfg *config.Config) *Server {
 	mux.HandleFunc("/v1/models", s.handleModels)
 	mux.HandleFunc("/health", s.handleHealth)
 	mux.HandleFunc("/api/status", s.handleStatus)
+	mux.HandleFunc("/api/run", s.handleRun)
 	mux.HandleFunc("/api/stop", s.handleStopModel)
 	mux.HandleFunc("/api/stop-all", s.handleStopAll)
 
@@ -152,8 +153,8 @@ func (s *Server) proxyToBackend(w http.ResponseWriter, r *http.Request, path str
 		return
 	}
 
-	// Get or load the backend
-	backend, err := s.manager.GetOrLoadBackend(req.Model)
+	// Get or load the backend (no options override for chat endpoint)
+	backend, err := s.manager.GetOrLoadBackend(req.Model, nil)
 	if err != nil {
 		s.handleModelError(w, err)
 		return
@@ -297,6 +298,59 @@ func (s *Server) writeError(w http.ResponseWriter, status int, errType, message 
 			Message: message,
 			Type:    errType,
 		},
+	})
+}
+
+// handleRun loads a model with optional server options
+func (s *Server) handleRun(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		s.writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Only POST is allowed")
+		return
+	}
+
+	var req RunRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.writeError(w, http.StatusBadRequest, "invalid_request", "Failed to parse request body")
+		return
+	}
+
+	if req.Model == "" {
+		s.writeError(w, http.StatusBadRequest, "invalid_request", "Model field is required")
+		return
+	}
+
+	// Build options map: start with additional options, then explicit fields override
+	options := make(map[string]any)
+	// First, copy additional options (e.g., from persona)
+	// Normalize keys to hyphens (llama-server CLI format)
+	for k, v := range req.Options {
+		normalizedKey := strings.ReplaceAll(k, "_", "-")
+		options[normalizedKey] = v
+	}
+	// Explicit fields override additional options (CLI flags > persona options)
+	if req.CtxSize != nil {
+		options["ctx-size"] = *req.CtxSize
+	}
+	if req.GpuLayers != nil {
+		options["gpu-layers"] = *req.GpuLayers
+	}
+	if req.Threads != nil {
+		options["threads"] = *req.Threads
+	}
+
+	// Load the backend with options
+	backend, err := s.manager.GetOrLoadBackend(req.Model, options)
+	if err != nil {
+		s.handleModelError(w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	writeJSON(w, RunResponse{
+		Success: true,
+		Model:   backend.ModelName,
+		Status:  backend.GetStatus().String(),
+		Port:    backend.Port,
 	})
 }
 

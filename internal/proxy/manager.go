@@ -40,8 +40,9 @@ func NewModelManager(cfg *Config, appCfg *config.Config) *ModelManager {
 	}
 }
 
-// GetOrLoadBackend returns a backend for the given model, loading it if necessary
-func (m *ModelManager) GetOrLoadBackend(modelQuery string) (*Backend, error) {
+// GetOrLoadBackend returns a backend for the given model, loading it if necessary.
+// Options override config defaults for this specific load (ctx-size, gpu-layers, etc.).
+func (m *ModelManager) GetOrLoadBackend(modelQuery string, options map[string]any) (*Backend, error) {
 	// First, resolve the model name
 	result, err := m.resolver.Resolve(modelQuery)
 	if err != nil {
@@ -81,18 +82,35 @@ func (m *ModelManager) GetOrLoadBackend(modelQuery string) (*Backend, error) {
 	if exists {
 		status := backend.GetStatus()
 		if status == BackendReady {
-			// Already ready - update LRU and return
-			m.updateLRU(modelName)
-			backend.UpdateActivity()
-			m.mu.Unlock()
-			return backend, nil
-		}
-		if status == BackendStarting {
+			// Check if options changed - if so, reload the model
+			if optionsChanged(backend.Options, options) {
+				// Mark as stopping to prevent race conditions
+				backend.SetStatus(BackendStopping)
+				m.mu.Unlock()
+				// Stop and let it fall through to reload with new options
+				m.StopBackend(modelName)
+				m.mu.Lock()
+				// Fall through to create new backend with new options
+			} else {
+				// Same options - update LRU and return existing backend
+				m.updateLRU(modelName)
+				backend.UpdateActivity()
+				m.mu.Unlock()
+				return backend, nil
+			}
+		} else if status == BackendStarting {
 			// Currently starting - wait for it
 			readyChan := backend.ReadyChan
 			m.mu.Unlock()
 			<-readyChan
 			if backend.GetStatus() == BackendReady {
+				// Check options after it's ready
+				if optionsChanged(backend.Options, options) {
+					// Need to reload with different options
+					m.StopBackend(modelName)
+					// Recursively call to load with new options
+					return m.GetOrLoadBackend(modelQuery, options)
+				}
 				backend.UpdateActivity()
 				return backend, nil
 			}
@@ -107,6 +125,10 @@ func (m *ModelManager) GetOrLoadBackend(modelQuery string) (*Backend, error) {
 		if lruModel == "" {
 			m.mu.Unlock()
 			return nil, fmt.Errorf("failed to evict model: no models to evict")
+		}
+		// Mark as stopping to prevent concurrent eviction race
+		if lruBackend := m.backends[lruModel]; lruBackend != nil {
+			lruBackend.SetStatus(BackendStopping)
 		}
 		m.mu.Unlock()
 		if err := m.StopBackend(lruModel); err != nil {
@@ -131,6 +153,7 @@ func (m *ModelManager) GetOrLoadBackend(modelQuery string) (*Backend, error) {
 		StartedAt:    time.Now(),
 		LastActivity: time.Now(),
 		ReadyChan:    make(chan struct{}),
+		Options:      options,
 	}
 	m.backends[modelName] = backend
 	m.lruOrder = append([]string{modelName}, m.lruOrder...)
@@ -354,16 +377,17 @@ func (m *ModelManager) buildArgs(backend *Backend) []string {
 		args = append(args, "--chat-template-file", templatePath)
 	}
 
-	if m.appConfig.LlamaCpp.ContextLength > 0 {
-		args = append(args, "--ctx-size", fmt.Sprintf("%d", m.appConfig.LlamaCpp.ContextLength))
+	// Merge config options with backend-specific options (backend overrides config)
+	mergedOptions := make(map[string]any)
+	for k, v := range m.appConfig.LlamaCpp.Options {
+		mergedOptions[k] = v
+	}
+	for k, v := range backend.Options {
+		mergedOptions[k] = v
 	}
 
-	if m.appConfig.LlamaCpp.GPULayers != 0 {
-		args = append(args, "--gpu-layers", fmt.Sprintf("%d", m.appConfig.LlamaCpp.GPULayers))
-	}
-
-	// Pass through any extra llama.cpp config options
-	args = append(args, buildLlamaServerArgs(m.appConfig.LlamaCpp.Extra)...)
+	// Pass through all llama-server options
+	args = append(args, buildLlamaServerArgs(mergedOptions)...)
 
 	return args
 }
@@ -518,4 +542,65 @@ func (e *ModelNotFoundError) Error() string {
 		return fmt.Sprintf("no model matches '%s'. Did you mean: %v", e.Query, e.Suggestions)
 	}
 	return fmt.Sprintf("no model matches '%s'", e.Query)
+}
+
+// optionsChanged returns true if the new options differ from the current options.
+// Only compares options that affect model loading (server options).
+// Returns false if both are nil/empty, or if they have the same values.
+func optionsChanged(current, new map[string]any) bool {
+	// If new options are nil/empty, no change requested
+	if len(new) == 0 {
+		return false
+	}
+
+	// If current is nil but new has values, that's a change
+	if len(current) == 0 {
+		return true
+	}
+
+	// Compare the options that matter for model loading
+	serverOptions := []string{"ctx-size", "gpu-layers", "threads", "batch-size", "ubatch-size", "flash-attn", "mlock", "cache-type-k", "cache-type-v"}
+
+	for _, key := range serverOptions {
+		newVal, newExists := new[key]
+		curVal, curExists := current[key]
+
+		if newExists != curExists {
+			return true
+		}
+		if newExists && !optionValuesEqual(newVal, curVal) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// optionValuesEqual compares two option values, handling type coercion.
+// YAML parses numbers as float64, but CLI produces int, so we normalize for comparison.
+func optionValuesEqual(a, b any) bool {
+	// Try numeric comparison first (handles int vs float64)
+	aNum, aIsNum := toFloat64(a)
+	bNum, bIsNum := toFloat64(b)
+	if aIsNum && bIsNum {
+		return aNum == bNum
+	}
+
+	// Fall back to direct comparison for non-numeric types (strings, bools)
+	return a == b
+}
+
+// toFloat64 converts numeric types to float64 for comparison.
+func toFloat64(v any) (float64, bool) {
+	switch val := v.(type) {
+	case int:
+		return float64(val), true
+	case int64:
+		return float64(val), true
+	case float64:
+		return val, true
+	case float32:
+		return float64(val), true
+	}
+	return 0, false
 }

@@ -27,6 +27,10 @@ type ChatCompletionRequest struct {
 	Temperature     float64       `json:"temperature,omitempty"`
 	TopP            float64       `json:"top_p,omitempty"`
 	TopK            int           `json:"top_k,omitempty"`
+	MinP            float64       `json:"min_p,omitempty"`
+	RepeatPenalty   float64       `json:"repeat_penalty,omitempty"`
+	FreqPenalty     float64       `json:"frequency_penalty,omitempty"`
+	PresencePenalty float64       `json:"presence_penalty,omitempty"`
 	MaxTokens       int           `json:"max_tokens,omitempty"`
 	ReasoningFormat string        `json:"reasoning_format,omitempty"`
 }
@@ -211,6 +215,41 @@ func (api *APIClient) StreamChatCompletion(req *ChatCompletionRequest, cb Stream
 	return nil
 }
 
+// StopModel unloads a model from the proxy server.
+func (api *APIClient) StopModel(model string) error {
+	type StopModelRequest struct {
+		Model string `json:"model"`
+	}
+
+	url := fmt.Sprintf("%s/api/stop", api.baseURL)
+
+	req := StopModelRequest{Model: model}
+	body, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+
+	httpReq, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
+	if err != nil {
+		return err
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := api.client.Do(httpReq)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("stop model failed: HTTP %d: %s", resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
 func (api *APIClient) SetModel(modelPath string) error {
 	type LoadModelRequest struct {
 		Model string `json:"model"`
@@ -240,6 +279,69 @@ func (api *APIClient) SetModel(modelPath string) error {
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("load model failed: HTTP %d: %s", resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
+// RunOptions contains server options for loading a model.
+// Use pointers to distinguish "not set" from "explicitly zero"
+// (e.g., GpuLayers=0 means CPU-only, nil means use default).
+type RunOptions struct {
+	CtxSize   *int           `json:"ctx_size,omitempty"`
+	GpuLayers *int           `json:"gpu_layers,omitempty"`
+	Threads   *int           `json:"threads,omitempty"`
+	Options   map[string]any `json:"options,omitempty"` // Additional llama-server options
+}
+
+// IntPtr is a helper to create a pointer to an int value.
+func IntPtr(v int) *int {
+	return &v
+}
+
+// Run loads a model with optional server options.
+// This calls /api/run which loads the model with the specified options.
+// Explicit fields (CtxSize, etc.) take precedence over Options map.
+func (api *APIClient) Run(model string, opts *RunOptions) error {
+	type RunRequest struct {
+		Model     string         `json:"model"`
+		CtxSize   *int           `json:"ctx_size,omitempty"`
+		GpuLayers *int           `json:"gpu_layers,omitempty"`
+		Threads   *int           `json:"threads,omitempty"`
+		Options   map[string]any `json:"options,omitempty"`
+	}
+
+	url := fmt.Sprintf("%s/api/run", api.baseURL)
+
+	req := RunRequest{Model: model}
+	if opts != nil {
+		req.CtxSize = opts.CtxSize
+		req.GpuLayers = opts.GpuLayers
+		req.Threads = opts.Threads
+		req.Options = opts.Options
+	}
+
+	body, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+
+	httpReq, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
+	if err != nil {
+		return err
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := api.client.Do(httpReq)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("run model failed: HTTP %d: %s", resp.StatusCode, string(body))
 	}
 
 	return nil

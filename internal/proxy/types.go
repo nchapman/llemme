@@ -45,6 +45,7 @@ type Backend struct {
 	Status       BackendStatus  // Current status
 	ReadyChan    chan struct{}  // Closed when backend is ready (for request coalescing)
 	readyOnce    sync.Once      // Ensures ReadyChan is closed exactly once
+	Options      map[string]any // Runtime options passed at load time (override config)
 }
 
 // CloseReadyChan safely closes the ReadyChan exactly once
@@ -198,4 +199,28 @@ type LlemmeStatus struct {
 	Port         int       `json:"port"`
 	LastActivity time.Time `json:"last_activity"`
 	LoadedAt     time.Time `json:"loaded_at"`
+}
+
+// RunRequest is the request body for POST /api/run
+// Field names use underscores to match CLI flag names (with hyphens converted)
+// Pointer types allow distinguishing "not set" from "explicitly zero"
+type RunRequest struct {
+	Model string `json:"model"`
+
+	// Server options (passed to llama-server at load time)
+	// Use pointers so 0 can be explicitly set (e.g., gpu_layers: 0 for CPU-only)
+	CtxSize   *int `json:"ctx_size,omitempty"`
+	GpuLayers *int `json:"gpu_layers,omitempty"`
+	Threads   *int `json:"threads,omitempty"`
+
+	// Additional llama-server options can be passed as a map
+	Options map[string]any `json:"options,omitempty"`
+}
+
+// RunResponse is the response for POST /api/run
+type RunResponse struct {
+	Success bool   `json:"success"`
+	Model   string `json:"model"`
+	Status  string `json:"status"`
+	Port    int    `json:"port"`
 }
