@@ -255,6 +255,35 @@ func TestIsRunning(t *testing.T) {
 			t.Error("Expected IsRunning to return false for nil state")
 		}
 	})
+
+	t.Run("returns false for zero PID", func(t *testing.T) {
+		state := &ServerState{PID: 0}
+		if IsRunning(state) {
+			t.Error("Expected IsRunning to return false for zero PID")
+		}
+	})
+
+	t.Run("returns false for negative PID", func(t *testing.T) {
+		state := &ServerState{PID: -1}
+		if IsRunning(state) {
+			t.Error("Expected IsRunning to return false for negative PID")
+		}
+	})
+
+	t.Run("returns true for current process", func(t *testing.T) {
+		state := &ServerState{PID: os.Getpid()}
+		if !IsRunning(state) {
+			t.Error("Expected IsRunning to return true for current process")
+		}
+	})
+
+	t.Run("returns false for non-existent PID", func(t *testing.T) {
+		// Use a very high PID that's unlikely to exist
+		state := &ServerState{PID: 999999999}
+		if IsRunning(state) {
+			t.Error("Expected IsRunning to return false for non-existent PID")
+		}
+	})
 }
 
 func TestGetServerURL(t *testing.T) {
@@ -404,12 +433,6 @@ func TestBuildArgs(t *testing.T) {
 }
 
 func TestStatus(t *testing.T) {
-	tmpDir := t.TempDir()
-	oldHome := os.Getenv("HOME")
-	defer os.Setenv("HOME", oldHome)
-
-	os.Setenv("HOME", tmpDir)
-
 	cfg := &config.Config{
 		Server: config.Server{
 			Host: "127.0.0.1",
@@ -420,12 +443,98 @@ func TestStatus(t *testing.T) {
 	sm := NewManager(cfg)
 
 	t.Run("returns nil when no state file exists", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		oldHome := os.Getenv("HOME")
+		defer os.Setenv("HOME", oldHome)
+		os.Setenv("HOME", tmpDir)
+
 		state, err := sm.Status()
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 		if state != nil {
 			t.Error("Expected nil state when server is not running")
+		}
+	})
+
+	t.Run("returns nil when state exists but process not running", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		oldHome := os.Getenv("HOME")
+		defer os.Setenv("HOME", oldHome)
+		os.Setenv("HOME", tmpDir)
+
+		// Create state with non-existent PID
+		state := &ServerState{
+			PID:       999999999,
+			Model:     "test-model",
+			ModelPath: "/path/to/model.gguf",
+			Host:      "127.0.0.1",
+			Port:      8080,
+			StartedAt: time.Now(),
+		}
+		if err := SaveState(state); err != nil {
+			t.Fatalf("Failed to save state: %v", err)
+		}
+
+		result, err := sm.Status()
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+		if result != nil {
+			t.Error("Expected nil when process not running")
+		}
+	})
+
+	t.Run("returns state when process is running", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		oldHome := os.Getenv("HOME")
+		defer os.Setenv("HOME", oldHome)
+		os.Setenv("HOME", tmpDir)
+
+		// Create state with current process PID (which is running)
+		state := &ServerState{
+			PID:       os.Getpid(),
+			Model:     "test-model",
+			ModelPath: "/path/to/model.gguf",
+			Host:      "127.0.0.1",
+			Port:      8080,
+			StartedAt: time.Now(),
+		}
+		if err := SaveState(state); err != nil {
+			t.Fatalf("Failed to save state: %v", err)
+		}
+
+		result, err := sm.Status()
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+		if result == nil {
+			t.Fatal("Expected non-nil state when process is running")
+		}
+		if result.PID != os.Getpid() {
+			t.Errorf("Expected PID %d, got %d", os.Getpid(), result.PID)
+		}
+	})
+
+	t.Run("returns error when state file is invalid", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		oldHome := os.Getenv("HOME")
+		defer os.Setenv("HOME", oldHome)
+		os.Setenv("HOME", tmpDir)
+
+		// Create invalid state file
+		binDir := filepath.Join(tmpDir, ".llemme", "bin")
+		if err := os.MkdirAll(binDir, 0755); err != nil {
+			t.Fatalf("Failed to create bin dir: %v", err)
+		}
+		statePath := StateFilePath()
+		if err := os.WriteFile(statePath, []byte("invalid json"), 0644); err != nil {
+			t.Fatalf("Failed to write invalid state: %v", err)
+		}
+
+		_, err := sm.Status()
+		if err == nil {
+			t.Error("Expected error for invalid state file")
 		}
 	})
 }
