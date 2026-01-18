@@ -11,6 +11,7 @@ import (
 
 	"github.com/nchapman/llemme/internal/config"
 	"github.com/nchapman/llemme/internal/llama"
+	"github.com/nchapman/llemme/internal/logs"
 	"github.com/nchapman/llemme/internal/proxy"
 	"github.com/nchapman/llemme/internal/ui"
 	"github.com/spf13/cobra"
@@ -175,15 +176,14 @@ func startProxyDetached(proxyCfg *proxy.Config, _ *config.Config) {
 	cmd := exec.Command(executable, args...)
 	cmd.Env = os.Environ()
 
-	// Redirect output to log file
-	logFile := config.BinPath() + "/proxy.log"
-	log, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	// Redirect output to rotating log file
+	logWriter, err := logs.NewRotatingWriter(logs.ProxyLogPath())
 	if err != nil {
 		fmt.Printf("%s Failed to open log file: %v\n", ui.ErrorMsg("Error:"), err)
 		os.Exit(1)
 	}
-	cmd.Stdout = log
-	cmd.Stderr = log
+	cmd.Stdout = logWriter
+	cmd.Stderr = logWriter
 
 	// Detach from parent process
 	cmd.SysProcAttr = &syscall.SysProcAttr{
@@ -191,19 +191,24 @@ func startProxyDetached(proxyCfg *proxy.Config, _ *config.Config) {
 	}
 
 	if err := cmd.Start(); err != nil {
+		logWriter.Close()
 		fmt.Printf("%s Failed to start proxy in background: %v\n", ui.ErrorMsg("Error:"), err)
 		os.Exit(1)
 	}
+
+	// Close parent's reference to the log file; child has its own fd
+	logWriter.Close()
 
 	// Wait a moment for it to start
 	time.Sleep(500 * time.Millisecond)
 
 	// Check if it started successfully
+	logPath := logs.ProxyLogPath()
 	if state := proxy.GetRunningProxyState(); state != nil {
 		fmt.Printf("Proxy started in background on http://%s:%d (PID %d)\n", state.Host, state.Port, state.PID)
-		fmt.Printf("Logs: %s\n", ui.Muted(logFile))
+		fmt.Printf("Logs: %s\n", ui.Muted(logPath))
 	} else {
-		fmt.Printf("%s Proxy may have failed to start. Check logs: %s\n", ui.ErrorMsg("Warning:"), logFile)
+		fmt.Printf("%s Proxy may have failed to start. Check logs: %s\n", ui.ErrorMsg("Warning:"), logPath)
 	}
 }
 

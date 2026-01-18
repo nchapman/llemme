@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"io"
 	"os"
 	"sync"
 	"time"
@@ -34,15 +35,16 @@ func (s BackendStatus) String() string {
 // Backend represents a running llama-server instance for a specific model
 type Backend struct {
 	mu           sync.RWMutex
-	ModelName    string        // Full model reference: "bartowski/Llama-3.2-3B-Instruct-GGUF:Q4_K_M"
-	ModelPath    string        // Absolute path to the .gguf file
-	Port         int           // Port this backend is listening on
-	Process      *os.Process   // The llama-server process
-	LastActivity time.Time     // Last time a request was made to this backend
-	StartedAt    time.Time     // When this backend was started
-	Status       BackendStatus // Current status
-	ReadyChan    chan struct{} // Closed when backend is ready (for request coalescing)
-	readyOnce    sync.Once     // Ensures ReadyChan is closed exactly once
+	ModelName    string         // Full model reference: "bartowski/Llama-3.2-3B-Instruct-GGUF:Q4_K_M"
+	ModelPath    string         // Absolute path to the .gguf file
+	Port         int            // Port this backend is listening on
+	Process      *os.Process    // The llama-server process
+	LogWriter    io.WriteCloser // Log file writer for this backend
+	LastActivity time.Time      // Last time a request was made to this backend
+	StartedAt    time.Time      // When this backend was started
+	Status       BackendStatus  // Current status
+	ReadyChan    chan struct{}  // Closed when backend is ready (for request coalescing)
+	readyOnce    sync.Once      // Ensures ReadyChan is closed exactly once
 }
 
 // CloseReadyChan safely closes the ReadyChan exactly once

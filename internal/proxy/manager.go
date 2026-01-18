@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/nchapman/llemme/internal/config"
 	"github.com/nchapman/llemme/internal/llama"
+	"github.com/nchapman/llemme/internal/logs"
 )
 
 // ModelManager manages the lifecycle of llama-server backend instances
@@ -231,6 +231,9 @@ func (m *ModelManager) StopBackend(modelName string) error {
 
 	backend.SetStatus(BackendStopped)
 	backend.CloseReadyChan()
+	if backend.LogWriter != nil {
+		backend.LogWriter.Close()
+	}
 	m.portAllocator.Release(backend.Port)
 	delete(m.backends, modelName)
 	m.removeLRU(modelName)
@@ -299,19 +302,19 @@ func (m *ModelManager) startBackend(backend *Backend) {
 	cmd.Env = os.Environ()
 	cmd.Dir = config.BinPath()
 
-	// Create log file for this backend
-	logFile := filepath.Join(config.BinPath(), fmt.Sprintf("backend-%d.log", backend.Port))
-	log, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	// Create rotating log writer for this backend
+	logWriter, err := logs.NewRotatingWriter(logs.BackendLogPath(backend.ModelName))
 	if err != nil {
 		backend.SetStatus(BackendStopped)
 		return
 	}
-	defer log.Close()
+	backend.LogWriter = logWriter
 
-	cmd.Stdout = log
-	cmd.Stderr = log
+	cmd.Stdout = logWriter
+	cmd.Stderr = logWriter
 
 	if err := cmd.Start(); err != nil {
+		logWriter.Close()
 		backend.SetStatus(BackendStopped)
 		return
 	}
@@ -319,9 +322,10 @@ func (m *ModelManager) startBackend(backend *Backend) {
 	backend.Process = cmd.Process
 
 	// Wait for server to be ready
-	if err := m.waitForReady(backend, logFile); err != nil {
+	if err := m.waitForReady(backend); err != nil {
 		backend.SetStatus(BackendStopped)
 		cmd.Process.Kill()
+		logWriter.Close()
 		return
 	}
 
@@ -354,10 +358,11 @@ func (m *ModelManager) buildArgs(backend *Backend) []string {
 	return args
 }
 
-func (m *ModelManager) waitForReady(backend *Backend, logFile string) error {
+func (m *ModelManager) waitForReady(backend *Backend) error {
 	healthURL := fmt.Sprintf("http://%s:%d/health", m.config.Host, backend.Port)
 	client := &http.Client{Timeout: 2 * time.Second}
 
+	logPath := logs.BackendLogPath(backend.ModelName)
 	deadline := time.Now().Add(m.config.StartupTimeout)
 
 	for time.Now().Before(deadline) {
@@ -371,8 +376,8 @@ func (m *ModelManager) waitForReady(backend *Backend, logFile string) error {
 		}
 
 		// Check log for errors
-		if hasStartupError(logFile) {
-			return fmt.Errorf("server startup failed (check %s)", logFile)
+		if hasStartupError(logPath) {
+			return fmt.Errorf("server startup failed (check %s)", logPath)
 		}
 
 		time.Sleep(500 * time.Millisecond)

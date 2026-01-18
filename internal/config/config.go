@@ -43,6 +43,7 @@ const (
 	modelsDir  = "models"
 	binDir     = "bin"
 	blobsDir   = "blobs"
+	logsDir    = "logs"
 )
 
 func GetHomeDir() string {
@@ -67,6 +68,10 @@ func BinPath() string {
 
 func BlobsPath() string {
 	return filepath.Join(GetHomeDir(), configDir, blobsDir)
+}
+
+func LogsPath() string {
+	return filepath.Join(GetHomeDir(), configDir, logsDir)
 }
 
 func DefaultConfig() *Config {
@@ -141,6 +146,7 @@ func EnsureDirectories() error {
 		ModelsPath(),
 		BinPath(),
 		BlobsPath(),
+		LogsPath(),
 	}
 
 	for _, dir := range dirs {
