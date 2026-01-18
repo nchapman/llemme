@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -81,7 +82,8 @@ var pullCmd = &cobra.Command{
 		modelDir := hf.GetModelPath(user, repo)
 		modelPath := hf.GetModelFilePath(user, repo, quant)
 
-		if _, err := os.Stat(modelPath); err == nil {
+		// Check if model is already complete by verifying against saved manifest
+		if isModelComplete(user, repo, quant) {
 			fmt.Printf("Model already downloaded: %s\n", ui.Bold(modelPath))
 			return
 		}
@@ -183,6 +185,42 @@ func parseModelRef(ref string) (user, repo, quant string, err error) {
 	}
 
 	return repoParts[0], repoParts[1], quantPart, nil
+}
+
+// isModelComplete checks if all expected files exist based on the saved manifest.
+// If no manifest exists, falls back to just checking if the model file exists.
+func isModelComplete(user, repo, quant string) bool {
+	modelPath := hf.GetModelFilePath(user, repo, quant)
+	manifestPath := hf.GetManifestFilePath(user, repo, quant)
+
+	// Check if model file exists
+	if _, err := os.Stat(modelPath); err != nil {
+		return false
+	}
+
+	// Try to load the saved manifest
+	manifestData, err := os.ReadFile(manifestPath)
+	if err != nil {
+		// No manifest - legacy download, trust that model exists
+		return true
+	}
+
+	// Parse manifest to check if mmproj is expected
+	var manifest hf.Manifest
+	if err := json.Unmarshal(manifestData, &manifest); err != nil {
+		// Can't parse manifest - trust that model exists
+		return true
+	}
+
+	// If manifest specifies an mmproj file, verify it exists
+	if manifest.MMProjFile != nil {
+		mmprojPath := hf.GetMMProjFilePath(user, repo, quant)
+		if _, err := os.Stat(mmprojPath); err != nil {
+			return false
+		}
+	}
+
+	return true
 }
 
 func handleModelError(err error, user, repo string) {
