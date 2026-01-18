@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/nchapman/llemme/internal/config"
+	"gopkg.in/yaml.v3"
 )
 
 type ProgressCallback func(downloaded, total int64, speed float64, eta time.Duration)
@@ -231,6 +232,76 @@ func GetMMProjFilePath(user, repo, quant string) string {
 func GetManifestFilePath(user, repo, quant string) string {
 	modelDir := GetModelPath(user, repo)
 	return filepath.Join(modelDir, quant+"-manifest.json")
+}
+
+// ModelMetadata stores metadata for a downloaded model repository.
+type ModelMetadata struct {
+	Quants map[string]QuantMetadata `yaml:"quants"`
+}
+
+// QuantMetadata stores metadata for a specific quantization.
+type QuantMetadata struct {
+	LastUsed     time.Time `yaml:"last_used,omitempty"`
+	DownloadedAt time.Time `yaml:"downloaded_at,omitempty"`
+}
+
+// GetMetadataPath returns the path to the metadata.yaml file for a model repo.
+func GetMetadataPath(user, repo string) string {
+	return filepath.Join(GetModelPath(user, repo), "metadata.yaml")
+}
+
+// LoadMetadata loads the metadata for a model repo, or returns empty metadata if not found.
+func LoadMetadata(user, repo string) (*ModelMetadata, error) {
+	path := GetMetadataPath(user, repo)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return &ModelMetadata{Quants: make(map[string]QuantMetadata)}, nil
+		}
+		return nil, err
+	}
+
+	var meta ModelMetadata
+	if err := yaml.Unmarshal(data, &meta); err != nil {
+		return nil, err
+	}
+	if meta.Quants == nil {
+		meta.Quants = make(map[string]QuantMetadata)
+	}
+	return &meta, nil
+}
+
+// SaveMetadata saves the metadata for a model repo.
+func SaveMetadata(user, repo string, meta *ModelMetadata) error {
+	path := GetMetadataPath(user, repo)
+	data, err := yaml.Marshal(meta)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0644)
+}
+
+// TouchLastUsed updates the last used timestamp for a model.
+func TouchLastUsed(user, repo, quant string) error {
+	meta, err := LoadMetadata(user, repo)
+	if err != nil {
+		return err
+	}
+
+	q := meta.Quants[quant]
+	q.LastUsed = time.Now()
+	meta.Quants[quant] = q
+
+	return SaveMetadata(user, repo, meta)
+}
+
+// GetLastUsed returns the last used time for a model, or zero time if not tracked.
+func GetLastUsed(user, repo, quant string) time.Time {
+	meta, err := LoadMetadata(user, repo)
+	if err != nil {
+		return time.Time{}
+	}
+	return meta.Quants[quant].LastUsed
 }
 
 // FindMMProjFile checks if an mmproj file exists for the given model and returns its path.

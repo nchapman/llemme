@@ -76,6 +76,9 @@ func (m *ModelManager) GetOrLoadBackend(modelQuery string, options map[string]an
 	modelName := result.Model.FullName
 	modelPath := result.Model.ModelPath
 
+	// Track model usage for cleanup purposes (non-critical, ignore errors)
+	_ = hf.TouchLastUsed(result.Model.User, result.Model.Repo, result.Model.Quant)
+
 	// Check if already loaded or loading
 	m.mu.Lock()
 	backend, exists := m.backends[modelName]

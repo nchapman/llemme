@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/nchapman/llemme/internal/config"
+	"github.com/nchapman/llemme/internal/hf"
 	"github.com/nchapman/llemme/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -54,12 +55,17 @@ var listCmd = &cobra.Command{
 				return err
 			}
 
+			lastUsed := hf.GetLastUsed(user, repo, quant)
+			if lastUsed.IsZero() {
+				lastUsed = info.ModTime() // Fall back to download time
+			}
+
 			models = append(models, ModelInfo{
-				User:       user,
-				Repo:       repo,
-				Quant:      quant,
-				Size:       info.Size(),
-				ModifiedAt: info.ModTime(),
+				User:     user,
+				Repo:     repo,
+				Quant:    quant,
+				Size:     info.Size(),
+				LastUsed: lastUsed,
 			})
 
 			totalSize += info.Size()
@@ -79,18 +85,16 @@ var listCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Println(ui.Header("Downloaded Models"))
-		fmt.Println()
-
 		table := ui.NewTable().
+			Indent(0).
 			AddColumn("MODEL", 40, ui.AlignLeft).
 			AddColumn("QUANT", 10, ui.AlignLeft).
 			AddColumn("SIZE", 10, ui.AlignRight).
-			AddColumn("MODIFIED", 10, ui.AlignLeft)
+			AddColumn("LAST USED", 12, ui.AlignLeft)
 
 		for _, m := range models {
 			modelRef := fmt.Sprintf("%s/%s", m.User, m.Repo)
-			table.AddRow(modelRef, m.Quant, ui.FormatBytes(m.Size), formatTime(m.ModifiedAt))
+			table.AddRow(modelRef, m.Quant, ui.FormatBytes(m.Size), formatTime(m.LastUsed))
 		}
 
 		fmt.Print(table.Render())
@@ -100,11 +104,11 @@ var listCmd = &cobra.Command{
 }
 
 type ModelInfo struct {
-	User       string
-	Repo       string
-	Quant      string
-	Size       int64
-	ModifiedAt time.Time
+	User     string
+	Repo     string
+	Quant    string
+	Size     int64
+	LastUsed time.Time
 }
 
 func formatTime(t time.Time) string {
