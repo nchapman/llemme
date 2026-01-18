@@ -9,33 +9,34 @@ import (
 )
 
 type Config struct {
-	ContextLength int                    `yaml:"context_length"`
-	Temperature   float64                `yaml:"temperature"`
-	TopP          float64                `yaml:"top_p"`
-	TopK          int                    `yaml:"top_k"`
-	DefaultQuant  string                 `yaml:"default_quant"`
-	GPULayers     int                    `yaml:"gpu_layers"`
-	LLamaPath     string                 `yaml:"llama_path"`
-	HFToken       string                 `yaml:"hf_token"`
-	Server        Server                 `yaml:"server"`
-	Proxy         Proxy                  `yaml:"proxy"`
-	LlamaServer   map[string]any `yaml:"llama_server"`
+	HuggingFace HuggingFace `yaml:"huggingface"`
+	LlamaCpp    LlamaCpp    `yaml:"llamacpp"`
+	Server      Server      `yaml:"server"`
+}
+
+type HuggingFace struct {
+	Token        string `yaml:"token"`
+	DefaultQuant string `yaml:"default_quant"`
+}
+
+type LlamaCpp struct {
+	Path          string         `yaml:"path"`
+	ContextLength int            `yaml:"context_length"`
+	GPULayers     int            `yaml:"gpu_layers"`
+	Temperature   float64        `yaml:"temperature"`
+	TopP          float64        `yaml:"top_p"`
+	TopK          int            `yaml:"top_k"`
+	Extra         map[string]any `yaml:",inline"`
 }
 
 type Server struct {
-	Host    string   `yaml:"host"`
-	Port    int      `yaml:"port"`
-	Preload []string `yaml:"preload"`
-}
-
-type Proxy struct {
 	Host            string `yaml:"host"`
 	Port            int    `yaml:"port"`
 	MaxModels       int    `yaml:"max_models"`
 	IdleTimeoutMins int    `yaml:"idle_timeout_mins"`
+	StartupTimeoutS int    `yaml:"startup_timeout_secs"`
 	BackendPortMin  int    `yaml:"backend_port_min"`
 	BackendPortMax  int    `yaml:"backend_port_max"`
-	StartupTimeoutS int    `yaml:"startup_timeout_secs"`
 }
 
 const (
@@ -77,27 +78,26 @@ func LogsPath() string {
 
 func DefaultConfig() *Config {
 	return &Config{
-		ContextLength: 4096,
-		Temperature:   0.7,
-		TopP:          0.9,
-		TopK:          40,
-		DefaultQuant:  "Q4_K_M",
-		GPULayers:     -1,
-		LLamaPath:     "",
-		HFToken:       "",
-		Server: Server{
-			Host:    "127.0.0.1",
-			Port:    8080,
-			Preload: []string{},
+		HuggingFace: HuggingFace{
+			Token:        "",
+			DefaultQuant: "Q4_K_M",
 		},
-		Proxy: Proxy{
+		LlamaCpp: LlamaCpp{
+			Path:          "",
+			ContextLength: 4096,
+			GPULayers:     -1,
+			Temperature:   0.7,
+			TopP:          0.9,
+			TopK:          40,
+		},
+		Server: Server{
 			Host:            "127.0.0.1",
 			Port:            8080,
 			MaxModels:       3,
 			IdleTimeoutMins: 10,
+			StartupTimeoutS: 120,
 			BackendPortMin:  49152,
 			BackendPortMax:  49200,
-			StartupTimeoutS: 120,
 		},
 	}
 }

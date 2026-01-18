@@ -73,13 +73,13 @@ The proxy server:
 
 		// Build proxy config from app config and CLI flags
 		proxyCfg := proxy.ConfigFromAppConfig(
-			cfg.Proxy.Host,
-			cfg.Proxy.Port,
-			cfg.Proxy.MaxModels,
-			cfg.Proxy.IdleTimeoutMins,
-			cfg.Proxy.BackendPortMin,
-			cfg.Proxy.BackendPortMax,
-			cfg.Proxy.StartupTimeoutS,
+			cfg.Server.Host,
+			cfg.Server.Port,
+			cfg.Server.MaxModels,
+			cfg.Server.IdleTimeoutMins,
+			cfg.Server.BackendPortMin,
+			cfg.Server.BackendPortMax,
+			cfg.Server.StartupTimeoutS,
 		)
 
 		// CLI flags override config
@@ -223,13 +223,13 @@ var internalServeCmd = &cobra.Command{
 		}
 
 		proxyCfg := proxy.ConfigFromAppConfig(
-			cfg.Proxy.Host,
-			cfg.Proxy.Port,
-			cfg.Proxy.MaxModels,
-			cfg.Proxy.IdleTimeoutMins,
-			cfg.Proxy.BackendPortMin,
-			cfg.Proxy.BackendPortMax,
-			cfg.Proxy.StartupTimeoutS,
+			cfg.Server.Host,
+			cfg.Server.Port,
+			cfg.Server.MaxModels,
+			cfg.Server.IdleTimeoutMins,
+			cfg.Server.BackendPortMin,
+			cfg.Server.BackendPortMax,
+			cfg.Server.StartupTimeoutS,
 		)
 
 		if serveHost != "" {

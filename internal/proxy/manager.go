@@ -354,16 +354,16 @@ func (m *ModelManager) buildArgs(backend *Backend) []string {
 		args = append(args, "--chat-template-file", templatePath)
 	}
 
-	if m.appConfig.ContextLength > 0 {
-		args = append(args, "--ctx-size", fmt.Sprintf("%d", m.appConfig.ContextLength))
+	if m.appConfig.LlamaCpp.ContextLength > 0 {
+		args = append(args, "--ctx-size", fmt.Sprintf("%d", m.appConfig.LlamaCpp.ContextLength))
 	}
 
-	if m.appConfig.GPULayers != 0 {
-		args = append(args, "--gpu-layers", fmt.Sprintf("%d", m.appConfig.GPULayers))
+	if m.appConfig.LlamaCpp.GPULayers != 0 {
+		args = append(args, "--gpu-layers", fmt.Sprintf("%d", m.appConfig.LlamaCpp.GPULayers))
 	}
 
-	// Pass through any llama_server config options
-	args = append(args, buildLlamaServerArgs(m.appConfig.LlamaServer)...)
+	// Pass through any extra llama.cpp config options
+	args = append(args, buildLlamaServerArgs(m.appConfig.LlamaCpp.Extra)...)
 
 	return args
 }

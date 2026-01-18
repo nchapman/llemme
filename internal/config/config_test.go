@@ -9,32 +9,55 @@ import (
 func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
 
-	if cfg.ContextLength != 4096 {
-		t.Errorf("Expected ContextLength 4096, got %d", cfg.ContextLength)
+	// HuggingFace defaults
+	if cfg.HuggingFace.Token != "" {
+		t.Errorf("Expected empty HuggingFace.Token, got %s", cfg.HuggingFace.Token)
 	}
-	if cfg.Temperature != 0.7 {
-		t.Errorf("Expected Temperature 0.7, got %f", cfg.Temperature)
+	if cfg.HuggingFace.DefaultQuant != "Q4_K_M" {
+		t.Errorf("Expected HuggingFace.DefaultQuant Q4_K_M, got %s", cfg.HuggingFace.DefaultQuant)
 	}
-	if cfg.TopP != 0.9 {
-		t.Errorf("Expected TopP 0.9, got %f", cfg.TopP)
+
+	// LlamaCpp defaults
+	if cfg.LlamaCpp.Path != "" {
+		t.Errorf("Expected empty LlamaCpp.Path, got %s", cfg.LlamaCpp.Path)
 	}
-	if cfg.TopK != 40 {
-		t.Errorf("Expected TopK 40, got %d", cfg.TopK)
+	if cfg.LlamaCpp.ContextLength != 4096 {
+		t.Errorf("Expected LlamaCpp.ContextLength 4096, got %d", cfg.LlamaCpp.ContextLength)
 	}
-	if cfg.DefaultQuant != "Q4_K_M" {
-		t.Errorf("Expected DefaultQuant Q4_K_M, got %s", cfg.DefaultQuant)
+	if cfg.LlamaCpp.GPULayers != -1 {
+		t.Errorf("Expected LlamaCpp.GPULayers -1, got %d", cfg.LlamaCpp.GPULayers)
 	}
-	if cfg.GPULayers != -1 {
-		t.Errorf("Expected GPULayers -1, got %d", cfg.GPULayers)
+	if cfg.LlamaCpp.Temperature != 0.7 {
+		t.Errorf("Expected LlamaCpp.Temperature 0.7, got %f", cfg.LlamaCpp.Temperature)
 	}
+	if cfg.LlamaCpp.TopP != 0.9 {
+		t.Errorf("Expected LlamaCpp.TopP 0.9, got %f", cfg.LlamaCpp.TopP)
+	}
+	if cfg.LlamaCpp.TopK != 40 {
+		t.Errorf("Expected LlamaCpp.TopK 40, got %d", cfg.LlamaCpp.TopK)
+	}
+
+	// Server defaults
 	if cfg.Server.Host != "127.0.0.1" {
 		t.Errorf("Expected Server.Host 127.0.0.1, got %s", cfg.Server.Host)
 	}
 	if cfg.Server.Port != 8080 {
 		t.Errorf("Expected Server.Port 8080, got %d", cfg.Server.Port)
 	}
-	if len(cfg.Server.Preload) != 0 {
-		t.Errorf("Expected empty Preload, got %v", cfg.Server.Preload)
+	if cfg.Server.MaxModels != 3 {
+		t.Errorf("Expected Server.MaxModels 3, got %d", cfg.Server.MaxModels)
+	}
+	if cfg.Server.IdleTimeoutMins != 10 {
+		t.Errorf("Expected Server.IdleTimeoutMins 10, got %d", cfg.Server.IdleTimeoutMins)
+	}
+	if cfg.Server.StartupTimeoutS != 120 {
+		t.Errorf("Expected Server.StartupTimeoutS 120, got %d", cfg.Server.StartupTimeoutS)
+	}
+	if cfg.Server.BackendPortMin != 49152 {
+		t.Errorf("Expected Server.BackendPortMin 49152, got %d", cfg.Server.BackendPortMin)
+	}
+	if cfg.Server.BackendPortMax != 49200 {
+		t.Errorf("Expected Server.BackendPortMax 49200, got %d", cfg.Server.BackendPortMax)
 	}
 }
 
@@ -55,8 +78,8 @@ func TestLoad(t *testing.T) {
 			t.Fatal("Expected config to be non-nil")
 		}
 
-		if cfg.ContextLength != 4096 {
-			t.Errorf("Expected default ContextLength 4096, got %d", cfg.ContextLength)
+		if cfg.LlamaCpp.ContextLength != 4096 {
+			t.Errorf("Expected default LlamaCpp.ContextLength 4096, got %d", cfg.LlamaCpp.ContextLength)
 		}
 	})
 
@@ -66,20 +89,24 @@ func TestLoad(t *testing.T) {
 			t.Fatalf("Failed to create test config dir: %v", err)
 		}
 
-		configContent := `context_length: 2048
-temperature: 0.8
-top_p: 0.95
-top_k: 50
-default_quant: Q5_K
-gpu_layers: 35
-llama_path: /custom/path
-hf_token: test-token
+		configContent := `huggingface:
+  token: test-token
+  default_quant: Q5_K
+llamacpp:
+  path: /custom/path
+  context_length: 2048
+  gpu_layers: 35
+  temperature: 0.8
+  top_p: 0.95
+  top_k: 50
 server:
   host: 0.0.0.0
   port: 9000
-  preload:
-    - model1
-    - model2
+  max_models: 5
+  idle_timeout_mins: 15
+  startup_timeout_secs: 60
+  backend_port_min: 50000
+  backend_port_max: 50100
 `
 		configPath := filepath.Join(configDir, "config.yaml")
 		if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
@@ -91,41 +118,55 @@ server:
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		if cfg.ContextLength != 2048 {
-			t.Errorf("Expected ContextLength 2048, got %d", cfg.ContextLength)
+		// HuggingFace
+		if cfg.HuggingFace.Token != "test-token" {
+			t.Errorf("Expected HuggingFace.Token test-token, got %s", cfg.HuggingFace.Token)
 		}
-		if cfg.Temperature != 0.8 {
-			t.Errorf("Expected Temperature 0.8, got %f", cfg.Temperature)
+		if cfg.HuggingFace.DefaultQuant != "Q5_K" {
+			t.Errorf("Expected HuggingFace.DefaultQuant Q5_K, got %s", cfg.HuggingFace.DefaultQuant)
 		}
-		if cfg.TopP != 0.95 {
-			t.Errorf("Expected TopP 0.95, got %f", cfg.TopP)
+
+		// LlamaCpp
+		if cfg.LlamaCpp.Path != "/custom/path" {
+			t.Errorf("Expected LlamaCpp.Path /custom/path, got %s", cfg.LlamaCpp.Path)
 		}
-		if cfg.TopK != 50 {
-			t.Errorf("Expected TopK 50, got %d", cfg.TopK)
+		if cfg.LlamaCpp.ContextLength != 2048 {
+			t.Errorf("Expected LlamaCpp.ContextLength 2048, got %d", cfg.LlamaCpp.ContextLength)
 		}
-		if cfg.DefaultQuant != "Q5_K" {
-			t.Errorf("Expected DefaultQuant Q5_K, got %s", cfg.DefaultQuant)
+		if cfg.LlamaCpp.GPULayers != 35 {
+			t.Errorf("Expected LlamaCpp.GPULayers 35, got %d", cfg.LlamaCpp.GPULayers)
 		}
-		if cfg.GPULayers != 35 {
-			t.Errorf("Expected GPULayers 35, got %d", cfg.GPULayers)
+		if cfg.LlamaCpp.Temperature != 0.8 {
+			t.Errorf("Expected LlamaCpp.Temperature 0.8, got %f", cfg.LlamaCpp.Temperature)
 		}
-		if cfg.LLamaPath != "/custom/path" {
-			t.Errorf("Expected LLamaPath /custom/path, got %s", cfg.LLamaPath)
+		if cfg.LlamaCpp.TopP != 0.95 {
+			t.Errorf("Expected LlamaCpp.TopP 0.95, got %f", cfg.LlamaCpp.TopP)
 		}
-		if cfg.HFToken != "test-token" {
-			t.Errorf("Expected HFToken test-token, got %s", cfg.HFToken)
+		if cfg.LlamaCpp.TopK != 50 {
+			t.Errorf("Expected LlamaCpp.TopK 50, got %d", cfg.LlamaCpp.TopK)
 		}
+
+		// Server
 		if cfg.Server.Host != "0.0.0.0" {
 			t.Errorf("Expected Server.Host 0.0.0.0, got %s", cfg.Server.Host)
 		}
 		if cfg.Server.Port != 9000 {
 			t.Errorf("Expected Server.Port 9000, got %d", cfg.Server.Port)
 		}
-		if len(cfg.Server.Preload) != 2 {
-			t.Errorf("Expected 2 preload models, got %d", len(cfg.Server.Preload))
+		if cfg.Server.MaxModels != 5 {
+			t.Errorf("Expected Server.MaxModels 5, got %d", cfg.Server.MaxModels)
 		}
-		if cfg.Server.Preload[0] != "model1" || cfg.Server.Preload[1] != "model2" {
-			t.Errorf("Expected preload [model1, model2], got %v", cfg.Server.Preload)
+		if cfg.Server.IdleTimeoutMins != 15 {
+			t.Errorf("Expected Server.IdleTimeoutMins 15, got %d", cfg.Server.IdleTimeoutMins)
+		}
+		if cfg.Server.StartupTimeoutS != 60 {
+			t.Errorf("Expected Server.StartupTimeoutS 60, got %d", cfg.Server.StartupTimeoutS)
+		}
+		if cfg.Server.BackendPortMin != 50000 {
+			t.Errorf("Expected Server.BackendPortMin 50000, got %d", cfg.Server.BackendPortMin)
+		}
+		if cfg.Server.BackendPortMax != 50100 {
+			t.Errorf("Expected Server.BackendPortMax 50100, got %d", cfg.Server.BackendPortMax)
 		}
 	})
 
@@ -155,18 +196,26 @@ func TestSave(t *testing.T) {
 	os.Setenv("HOME", tmpDir)
 
 	cfg := &Config{
-		ContextLength: 1024,
-		Temperature:   0.5,
-		TopP:          0.8,
-		TopK:          30,
-		DefaultQuant:  "Q2_K",
-		GPULayers:     20,
-		LLamaPath:     "/test/path",
-		HFToken:       "test-token",
+		HuggingFace: HuggingFace{
+			Token:        "test-token",
+			DefaultQuant: "Q2_K",
+		},
+		LlamaCpp: LlamaCpp{
+			Path:          "/test/path",
+			ContextLength: 1024,
+			GPULayers:     20,
+			Temperature:   0.5,
+			TopP:          0.8,
+			TopK:          30,
+		},
 		Server: Server{
-			Host:    "localhost",
-			Port:    7000,
-			Preload: []string{"model1"},
+			Host:            "localhost",
+			Port:            7000,
+			MaxModels:       2,
+			IdleTimeoutMins: 5,
+			StartupTimeoutS: 30,
+			BackendPortMin:  40000,
+			BackendPortMax:  40100,
 		},
 	}
 
@@ -187,17 +236,21 @@ func TestSave(t *testing.T) {
 	}
 
 	expectedFields := []string{
+		"token: test-token",
+		"default_quant: Q2_K",
+		"path: /test/path",
 		"context_length: 1024",
+		"gpu_layers: 20",
 		"temperature: 0.5",
 		"top_p: 0.8",
 		"top_k: 30",
-		"default_quant: Q2_K",
-		"gpu_layers: 20",
-		"llama_path: /test/path",
-		"hf_token: test-token",
 		"host: localhost",
 		"port: 7000",
-		"- model1",
+		"max_models: 2",
+		"idle_timeout_mins: 5",
+		"startup_timeout_secs: 30",
+		"backend_port_min: 40000",
+		"backend_port_max: 40100",
 	}
 
 	for _, field := range expectedFields {

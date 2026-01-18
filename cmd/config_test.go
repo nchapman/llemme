@@ -99,11 +99,9 @@ func TestPrintConfigOutput(t *testing.T) {
 	// Verify key fields are present in output
 	output := string(data)
 	expectedFields := []string{
-		"context_length:",
-		"temperature:",
-		"gpu_layers:",
+		"huggingface:",
+		"llamacpp:",
 		"server:",
-		"proxy:",
 	}
 	for _, field := range expectedFields {
 		if !strings.Contains(output, field) {
@@ -165,8 +163,8 @@ func TestOpenInEditorCreatesDefaultConfig(t *testing.T) {
 		t.Errorf("Created config is not valid YAML: %v", err)
 	}
 
-	if loaded.ContextLength != 4096 {
-		t.Errorf("Expected default context_length 4096, got %d", loaded.ContextLength)
+	if loaded.LlamaCpp.ContextLength != 4096 {
+		t.Errorf("Expected default context_length 4096, got %d", loaded.LlamaCpp.ContextLength)
 	}
 }
 
@@ -193,9 +191,9 @@ func TestConfigCommandFlags(t *testing.T) {
 func TestConfigYAMLRoundTrip(t *testing.T) {
 	// Test that config survives a round-trip through YAML
 	original := config.DefaultConfig()
-	original.Temperature = 0.5
-	original.ContextLength = 8192
-	original.GPULayers = 32
+	original.LlamaCpp.Temperature = 0.5
+	original.LlamaCpp.ContextLength = 8192
+	original.LlamaCpp.GPULayers = 32
 
 	// Marshal to YAML
 	data, err := yaml.Marshal(original)
@@ -210,14 +208,14 @@ func TestConfigYAMLRoundTrip(t *testing.T) {
 	}
 
 	// Verify values preserved
-	if restored.Temperature != original.Temperature {
-		t.Errorf("Temperature: expected %v, got %v", original.Temperature, restored.Temperature)
+	if restored.LlamaCpp.Temperature != original.LlamaCpp.Temperature {
+		t.Errorf("Temperature: expected %v, got %v", original.LlamaCpp.Temperature, restored.LlamaCpp.Temperature)
 	}
-	if restored.ContextLength != original.ContextLength {
-		t.Errorf("ContextLength: expected %v, got %v", original.ContextLength, restored.ContextLength)
+	if restored.LlamaCpp.ContextLength != original.LlamaCpp.ContextLength {
+		t.Errorf("ContextLength: expected %v, got %v", original.LlamaCpp.ContextLength, restored.LlamaCpp.ContextLength)
 	}
-	if restored.GPULayers != original.GPULayers {
-		t.Errorf("GPULayers: expected %v, got %v", original.GPULayers, restored.GPULayers)
+	if restored.LlamaCpp.GPULayers != original.LlamaCpp.GPULayers {
+		t.Errorf("GPULayers: expected %v, got %v", original.LlamaCpp.GPULayers, restored.LlamaCpp.GPULayers)
 	}
 }
 
@@ -250,9 +248,9 @@ func TestResetToDefaults(t *testing.T) {
 
 	// Create a modified config
 	cfg := config.DefaultConfig()
-	cfg.Temperature = 0.9
-	cfg.ContextLength = 16384
-	cfg.GPULayers = 99
+	cfg.LlamaCpp.Temperature = 0.9
+	cfg.LlamaCpp.ContextLength = 16384
+	cfg.LlamaCpp.GPULayers = 99
 	if err := config.Save(cfg); err != nil {
 		t.Fatalf("Failed to save modified config: %v", err)
 	}
@@ -266,8 +264,8 @@ func TestResetToDefaults(t *testing.T) {
 	if err := yaml.Unmarshal(data, &modified); err != nil {
 		t.Fatalf("Failed to unmarshal: %v", err)
 	}
-	if modified.GPULayers != 99 {
-		t.Fatalf("Expected modified gpu_layers 99, got %d", modified.GPULayers)
+	if modified.LlamaCpp.GPULayers != 99 {
+		t.Fatalf("Expected modified gpu_layers 99, got %d", modified.LlamaCpp.GPULayers)
 	}
 
 	// Reset to defaults
@@ -284,14 +282,14 @@ func TestResetToDefaults(t *testing.T) {
 	}
 
 	defaults := config.DefaultConfig()
-	if reset.Temperature != defaults.Temperature {
-		t.Errorf("Expected default temperature %v, got %v", defaults.Temperature, reset.Temperature)
+	if reset.LlamaCpp.Temperature != defaults.LlamaCpp.Temperature {
+		t.Errorf("Expected default temperature %v, got %v", defaults.LlamaCpp.Temperature, reset.LlamaCpp.Temperature)
 	}
-	if reset.ContextLength != defaults.ContextLength {
-		t.Errorf("Expected default context_length %d, got %d", defaults.ContextLength, reset.ContextLength)
+	if reset.LlamaCpp.ContextLength != defaults.LlamaCpp.ContextLength {
+		t.Errorf("Expected default context_length %d, got %d", defaults.LlamaCpp.ContextLength, reset.LlamaCpp.ContextLength)
 	}
-	if reset.GPULayers != defaults.GPULayers {
-		t.Errorf("Expected default gpu_layers %d, got %d", defaults.GPULayers, reset.GPULayers)
+	if reset.LlamaCpp.GPULayers != defaults.LlamaCpp.GPULayers {
+		t.Errorf("Expected default gpu_layers %d, got %d", defaults.LlamaCpp.GPULayers, reset.LlamaCpp.GPULayers)
 	}
 }
 

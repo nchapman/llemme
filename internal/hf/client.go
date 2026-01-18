@@ -131,7 +131,7 @@ func getToken(cfg *config.Config) string {
 		return string(data)
 	}
 
-	return cfg.HFToken
+	return cfg.HuggingFace.Token
 }
 
 func (c *Client) doRequest(req *http.Request) (*http.Response, error) {

@@ -40,7 +40,7 @@ var pullCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		if modelInfo.Gated && cfg.HFToken == "" && os.Getenv("HF_TOKEN") == "" {
+		if modelInfo.Gated && cfg.HuggingFace.Token == "" && os.Getenv("HF_TOKEN") == "" {
 			fmt.Printf("%s\n", ui.ErrorMsg("Error: Authentication required"))
 			fmt.Printf("\nThe repository '%s/%s' requires authentication.\n\n", user, repo)
 			fmt.Println("To access gated models, provide a Hugging Face token:")

@@ -353,8 +353,8 @@ func TestBuildArgs(t *testing.T) {
 		{
 			name: "with context length",
 			config: &config.Config{
-				Server:        config.Server{Host: "0.0.0.0", Port: 9000},
-				ContextLength: 2048,
+				Server:   config.Server{Host: "0.0.0.0", Port: 9000},
+				LlamaCpp: config.LlamaCpp{ContextLength: 2048},
 			},
 			modelPath: "/path/to/model.gguf",
 			expectedArgs: []string{
@@ -366,8 +366,8 @@ func TestBuildArgs(t *testing.T) {
 		{
 			name: "with temperature",
 			config: &config.Config{
-				Server:      config.Server{Host: "127.0.0.1", Port: 8080},
-				Temperature: 0.5,
+				Server:   config.Server{Host: "127.0.0.1", Port: 8080},
+				LlamaCpp: config.LlamaCpp{Temperature: 0.5},
 			},
 			modelPath: "/path/to/model.gguf",
 			expectedArgs: []string{
@@ -379,8 +379,8 @@ func TestBuildArgs(t *testing.T) {
 		{
 			name: "with GPU layers",
 			config: &config.Config{
-				Server:    config.Server{Host: "127.0.0.1", Port: 8080},
-				GPULayers: 35,
+				Server:   config.Server{Host: "127.0.0.1", Port: 8080},
+				LlamaCpp: config.LlamaCpp{GPULayers: 35},
 			},
 			modelPath: "/path/to/model.gguf",
 			expectedArgs: []string{
@@ -392,10 +392,12 @@ func TestBuildArgs(t *testing.T) {
 		{
 			name: "full config",
 			config: &config.Config{
-				Server:        config.Server{Host: "127.0.0.1", Port: 8080},
-				ContextLength: 4096,
-				Temperature:   0.7,
-				GPULayers:     20,
+				Server: config.Server{Host: "127.0.0.1", Port: 8080},
+				LlamaCpp: config.LlamaCpp{
+					ContextLength: 4096,
+					Temperature:   0.7,
+					GPULayers:     20,
+				},
 			},
 			modelPath: "/path/to/model.gguf",
 			expectedArgs: []string{

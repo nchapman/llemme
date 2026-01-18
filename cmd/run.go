@@ -186,7 +186,7 @@ func offerToPull(cfg *config.Config, user, repo, quant string) (*proxy.Downloade
 	}
 
 	// Check for gated models
-	if modelInfo.Gated && cfg.HFToken == "" && os.Getenv("HF_TOKEN") == "" {
+	if modelInfo.Gated && cfg.HuggingFace.Token == "" && os.Getenv("HF_TOKEN") == "" {
 		return nil, fmt.Errorf("model '%s/%s' requires authentication\n\n  Get a token at https://huggingface.co/settings/tokens\n  Then set: export HF_TOKEN=hf_xxxxx", user, repo)
 	}
 
@@ -278,11 +278,11 @@ func ensureProxyRunning(cfg *config.Config) (string, error) {
 	}
 
 	// Use config values for proxy
-	host := cfg.Proxy.Host
+	host := cfg.Server.Host
 	if host == "" {
 		host = "127.0.0.1"
 	}
-	port := cfg.Proxy.Port
+	port := cfg.Server.Port
 	if port == 0 {
 		port = 8080
 	}
@@ -404,8 +404,8 @@ func streamResponse(api *server.APIClient, model string, messages []server.ChatM
 		Model:           model,
 		Messages:        messages,
 		Stream:          true,
-		Temperature:     cfg.Temperature,
-		TopP:            cfg.TopP,
+		Temperature:     cfg.LlamaCpp.Temperature,
+		TopP:            cfg.LlamaCpp.TopP,
 		MaxTokens:       tokens,
 		ReasoningFormat: "auto",
 	}

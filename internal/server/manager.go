@@ -133,16 +133,16 @@ func (sm *ServerManager) buildArgs(modelPath string) []string {
 		"--port", fmt.Sprintf("%d", sm.config.Server.Port),
 	}
 
-	if sm.config.ContextLength > 0 {
-		args = append(args, "--ctx-size", fmt.Sprintf("%d", sm.config.ContextLength))
+	if sm.config.LlamaCpp.ContextLength > 0 {
+		args = append(args, "--ctx-size", fmt.Sprintf("%d", sm.config.LlamaCpp.ContextLength))
 	}
 
-	if sm.config.Temperature > 0 {
-		args = append(args, "--temp", fmt.Sprintf("%.2f", sm.config.Temperature))
+	if sm.config.LlamaCpp.Temperature > 0 {
+		args = append(args, "--temp", fmt.Sprintf("%.2f", sm.config.LlamaCpp.Temperature))
 	}
 
-	if sm.config.GPULayers != 0 {
-		args = append(args, "--gpu-layers", fmt.Sprintf("%d", sm.config.GPULayers))
+	if sm.config.LlamaCpp.GPULayers != 0 {
+		args = append(args, "--gpu-layers", fmt.Sprintf("%d", sm.config.LlamaCpp.GPULayers))
 	}
 
 	return args
