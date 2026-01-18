@@ -33,7 +33,7 @@ var infoCmd = &cobra.Command{
 
 		modelInfo, err := client.GetModel(user, repo)
 		if err != nil {
-			handleModelError(err, user, repo)
+			fmt.Printf("%s Failed to get model info: %v\n", ui.ErrorMsg("Error:"), err)
 			os.Exit(1)
 		}
 
