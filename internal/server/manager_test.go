@@ -49,7 +49,7 @@ func TestServerState(t *testing.T) {
 			ModelPath: "/path/to/model.gguf",
 			Host:      "127.0.0.1",
 			Port:      8080,
-			StartedAt: "2024-01-15T10:00:00Z",
+			StartedAt: time.Date(2024, 1, 15, 10, 0, 0, 0, time.UTC),
 		}
 
 		err := SaveState(state)
@@ -209,7 +209,7 @@ func TestClearState(t *testing.T) {
 			ModelPath: "/path/to/model.gguf",
 			Host:      "127.0.0.1",
 			Port:      8080,
-			StartedAt: time.Now().Format(time.RFC3339),
+			StartedAt: time.Now(),
 		}
 
 		if err := SaveState(state); err != nil {
@@ -297,7 +297,7 @@ func TestNewServerState(t *testing.T) {
 	if state.Port != 8080 {
 		t.Errorf("Expected Port 8080, got %d", state.Port)
 	}
-	if state.StartedAt == "" {
+	if state.StartedAt.IsZero() {
 		t.Error("Expected StartedAt to be set")
 	}
 }

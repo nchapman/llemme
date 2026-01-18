@@ -12,12 +12,12 @@ import (
 )
 
 type ServerState struct {
-	PID       int    `json:"pid"`
-	Model     string `json:"model"`
-	ModelPath string `json:"model_path"`
-	Host      string `json:"host"`
-	Port      int    `json:"port"`
-	StartedAt string `json:"started_at"`
+	PID       int       `json:"pid"`
+	Model     string    `json:"model"`
+	ModelPath string    `json:"model_path"`
+	Host      string    `json:"host"`
+	Port      int       `json:"port"`
+	StartedAt time.Time `json:"started_at"`
 }
 
 const (
@@ -60,7 +60,7 @@ func SaveState(state *ServerState) error {
 		return fmt.Errorf("failed to marshal state: %w", err)
 	}
 
-	return os.WriteFile(StateFilePath(), data, 0644)
+	return atomicWriteFile(StateFilePath(), data, 0644)
 }
 
 func SavePID(pid int) error {
@@ -69,7 +69,17 @@ func SavePID(pid int) error {
 	}
 
 	pidStr := fmt.Sprintf("%d", pid)
-	return os.WriteFile(PIDFilePath(), []byte(pidStr), 0644)
+	return atomicWriteFile(PIDFilePath(), []byte(pidStr), 0644)
+}
+
+// atomicWriteFile writes data to a temp file then renames it to path.
+// This ensures the file is never partially written.
+func atomicWriteFile(path string, data []byte, perm os.FileMode) error {
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, perm); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
 }
 
 func LoadPID() (int, error) {
@@ -135,6 +145,6 @@ func NewServerState(pid int, model, modelPath, host string, port int) *ServerSta
 		ModelPath: modelPath,
 		Host:      host,
 		Port:      port,
-		StartedAt: time.Now().Format(time.RFC3339),
+		StartedAt: time.Now(),
 	}
 }

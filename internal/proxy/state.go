@@ -34,7 +34,7 @@ func ProxyStatePath() string {
 	return filepath.Join(config.BinPath(), proxyStateFile)
 }
 
-// SaveProxyState saves the proxy state to disk
+// SaveProxyState saves the proxy state to disk using atomic writes
 func SaveProxyState(state *ProxyState) error {
 	if err := os.MkdirAll(filepath.Dir(ProxyStatePath()), 0755); err != nil {
 		return fmt.Errorf("failed to create state directory: %w", err)
@@ -45,17 +45,27 @@ func SaveProxyState(state *ProxyState) error {
 		return fmt.Errorf("failed to marshal state: %w", err)
 	}
 
-	if err := os.WriteFile(ProxyStatePath(), data, 0644); err != nil {
+	if err := atomicWriteFile(ProxyStatePath(), data, 0644); err != nil {
 		return fmt.Errorf("failed to write state: %w", err)
 	}
 
 	// Also write PID file
 	pidStr := fmt.Sprintf("%d", state.PID)
-	if err := os.WriteFile(ProxyPIDPath(), []byte(pidStr), 0644); err != nil {
+	if err := atomicWriteFile(ProxyPIDPath(), []byte(pidStr), 0644); err != nil {
 		return fmt.Errorf("failed to write PID: %w", err)
 	}
 
 	return nil
+}
+
+// atomicWriteFile writes data to a temp file then renames it to path.
+// This ensures the file is never partially written.
+func atomicWriteFile(path string, data []byte, perm os.FileMode) error {
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, perm); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
 }
 
 // LoadProxyState loads the proxy state from disk
