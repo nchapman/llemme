@@ -183,6 +183,11 @@ func TestConfigCommandFlags(t *testing.T) {
 	if showFlag == nil {
 		t.Error("Expected --show flag to be registered")
 	}
+
+	resetFlag := cmd.Flags().Lookup("reset")
+	if resetFlag == nil {
+		t.Error("Expected --reset flag to be registered")
+	}
 }
 
 func TestConfigYAMLRoundTrip(t *testing.T) {
@@ -231,6 +236,62 @@ func TestGetEditorWithPath(t *testing.T) {
 	editor := getEditor()
 	if editor != "/usr/bin/vim" {
 		t.Errorf("Expected '/usr/bin/vim', got '%s'", editor)
+	}
+}
+
+func TestResetToDefaults(t *testing.T) {
+	// Create temp directory
+	tmpDir := t.TempDir()
+	oldHome := os.Getenv("HOME")
+	defer os.Setenv("HOME", oldHome)
+	os.Setenv("HOME", tmpDir)
+
+	configPath := filepath.Join(tmpDir, ".llemme", "config.yaml")
+
+	// Create a modified config
+	cfg := config.DefaultConfig()
+	cfg.Temperature = 0.9
+	cfg.ContextLength = 16384
+	cfg.GPULayers = 99
+	if err := config.Save(cfg); err != nil {
+		t.Fatalf("Failed to save modified config: %v", err)
+	}
+
+	// Verify modified config was saved
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("Failed to read config: %v", err)
+	}
+	var modified config.Config
+	if err := yaml.Unmarshal(data, &modified); err != nil {
+		t.Fatalf("Failed to unmarshal: %v", err)
+	}
+	if modified.GPULayers != 99 {
+		t.Fatalf("Expected modified gpu_layers 99, got %d", modified.GPULayers)
+	}
+
+	// Reset to defaults
+	resetToDefaults(configPath)
+
+	// Verify config was reset
+	data, err = os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("Failed to read reset config: %v", err)
+	}
+	var reset config.Config
+	if err := yaml.Unmarshal(data, &reset); err != nil {
+		t.Fatalf("Failed to unmarshal reset config: %v", err)
+	}
+
+	defaults := config.DefaultConfig()
+	if reset.Temperature != defaults.Temperature {
+		t.Errorf("Expected default temperature %v, got %v", defaults.Temperature, reset.Temperature)
+	}
+	if reset.ContextLength != defaults.ContextLength {
+		t.Errorf("Expected default context_length %d, got %d", defaults.ContextLength, reset.ContextLength)
+	}
+	if reset.GPULayers != defaults.GPULayers {
+		t.Errorf("Expected default gpu_layers %d, got %d", defaults.GPULayers, reset.GPULayers)
 	}
 }
 

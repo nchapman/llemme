@@ -12,8 +12,9 @@ import (
 )
 
 var (
-	showPath   bool
-	showConfig bool
+	showPath    bool
+	showConfig  bool
+	resetConfig bool
 )
 
 var configCmd = &cobra.Command{
@@ -24,7 +25,8 @@ var configCmd = &cobra.Command{
 Examples:
   llemme config           # Open config in $EDITOR
   llemme config --path    # Print config file path
-  llemme config --show    # Print current configuration`,
+  llemme config --show    # Print current configuration
+  llemme config --reset   # Reset config to defaults`,
 	Run: func(cmd *cobra.Command, args []string) {
 		configPath := config.ConfigPath()
 
@@ -38,8 +40,22 @@ Examples:
 			return
 		}
 
+		if resetConfig {
+			resetToDefaults(configPath)
+			return
+		}
+
 		openInEditor(configPath)
 	},
+}
+
+func resetToDefaults(path string) {
+	cfg := config.DefaultConfig()
+	if err := config.Save(cfg); err != nil {
+		fmt.Printf("%s Failed to reset config: %v\n", ui.ErrorMsg("Error:"), err)
+		os.Exit(1)
+	}
+	fmt.Printf("%s Config reset to defaults at %s\n", ui.Success("✓"), ui.Muted(path))
 }
 
 func printConfig() {
@@ -114,4 +130,5 @@ func init() {
 
 	configCmd.Flags().BoolVar(&showPath, "path", false, "Print config file path")
 	configCmd.Flags().BoolVar(&showConfig, "show", false, "Print current configuration")
+	configCmd.Flags().BoolVar(&resetConfig, "reset", false, "Reset config to defaults")
 }
