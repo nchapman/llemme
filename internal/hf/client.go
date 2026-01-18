@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"time"
@@ -193,8 +194,9 @@ func (c *Client) ListFiles(user, repo, branch string) ([]FileTree, error) {
 }
 
 func (c *Client) SearchModels(query string, limit int) ([]SearchResult, error) {
-	url := fmt.Sprintf("%s/models?search=%s&limit=%d", apiBase, query, limit)
-	req, err := http.NewRequest("GET", url, nil)
+	// Always filter by gguf library for relevant results
+	searchURL := fmt.Sprintf("%s/models?search=%s&filter=gguf&limit=%d", apiBase, url.QueryEscape(query), limit)
+	req, err := http.NewRequest("GET", searchURL, nil)
 	if err != nil {
 		return nil, err
 	}
