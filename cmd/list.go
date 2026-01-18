@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -84,6 +85,11 @@ var listCmd = &cobra.Command{
 			fmt.Println("Use 'llemme pull <user/repo>' to download a model")
 			return
 		}
+
+		// Sort by most recently used
+		sort.Slice(models, func(i, j int) bool {
+			return models[i].LastUsed.After(models[j].LastUsed)
+		})
 
 		table := ui.NewTable().
 			Indent(0).
