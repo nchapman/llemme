@@ -308,7 +308,8 @@ func hashesMatch(local, remote *hf.ManifestFile) bool {
 func handleModelError(err error, user, repo string) {
 	errStr := err.Error()
 
-	if strings.Contains(errStr, "404") {
+	// HuggingFace returns 401 for non-existent repos (to prevent enumeration)
+	if strings.Contains(errStr, "404") || strings.Contains(errStr, "401") {
 		fmt.Printf("%s Model not found\n", ui.ErrorMsg("Error:"))
 		fmt.Printf("\nCould not find '%s/%s' on Hugging Face.\n\n", user, repo)
 		fmt.Println("Tips:")
