@@ -38,6 +38,12 @@ homebrew_casks:
       - llemme
     homepage: "https://github.com/nchapman/llemme"
     description: "Run local LLMs with llama.cpp and Hugging Face"
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/llemme"]
+          end
     repository:
       owner: nchapman
       name: homebrew-tap
