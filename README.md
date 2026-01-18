@@ -14,11 +14,17 @@ Run local LLMs with [llama.cpp](https://github.com/ggerganov/llama.cpp) and [Hug
 
 ## Install
 
+**Homebrew (macOS/Linux):**
+```bash
+brew install nchapman/tap/llemme
+```
+
+**Go:**
 ```bash
 go install github.com/nchapman/llemme@latest
 ```
 
-Or build from source:
+**Build from source:**
 
 ```bash
 git clone https://github.com/nchapman/llemme
