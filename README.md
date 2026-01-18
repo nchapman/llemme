@@ -79,13 +79,30 @@ Config lives at `~/.llemme/config.yaml`:
 context_length: 4096
 temperature: 0.7
 default_quant: Q4_K_M
-gpu_layers: -1
+gpu_layers: -1      # -1 = all layers on GPU
 
 proxy:
+  host: 127.0.0.1   # bind address (0.0.0.0 for all interfaces)
   port: 8080
   max_models: 3
   idle_timeout_mins: 10
+
+# Pass any llama-server options directly
+llama_server:
+  parallel: 4       # concurrent requests per model
+  threads: 8        # CPU threads (-1 = auto)
+  mlock: true       # lock model in RAM
 ```
+
+See [llama-server docs](https://github.com/ggerganov/llama.cpp/tree/master/examples/server) for all available options.
+
+## Logs
+
+Logs are stored in `~/.llemme/logs/`:
+- `proxy.log` - Proxy server logs
+- `<model-name>.log` - Per-model backend logs (e.g., `llama-3.2-3b-instruct-q4_k_m.log`)
+
+Logs rotate automatically (max 10MB, keeps 3 generations).
 
 ## License
 
