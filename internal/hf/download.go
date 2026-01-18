@@ -160,15 +160,43 @@ func (d *Downloader) calculateProgress(downloaded, total int64) *DownloadProgres
 }
 
 func CalculateSHA256(filePath string) (string, error) {
+	return CalculateSHA256WithProgress(filePath, nil)
+}
+
+// CalculateSHA256WithProgress computes sha256 hash with optional progress callback.
+// The callback receives bytes processed and total size.
+func CalculateSHA256WithProgress(filePath string, progress func(processed, total int64)) (string, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return "", err
 	}
 	defer file.Close()
 
-	hash := sha256.New()
-	if _, err := io.Copy(hash, file); err != nil {
+	info, err := file.Stat()
+	if err != nil {
 		return "", err
+	}
+	totalSize := info.Size()
+
+	hash := sha256.New()
+	buf := make([]byte, 32*1024)
+	processed := int64(0)
+
+	for {
+		n, err := file.Read(buf)
+		if n > 0 {
+			hash.Write(buf[:n])
+			processed += int64(n)
+			if progress != nil {
+				progress(processed, totalSize)
+			}
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return "", err
+		}
 	}
 
 	return hex.EncodeToString(hash.Sum(nil)), nil

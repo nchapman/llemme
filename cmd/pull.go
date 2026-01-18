@@ -146,8 +146,9 @@ var pullCmd = &cobra.Command{
 		downloaded += manifest.GGUFFile.Size
 
 		// Download mmproj if present (vision model)
+		var mmprojPath string
 		if hasMMProj {
-			mmprojPath := hf.GetMMProjFilePath(user, repo, quant)
+			mmprojPath = hf.GetMMProjFilePath(user, repo, quant)
 			_, err = downloaderWithProgress.DownloadModel(user, repo, "main", manifest.MMProjFile.RFilename, mmprojPath)
 			if err != nil {
 				progressBar.Stop()
@@ -156,18 +157,61 @@ var pullCmd = &cobra.Command{
 			}
 		}
 
+		progressBar.Finish("Downloaded")
+
+		// Verify downloaded files against manifest hashes
+		if manifest.GGUFFile.LFS != nil {
+			verifyBar := ui.NewProgressBar()
+			verifyBar.Start("Verifying", totalSize)
+			verified := int64(0)
+
+			hash, err := hf.CalculateSHA256WithProgress(modelPath, func(processed, total int64) {
+				verifyBar.Update(verified + processed)
+			})
+			if err != nil {
+				verifyBar.Stop()
+				fmt.Printf("%s Failed to verify model: %v\n", ui.ErrorMsg("Error:"), err)
+				os.Exit(1)
+			}
+			if hash != manifest.GGUFFile.LFS.SHA256 {
+				verifyBar.Stop()
+				fmt.Printf("%s Model verification failed: hash mismatch\n", ui.ErrorMsg("Error:"))
+				os.Remove(modelPath)
+				os.Exit(1)
+			}
+			verified += manifest.GGUFFile.Size
+
+			if hasMMProj && manifest.MMProjFile.LFS != nil {
+				hash, err := hf.CalculateSHA256WithProgress(mmprojPath, func(processed, total int64) {
+					verifyBar.Update(verified + processed)
+				})
+				if err != nil {
+					verifyBar.Stop()
+					fmt.Printf("%s Failed to verify mmproj: %v\n", ui.ErrorMsg("Error:"), err)
+					os.Exit(1)
+				}
+				if hash != manifest.MMProjFile.LFS.SHA256 {
+					verifyBar.Stop()
+					fmt.Printf("%s mmproj verification failed: hash mismatch\n", ui.ErrorMsg("Error:"))
+					os.Remove(mmprojPath)
+					os.Exit(1)
+				}
+			}
+
+			verifyBar.Finish("Verified")
+		}
+
 		// Save manifest for offline reference and verification
 		manifestPath := hf.GetManifestFilePath(user, repo, quant)
 		if err := os.WriteFile(manifestPath, manifestJSON, 0644); err != nil {
-			progressBar.Stop()
 			fmt.Printf("%s Failed to save manifest: %v\n", ui.ErrorMsg("Error:"), err)
 			os.Exit(1)
 		}
 
 		if hasMMProj {
-			progressBar.Finish(fmt.Sprintf("Downloaded %s/%s:%s (vision model)", user, repo, quant))
+			fmt.Printf("Pulled %s/%s:%s (vision model)\n", user, repo, quant)
 		} else {
-			progressBar.Finish(fmt.Sprintf("Downloaded %s/%s:%s", user, repo, quant))
+			fmt.Printf("Pulled %s/%s:%s\n", user, repo, quant)
 		}
 		fmt.Println()
 	},
