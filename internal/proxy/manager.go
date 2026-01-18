@@ -339,6 +339,7 @@ func (m *ModelManager) buildArgs(backend *Backend) []string {
 		"--host", m.config.Host,
 		"--port", fmt.Sprintf("%d", backend.Port),
 		"--embeddings", // Enable /v1/embeddings endpoint
+		"--no-webui",   // Disable built-in web UI (llemme is a proxy)
 	}
 
 	// Apply template patches to work around llama-server issues.
@@ -353,6 +354,44 @@ func (m *ModelManager) buildArgs(backend *Backend) []string {
 
 	if m.appConfig.GPULayers != 0 {
 		args = append(args, "--gpu-layers", fmt.Sprintf("%d", m.appConfig.GPULayers))
+	}
+
+	// Pass through any llama_server config options
+	args = append(args, buildLlamaServerArgs(m.appConfig.LlamaServer)...)
+
+	return args
+}
+
+// buildLlamaServerArgs converts the llama_server config map to command-line arguments.
+func buildLlamaServerArgs(config map[string]any) []string {
+	if config == nil {
+		return nil
+	}
+
+	var args []string
+	for key, value := range config {
+		flag := "--" + key
+
+		switch v := value.(type) {
+		case bool:
+			if v {
+				args = append(args, flag)
+			}
+			// false booleans are omitted (use default)
+		case int:
+			args = append(args, flag, fmt.Sprintf("%d", v))
+		case float64:
+			// YAML parses numbers as float64, check if it's a whole number
+			if v == float64(int(v)) {
+				args = append(args, flag, fmt.Sprintf("%d", int(v)))
+			} else {
+				args = append(args, flag, fmt.Sprintf("%g", v))
+			}
+		case string:
+			if v != "" {
+				args = append(args, flag, v)
+			}
+		}
 	}
 
 	return args

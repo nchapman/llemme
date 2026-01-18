@@ -9,16 +9,17 @@ import (
 )
 
 type Config struct {
-	ContextLength int     `yaml:"context_length"`
-	Temperature   float64 `yaml:"temperature"`
-	TopP          float64 `yaml:"top_p"`
-	TopK          int     `yaml:"top_k"`
-	DefaultQuant  string  `yaml:"default_quant"`
-	GPULayers     int     `yaml:"gpu_layers"`
-	LLamaPath     string  `yaml:"llama_path"`
-	HFToken       string  `yaml:"hf_token"`
-	Server        Server  `yaml:"server"`
-	Proxy         Proxy   `yaml:"proxy"`
+	ContextLength int                    `yaml:"context_length"`
+	Temperature   float64                `yaml:"temperature"`
+	TopP          float64                `yaml:"top_p"`
+	TopK          int                    `yaml:"top_k"`
+	DefaultQuant  string                 `yaml:"default_quant"`
+	GPULayers     int                    `yaml:"gpu_layers"`
+	LLamaPath     string                 `yaml:"llama_path"`
+	HFToken       string                 `yaml:"hf_token"`
+	Server        Server                 `yaml:"server"`
+	Proxy         Proxy                  `yaml:"proxy"`
+	LlamaServer   map[string]any `yaml:"llama_server"`
 }
 
 type Server struct {
