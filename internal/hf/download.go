@@ -192,6 +192,29 @@ func GetModelFilePath(user, repo, quant string) string {
 	return filepath.Join(modelDir, quant+".gguf")
 }
 
+// GetMMProjFilePath returns the path where the mmproj file is stored for a model.
+// The mmproj file is stored per-quantization since different quants may have different mmproj files.
+func GetMMProjFilePath(user, repo, quant string) string {
+	modelDir := GetModelPath(user, repo)
+	return filepath.Join(modelDir, quant+"-mmproj.gguf")
+}
+
+// GetManifestFilePath returns the path where the manifest is stored for a model.
+func GetManifestFilePath(user, repo, quant string) string {
+	modelDir := GetModelPath(user, repo)
+	return filepath.Join(modelDir, quant+"-manifest.json")
+}
+
+// FindMMProjFile checks if an mmproj file exists for the given model and returns its path.
+// Returns empty string if no mmproj file exists.
+func FindMMProjFile(user, repo, quant string) string {
+	path := GetMMProjFilePath(user, repo, quant)
+	if _, err := os.Stat(path); err == nil {
+		return path
+	}
+	return ""
+}
+
 func CleanupPartialFiles() error {
 	binDir := config.BinPath()
 	modelsDir := config.ModelsPath()

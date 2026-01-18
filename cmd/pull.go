@@ -91,25 +91,76 @@ var pullCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		selectedQuant, _ := hf.FindQuantization(quants, quant)
-		fmt.Printf("Pulling %s/%s:%s (%s)\n", user, repo, quant, ui.FormatBytes(selectedQuant.Size))
-		fmt.Println()
-
-		progressBar := ui.NewProgressBar()
-		progressBar.Start("", selectedQuant.Size)
-
-		downloaderWithProgress := hf.NewDownloaderWithProgress(client, func(downloaded, total int64, speed float64, eta time.Duration) {
-			progressBar.Update(downloaded)
-		})
-
-		_, err = downloaderWithProgress.DownloadModel(user, repo, "main", selectedQuant.File, modelPath)
+		// Get manifest to find exact filenames and check for mmproj (vision model support)
+		manifest, manifestJSON, err := client.GetManifest(user, repo, quant)
 		if err != nil {
-			progressBar.Stop()
-			fmt.Printf("%s Failed to download: %v\n", ui.ErrorMsg("Error:"), err)
+			fmt.Printf("%s Failed to get manifest: %v\n", ui.ErrorMsg("Error:"), err)
 			os.Exit(1)
 		}
 
-		progressBar.Finish(fmt.Sprintf("Downloaded %s/%s:%s", user, repo, quant))
+		if manifest.GGUFFile == nil {
+			fmt.Printf("%s Manifest does not contain a GGUF file\n", ui.ErrorMsg("Error:"))
+			os.Exit(1)
+		}
+
+		// Calculate total download size
+		totalSize := manifest.GGUFFile.Size
+		hasMMProj := manifest.MMProjFile != nil
+		if hasMMProj {
+			totalSize += manifest.MMProjFile.Size
+		}
+
+		if hasMMProj {
+			fmt.Printf("Pulling %s/%s:%s (%s + %s mmproj)\n",
+				user, repo, quant,
+				ui.FormatBytes(manifest.GGUFFile.Size),
+				ui.FormatBytes(manifest.MMProjFile.Size))
+		} else {
+			fmt.Printf("Pulling %s/%s:%s (%s)\n", user, repo, quant, ui.FormatBytes(manifest.GGUFFile.Size))
+		}
+		fmt.Println()
+
+		progressBar := ui.NewProgressBar()
+		progressBar.Start("", totalSize)
+
+		downloaded := int64(0)
+		downloaderWithProgress := hf.NewDownloaderWithProgress(client, func(current, total int64, speed float64, eta time.Duration) {
+			progressBar.Update(downloaded + current)
+		})
+
+		// Download main model
+		_, err = downloaderWithProgress.DownloadModel(user, repo, "main", manifest.GGUFFile.RFilename, modelPath)
+		if err != nil {
+			progressBar.Stop()
+			fmt.Printf("%s Failed to download model: %v\n", ui.ErrorMsg("Error:"), err)
+			os.Exit(1)
+		}
+		downloaded += manifest.GGUFFile.Size
+
+		// Download mmproj if present (vision model)
+		if hasMMProj {
+			mmprojPath := hf.GetMMProjFilePath(user, repo, quant)
+			_, err = downloaderWithProgress.DownloadModel(user, repo, "main", manifest.MMProjFile.RFilename, mmprojPath)
+			if err != nil {
+				progressBar.Stop()
+				fmt.Printf("%s Failed to download mmproj: %v\n", ui.ErrorMsg("Error:"), err)
+				os.Exit(1)
+			}
+		}
+
+		// Save manifest for offline reference and verification
+		manifestPath := hf.GetManifestFilePath(user, repo, quant)
+		if err := os.WriteFile(manifestPath, manifestJSON, 0644); err != nil {
+			progressBar.Stop()
+			fmt.Printf("%s Failed to save manifest: %v\n", ui.ErrorMsg("Error:"), err)
+			os.Exit(1)
+		}
+
+		if hasMMProj {
+			progressBar.Finish(fmt.Sprintf("Downloaded %s/%s:%s (vision model)", user, repo, quant))
+		} else {
+			progressBar.Finish(fmt.Sprintf("Downloaded %s/%s:%s", user, repo, quant))
+		}
 		fmt.Println()
 	},
 }

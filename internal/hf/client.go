@@ -66,6 +66,19 @@ type SearchResult struct {
 	Tags         []string  `json:"tags"`
 }
 
+// ManifestFile represents a file entry in the HuggingFace manifest API response.
+type ManifestFile struct {
+	RFilename string `json:"rfilename"`
+	Size      int64  `json:"size"`
+}
+
+// Manifest represents the HuggingFace manifest API response.
+// This API returns the recommended GGUF file and optional mmproj file for vision models.
+type Manifest struct {
+	GGUFFile   *ManifestFile `json:"ggufFile"`
+	MMProjFile *ManifestFile `json:"mmprojFile"`
+}
+
 func NewClient(cfg *config.Config) *Client {
 	return &Client{
 		httpClient: &http.Client{
@@ -94,7 +107,10 @@ func getToken(cfg *config.Config) string {
 }
 
 func (c *Client) doRequest(req *http.Request) (*http.Response, error) {
-	req.Header.Set("User-Agent", userAgent)
+	// Only set User-Agent if not already set (allows callers to override)
+	if req.Header.Get("User-Agent") == "" {
+		req.Header.Set("User-Agent", userAgent)
+	}
 	if c.token != "" {
 		req.Header.Set("Authorization", "Bearer "+c.token)
 	}
@@ -249,4 +265,43 @@ func (c *Client) DownloadFile(user, repo, branch, filename string, progress func
 	}
 
 	return finalPath, nil
+}
+
+// GetManifest fetches the HuggingFace manifest for a model, which includes
+// the recommended GGUF file and optional mmproj file for vision models.
+// The tag parameter is typically a quantization level like "Q4_K_M".
+// Returns both the parsed manifest and the raw JSON bytes for saving to disk.
+func (c *Client) GetManifest(user, repo, tag string) (*Manifest, []byte, error) {
+	url := fmt.Sprintf("%s/v2/%s/%s/manifests/%s", baseURL, user, repo, tag)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Must include "llama-cpp" in user-agent to get ggufFile/mmprojFile fields
+	req.Header.Set("User-Agent", userAgent+" (llama-cpp compatible)")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.doRequest(req)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+	}
+
+	rawJSON, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var manifest Manifest
+	if err := json.Unmarshal(rawJSON, &manifest); err != nil {
+		return nil, nil, err
+	}
+
+	return &manifest, rawJSON, nil
 }

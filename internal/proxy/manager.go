@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/nchapman/llemme/internal/config"
+	"github.com/nchapman/llemme/internal/hf"
 	"github.com/nchapman/llemme/internal/llama"
 	"github.com/nchapman/llemme/internal/logs"
 )
@@ -342,6 +343,11 @@ func (m *ModelManager) buildArgs(backend *Backend) []string {
 		"--no-webui",   // Disable built-in web UI (llemme is a proxy)
 	}
 
+	// Check for mmproj file (vision model support)
+	if mmprojPath := findMMProjForModel(backend.ModelName); mmprojPath != "" {
+		args = append(args, "--mmproj", mmprojPath)
+	}
+
 	// Apply template patches to work around llama-server issues.
 	// See template.go for the patch registry and documentation.
 	if templatePath, err := ExtractAndPatchTemplate(backend.ModelPath); err == nil && templatePath != "" {
@@ -360,6 +366,28 @@ func (m *ModelManager) buildArgs(backend *Backend) []string {
 	args = append(args, buildLlamaServerArgs(m.appConfig.LlamaServer)...)
 
 	return args
+}
+
+// findMMProjForModel parses the model name and checks if an mmproj file exists.
+// ModelName format: "user/repo:quant" (e.g., "ggml-org/gemma-3-4b-it-GGUF:Q4_K_M")
+func findMMProjForModel(modelName string) string {
+	parts := strings.Split(modelName, ":")
+	if len(parts) != 2 {
+		return ""
+	}
+
+	repoRef := parts[0]
+	quant := parts[1]
+
+	repoParts := strings.Split(repoRef, "/")
+	if len(repoParts) != 2 {
+		return ""
+	}
+
+	user := repoParts[0]
+	repo := repoParts[1]
+
+	return hf.FindMMProjFile(user, repo, quant)
 }
 
 // buildLlamaServerArgs converts the llama_server config map to command-line arguments.
