@@ -103,7 +103,13 @@ func (m progressModel) View() string {
 		eta = "calculating..."
 	}
 
-	return fmt.Sprintf("\n  %s  %.0f%% │ %s / %s │ %.1f MB/s │ ETA %s\n",
+	label := ""
+	if m.message != "" {
+		label = m.message + " "
+	}
+
+	return fmt.Sprintf("%s%s  %.0f%% │ %s / %s │ %.1f MB/s │ ETA %s\n",
+		label,
 		bar,
 		percent*100,
 		FormatBytes(m.downloaded),
@@ -145,10 +151,13 @@ func FormatBytes(b int64) string {
 
 type ProgressBar struct {
 	program *tea.Program
+	done    chan struct{}
 }
 
 func NewProgressBar() *ProgressBar {
-	return &ProgressBar{}
+	return &ProgressBar{
+		done: make(chan struct{}),
+	}
 }
 
 func (p *ProgressBar) Start(message string, total int64) {
@@ -156,6 +165,7 @@ func (p *ProgressBar) Start(message string, total int64) {
 	p.program = tea.NewProgram(m)
 	go func() {
 		p.program.Run()
+		close(p.done)
 	}()
 }
 
@@ -166,13 +176,17 @@ func (p *ProgressBar) Update(downloaded int64) {
 }
 
 func (p *ProgressBar) Finish(message string) {
-	if p.program != nil {
-		p.program.Send(progressFinishMsg{message: Success(message)})
+	if p.program == nil {
+		return
 	}
+	p.program.Send(progressFinishMsg{message: Success(message)})
+	<-p.done
 }
 
 func (p *ProgressBar) Stop() {
-	if p.program != nil {
-		p.program.Quit()
+	if p.program == nil {
+		return
 	}
+	p.program.Quit()
+	<-p.done
 }
