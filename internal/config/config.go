@@ -25,13 +25,14 @@ type LlamaCpp struct {
 }
 
 type Server struct {
-	Host            string `yaml:"host"`
-	Port            int    `yaml:"port"`
-	MaxModels       int    `yaml:"max_models"`
-	IdleTimeoutMins int    `yaml:"idle_timeout_mins"`
-	StartupTimeoutS int    `yaml:"startup_timeout_secs"`
-	BackendPortMin  int    `yaml:"backend_port_min"`
-	BackendPortMax  int    `yaml:"backend_port_max"`
+	Host            string   `yaml:"host"`
+	Port            int      `yaml:"port"`
+	MaxModels       int      `yaml:"max_models"`
+	IdleTimeoutMins int      `yaml:"idle_timeout_mins"`
+	StartupTimeoutS int      `yaml:"startup_timeout_secs"`
+	BackendPortMin  int      `yaml:"backend_port_min"`
+	BackendPortMax  int      `yaml:"backend_port_max"`
+	CORSOrigins     []string `yaml:"cors_origins,omitempty"`
 }
 
 const (
@@ -147,6 +148,8 @@ server:
   startup_timeout_secs: 120  # Max time to wait for model to load
   backend_port_min: 49152    # Port range for llama-server backends
   backend_port_max: 49200
+  # cors_origins:            # Additional allowed CORS origins (local always allowed)
+  #   - https://myapp.example.com
 `
 
 func Load() (*Config, error) {

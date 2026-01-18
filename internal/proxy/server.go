@@ -56,9 +56,12 @@ func NewServer(cfg *Config, appCfg *config.Config) *Server {
 	mux.HandleFunc("/api/stop", s.handleStopModel)
 	mux.HandleFunc("/api/stop-all", s.handleStopAll)
 
+	// Apply CORS middleware
+	handler := CORSMiddleware(cfg.CORSOrigins)(mux)
+
 	s.httpServer = &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
-		Handler: mux,
+		Handler: handler,
 	}
 
 	return s

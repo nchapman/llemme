@@ -80,6 +80,7 @@ The proxy server:
 			cfg.Server.BackendPortMin,
 			cfg.Server.BackendPortMax,
 			cfg.Server.StartupTimeoutS,
+			cfg.Server.CORSOrigins,
 		)
 
 		// CLI flags override config
@@ -230,6 +231,7 @@ var internalServeCmd = &cobra.Command{
 			cfg.Server.BackendPortMin,
 			cfg.Server.BackendPortMax,
 			cfg.Server.StartupTimeoutS,
+			cfg.Server.CORSOrigins,
 		)
 
 		if serveHost != "" {

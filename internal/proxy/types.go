@@ -99,6 +99,7 @@ type Config struct {
 	BackendPortMin int           // Minimum port for backends
 	BackendPortMax int           // Maximum port for backends
 	StartupTimeout time.Duration // How long to wait for backend startup
+	CORSOrigins    []string      // Allowed CORS origins (empty = local only)
 }
 
 // DefaultConfig returns the default proxy configuration
@@ -115,7 +116,7 @@ func DefaultConfig() *Config {
 }
 
 // ConfigFromAppConfig creates a proxy Config from the app config
-func ConfigFromAppConfig(host string, port int, maxModels int, idleTimeoutMins int, backendPortMin int, backendPortMax int, startupTimeoutS int) *Config {
+func ConfigFromAppConfig(host string, port int, maxModels int, idleTimeoutMins int, backendPortMin int, backendPortMax int, startupTimeoutS int, corsOrigins []string) *Config {
 	cfg := DefaultConfig()
 
 	if host != "" {
@@ -138,6 +139,9 @@ func ConfigFromAppConfig(host string, port int, maxModels int, idleTimeoutMins i
 	}
 	if startupTimeoutS > 0 {
 		cfg.StartupTimeout = time.Duration(startupTimeoutS) * time.Second
+	}
+	if len(corsOrigins) > 0 {
+		cfg.CORSOrigins = corsOrigins
 	}
 
 	return cfg
