@@ -32,12 +32,18 @@ var (
 )
 
 var runCmd = &cobra.Command{
-	Use:   "run <model> [prompt]",
-	Short: "Run inference with a model via the proxy server",
-	Long: `Run inference with a model. The model can be specified using:
+	Use:   "run <model|persona> [prompt]",
+	Short: "Run inference with a model or persona",
+	Long: `Run inference with a model or persona. The first argument can be:
+
+Models:
   - Full name: bartowski/Llama-3.2-3B-Instruct-GGUF:Q4_K_M
   - Partial name: llama (matches if unique)
   - Repo name: Llama-2-7B-GGUF
+
+Personas:
+  - Name of a saved persona (see 'llemme persona list')
+  - Personas provide saved system prompts and options
 
 The proxy server will be auto-started if not running.
 Models are loaded on-demand and unloaded after idle timeout.`,
@@ -58,6 +64,35 @@ Models are loaded on-demand and unloaded after idle timeout.`,
 		}
 
 		modelQuery := args[0]
+		promptStartIdx := 1 // Where prompt args begin (shifts if persona has no model)
+
+		// Check if this is a persona (personas take precedence over model names)
+		var activePersona *config.Persona
+		if config.PersonaExists(modelQuery) {
+			persona, err := config.LoadPersona(modelQuery)
+			if err != nil {
+				fmt.Printf("%s Failed to load persona: %v\n", ui.ErrorMsg("Error:"), err)
+				os.Exit(1)
+			}
+			activePersona = persona
+
+			// Get model from persona or second argument
+			if persona.Model != "" {
+				modelQuery = persona.Model
+			} else if len(args) > 1 {
+				modelQuery = args[1]
+				promptStartIdx = 2 // Prompt starts after persona and model args
+			} else {
+				fmt.Printf("%s Persona '%s' has no model. Specify one:\n", ui.ErrorMsg("Error:"), args[0])
+				fmt.Printf("  llemme run %s <model> [prompt]\n", args[0])
+				os.Exit(1)
+			}
+
+			// Apply persona system prompt if not overridden by flag
+			if systemPrompt == "" && persona.System != "" {
+				systemPrompt = persona.System
+			}
+		}
 
 		// Step 2: Validate model exists (or offer to pull)
 		resolvedModel, err := validateModel(modelQuery, cfg)
@@ -83,14 +118,14 @@ Models are loaded on-demand and unloaded after idle timeout.`,
 		}
 
 		promptArg := ""
-		if len(args) > 1 {
-			promptArg = strings.Join(args[1:], " ")
+		if len(args) > promptStartIdx {
+			promptArg = strings.Join(args[promptStartIdx:], " ")
 		}
 
 		// Use the resolved full model name
 		modelName := resolvedModel.FullName
 
-		runChat(api, modelName, promptArg, cfg)
+		runChat(api, modelName, promptArg, cfg, activePersona)
 	},
 }
 
@@ -332,7 +367,7 @@ func ensureProxyRunning(cfg *config.Config) (string, error) {
 	return "", fmt.Errorf("proxy did not become ready")
 }
 
-func runChat(api *server.APIClient, model, initialPrompt string, cfg *config.Config) {
+func runChat(api *server.APIClient, model, initialPrompt string, cfg *config.Config, persona *config.Persona) {
 	// Check if input is piped (non-interactive)
 	stat, _ := os.Stdin.Stat()
 	isPiped := (stat.Mode() & os.ModeCharDevice) == 0
@@ -357,7 +392,7 @@ func runChat(api *server.APIClient, model, initialPrompt string, cfg *config.Con
 			fmt.Printf("%s %s\n", ui.Muted("You:"), initialPrompt)
 		}
 		messages = append(messages, server.ChatMessage{Role: "user", Content: initialPrompt})
-		response := streamResponse(api, model, messages, cfg, !isPiped)
+		response := streamResponse(api, model, messages, cfg, persona, !isPiped)
 		if response != "" {
 			messages = append(messages, server.ChatMessage{Role: "assistant", Content: response})
 		}
@@ -391,7 +426,7 @@ func runChat(api *server.APIClient, model, initialPrompt string, cfg *config.Con
 		}
 
 		messages = append(messages, server.ChatMessage{Role: "user", Content: input})
-		response := streamResponse(api, model, messages, cfg, true)
+		response := streamResponse(api, model, messages, cfg, persona, true)
 		if response != "" {
 			messages = append(messages, server.ChatMessage{Role: "assistant", Content: response})
 		}
@@ -399,15 +434,31 @@ func runChat(api *server.APIClient, model, initialPrompt string, cfg *config.Con
 	}
 }
 
-func streamResponse(api *server.APIClient, model string, messages []server.ChatMessage, cfg *config.Config, showSpinner bool) string {
+func streamResponse(api *server.APIClient, model string, messages []server.ChatMessage, cfg *config.Config, persona *config.Persona, showSpinner bool) string {
 	req := &server.ChatCompletionRequest{
 		Model:           model,
 		Messages:        messages,
 		Stream:          true,
-		Temperature:     cfg.LlamaCpp.Temperature,
-		TopP:            cfg.LlamaCpp.TopP,
 		MaxTokens:       tokens,
 		ReasoningFormat: "auto",
+	}
+
+	// Apply temperature: CLI flag > persona > config > server default
+	if temperature != 0 {
+		req.Temperature = temperature
+	} else if persona != nil && persona.GetFloatOption("temp", 0) != 0 {
+		req.Temperature = persona.GetFloatOption("temp", 0)
+	} else if temp := cfg.LlamaCpp.GetFloatOption("temp", 0); temp != 0 {
+		req.Temperature = temp
+	}
+
+	// Apply top-p: CLI flag > persona > config > server default
+	if topP != 0 {
+		req.TopP = topP
+	} else if persona != nil && persona.GetFloatOption("top-p", 0) != 0 {
+		req.TopP = persona.GetFloatOption("top-p", 0)
+	} else if tp := cfg.LlamaCpp.GetFloatOption("top-p", 0); tp != 0 {
+		req.TopP = tp
 	}
 
 	var spinner *ui.Spinner
@@ -471,7 +522,7 @@ func streamResponse(api *server.APIClient, model string, messages []server.ChatM
 func init() {
 	rootCmd.AddCommand(runCmd)
 
-	runCmd.Flags().IntVarP(&ctxLen, "ctx", "c", 0, "Context length")
+	runCmd.Flags().IntVarP(&ctxLen, "ctx-size", "c", 0, "Context length")
 	runCmd.Flags().IntVarP(&tokens, "predict", "n", 0, "Max tokens to generate")
 	runCmd.Flags().Float64VarP(&temperature, "temp", "t", 0, "Temperature")
 	runCmd.Flags().Float64Var(&topP, "top-p", 0, "Top-p sampling")

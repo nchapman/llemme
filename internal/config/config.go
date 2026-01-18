@@ -20,13 +20,8 @@ type HuggingFace struct {
 }
 
 type LlamaCpp struct {
-	ServerPath    string         `yaml:"server_path"`
-	ContextLength int            `yaml:"context_length"`
-	GPULayers     int            `yaml:"gpu_layers"`
-	Temperature   float64        `yaml:"temperature"`
-	TopP          float64        `yaml:"top_p"`
-	TopK          int            `yaml:"top_k"`
-	Extra         map[string]any `yaml:",inline"`
+	ServerPath string         `yaml:"server_path,omitempty"`
+	Options    map[string]any `yaml:"options,omitempty"`
 }
 
 type Server struct {
@@ -82,14 +77,7 @@ func DefaultConfig() *Config {
 			Token:        "",
 			DefaultQuant: "Q4_K_M",
 		},
-		LlamaCpp: LlamaCpp{
-			ServerPath:    "",
-			ContextLength: 4096,
-			GPULayers:     -1,
-			Temperature:   0.7,
-			TopP:          0.9,
-			TopK:          40,
-		},
+		LlamaCpp: LlamaCpp{},
 		Server: Server{
 			Host:            "127.0.0.1",
 			Port:            8080,
@@ -101,6 +89,65 @@ func DefaultConfig() *Config {
 		},
 	}
 }
+
+// DefaultConfigTemplate returns a nicely formatted config with comments
+// showing popular llama-server options and their defaults.
+const DefaultConfigTemplate = `# Hugging Face settings
+huggingface:
+  # Access token for gated models (or set HF_TOKEN env var)
+  token: ""
+  # Default quantization when pulling models
+  default_quant: Q4_K_M
+
+# llama.cpp server settings
+# All options here are passed directly to llama-server.
+# See 'llama-server --help' for the full list.
+llamacpp:
+  # Path to llama-server binary (empty = auto-detect)
+  # server_path: ""
+
+  # Any llama-server options can be added here.
+  # Uncomment and modify as needed:
+  options:
+    # --- Performance ---
+    # threads: -1              # CPU threads for generation (-1 = auto)
+    # threads-batch: -1        # CPU threads for batch processing (-1 = same as threads)
+    # ctx-size: 0              # Context size (0 = from model)
+    # batch-size: 2048         # Logical batch size
+    # ubatch-size: 512         # Physical batch size
+    # parallel: -1             # Number of slots/concurrent requests (-1 = auto)
+
+    # --- GPU ---
+    # gpu-layers: auto         # Layers to offload to GPU (auto, all, or number)
+    # split-mode: layer        # Multi-GPU split: none, layer, row
+    # main-gpu: 0              # Primary GPU index
+    # flash-attn: auto         # Flash attention (on, off, auto)
+
+    # --- Memory ---
+    # cache-type-k: f16        # KV cache type for K (f16, q8_0, q4_0, etc.)
+    # cache-type-v: f16        # KV cache type for V
+    # mlock: false             # Lock model in RAM (prevents swapping)
+
+    # --- Sampling defaults ---
+    # temp: 0.8                # Temperature
+    # top-k: 40                # Top-k sampling (0 = disabled)
+    # top-p: 0.9               # Top-p / nucleus sampling (1.0 = disabled)
+    # min-p: 0.1               # Min-p sampling (0.0 = disabled)
+    # repeat-penalty: 1.0      # Repetition penalty (1.0 = disabled)
+
+    # --- Reasoning models ---
+    # reasoning-format: auto   # Thinking token handling (auto, none, deepseek)
+
+# llemme server settings
+server:
+  host: 127.0.0.1
+  port: 8080
+  max_models: 3              # Max concurrent models in memory
+  idle_timeout_mins: 10      # Unload idle models after this time
+  startup_timeout_secs: 120  # Max time to wait for model to load
+  backend_port_min: 49152    # Port range for llama-server backends
+  backend_port_max: 49200
+`
 
 func Load() (*Config, error) {
 	cfg := DefaultConfig()
@@ -141,6 +188,59 @@ func Save(cfg *Config) error {
 	return nil
 }
 
+// SaveDefault writes the default config template with comments.
+// Use this for initial config creation or reset.
+func SaveDefault() error {
+	configPath := ConfigPath()
+	configDir := filepath.Dir(configPath)
+
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return fmt.Errorf("failed to create config directory: %w", err)
+	}
+
+	if err := os.WriteFile(configPath, []byte(DefaultConfigTemplate), 0644); err != nil {
+		return fmt.Errorf("failed to write config: %w", err)
+	}
+
+	return nil
+}
+
+// GetOption returns a llama-server option value from the config.
+// Returns the value and true if found, or nil and false if not set.
+func (c *LlamaCpp) GetOption(key string) (any, bool) {
+	if c.Options == nil {
+		return nil, false
+	}
+	val, ok := c.Options[key]
+	return val, ok
+}
+
+// GetIntOption returns an int option, with a default if not set.
+func (c *LlamaCpp) GetIntOption(key string, defaultVal int) int {
+	if val, ok := c.GetOption(key); ok {
+		switch v := val.(type) {
+		case int:
+			return v
+		case float64:
+			return int(v)
+		}
+	}
+	return defaultVal
+}
+
+// GetFloatOption returns a float option, with a default if not set.
+func (c *LlamaCpp) GetFloatOption(key string, defaultVal float64) float64 {
+	if val, ok := c.GetOption(key); ok {
+		switch v := val.(type) {
+		case float64:
+			return v
+		case int:
+			return float64(v)
+		}
+	}
+	return defaultVal
+}
+
 func EnsureDirectories() error {
 	dirs := []string{
 		ConfigPath(),
@@ -148,6 +248,7 @@ func EnsureDirectories() error {
 		BinPath(),
 		BlobsPath(),
 		LogsPath(),
+		PersonasPath(),
 	}
 
 	for _, dir := range dirs {
