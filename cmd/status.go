@@ -12,9 +12,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var psCmd = &cobra.Command{
-	Use:   "ps",
-	Short: "Show proxy status and loaded models",
+var statusCmd = &cobra.Command{
+	Use:     "status",
+	Aliases: []string{"ps"},
+	Short:   "Show proxy status and loaded models",
+	GroupID: "server",
 	Run: func(cmd *cobra.Command, args []string) {
 		state := proxy.GetRunningProxyState()
 		if state == nil {
@@ -161,5 +163,5 @@ func formatTimeSince(t time.Time) string {
 }
 
 func init() {
-	rootCmd.AddCommand(psCmd)
+	rootCmd.AddCommand(statusCmd)
 }

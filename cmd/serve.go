@@ -25,8 +25,9 @@ var (
 )
 
 var serveCmd = &cobra.Command{
-	Use:   "serve",
-	Short: "Start the llemme proxy server",
+	Use:     "serve",
+	Short:   "Start the llemme proxy server",
+	GroupID: "server",
 	Long: `Start the llemme proxy server that manages multiple llama.cpp backends.
 
 The proxy server:
@@ -254,10 +255,10 @@ func init() {
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(internalServeCmd)
 
-	serveCmd.Flags().StringVar(&serveHost, "host", "", "Proxy host (default from config)")
-	serveCmd.Flags().IntVar(&servePort, "port", 0, "Proxy port (default from config)")
+	serveCmd.Flags().StringVarP(&serveHost, "host", "H", "", "Proxy host (default from config)")
+	serveCmd.Flags().IntVarP(&servePort, "port", "p", 0, "Proxy port (default from config)")
 	serveCmd.Flags().IntVar(&serveMaxModel, "max-models", 0, "Maximum concurrent models (default from config)")
-	serveCmd.Flags().BoolVar(&detach, "detach", false, "Run proxy in background")
+	serveCmd.Flags().BoolVarP(&detach, "detach", "d", false, "Run proxy in background")
 
 	internalServeCmd.Flags().StringVar(&serveHost, "host", "", "")
 	internalServeCmd.Flags().IntVar(&servePort, "port", 0, "")

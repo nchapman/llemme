@@ -12,11 +12,13 @@ import (
 var verbose bool
 
 var rootCmd = &cobra.Command{
-	Use:   "llemme",
-	Short: "Run local LLMs with Hugging Face integration",
-	Long: `Lemme makes running local LLMs effortless. Point it at any GGUF 
-model on Hugging Face, and it handles the rest—downloading, caching, and 
-running inference through llama.cpp.`,
+	Use:     "llemme",
+	Short:   "Run local LLMs with llama.cpp and Hugging Face",
+	Version: "0.1.0",
+	Long: `Run local LLMs with llama.cpp and Hugging Face.
+
+Point it at any GGUF model on Hugging Face, and it handles the rest—downloading,
+caching, and running inference.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		ui.InitLogger(verbose)
 		if err := config.EnsureDirectories(); err != nil {
@@ -34,4 +36,12 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
+
+	// Add command groups
+	rootCmd.AddGroup(
+		&cobra.Group{ID: "model", Title: "Model Commands:"},
+		&cobra.Group{ID: "discovery", Title: "Discovery:"},
+		&cobra.Group{ID: "server", Title: "Server:"},
+		&cobra.Group{ID: "config", Title: "Configuration:"},
+	)
 }

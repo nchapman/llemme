@@ -20,8 +20,9 @@ var (
 )
 
 var personaCmd = &cobra.Command{
-	Use:   "persona",
-	Short: "Manage personas (saved model configurations)",
+	Use:     "persona",
+	Short:   "Manage personas (saved model configurations)",
+	GroupID: "config",
 	Long: `Manage personas - saved model configurations with system prompts and options.
 
 A persona is a YAML file that specifies:

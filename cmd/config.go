@@ -11,41 +11,48 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var (
-	showPath    bool
-	showConfig  bool
-	resetConfig bool
-)
-
 var configCmd = &cobra.Command{
-	Use:   "config",
-	Short: "Open or display configuration",
-	Long: `Open the configuration file in your default editor, or display config information.
+	Use:     "config",
+	Short:   "Manage configuration",
+	GroupID: "config",
+	Long: `Manage llemme configuration.
 
 Examples:
-  llemme config           # Open config in $EDITOR
-  llemme config --path    # Print config file path
-  llemme config --show    # Print current configuration
-  llemme config --reset   # Reset config to defaults`,
+  llemme config edit    # Open config in $EDITOR
+  llemme config show    # Print current configuration
+  llemme config path    # Print config file path
+  llemme config reset   # Reset config to defaults`,
+}
+
+var configEditCmd = &cobra.Command{
+	Use:   "edit",
+	Short: "Open config in $EDITOR",
 	Run: func(cmd *cobra.Command, args []string) {
-		configPath := config.ConfigPath()
+		openInEditor(config.ConfigPath())
+	},
+}
 
-		if showPath {
-			fmt.Println(configPath)
-			return
-		}
+var configShowCmd = &cobra.Command{
+	Use:   "show",
+	Short: "Print current configuration",
+	Run: func(cmd *cobra.Command, args []string) {
+		printConfig()
+	},
+}
 
-		if showConfig {
-			printConfig()
-			return
-		}
+var configPathCmd = &cobra.Command{
+	Use:   "path",
+	Short: "Print config file path",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println(config.ConfigPath())
+	},
+}
 
-		if resetConfig {
-			resetToDefaults(configPath)
-			return
-		}
-
-		openInEditor(configPath)
+var configResetCmd = &cobra.Command{
+	Use:   "reset",
+	Short: "Reset config to defaults",
+	Run: func(cmd *cobra.Command, args []string) {
+		resetToDefaults(config.ConfigPath())
 	},
 }
 
@@ -127,7 +134,8 @@ func getEditor() string {
 func init() {
 	rootCmd.AddCommand(configCmd)
 
-	configCmd.Flags().BoolVar(&showPath, "path", false, "Print config file path")
-	configCmd.Flags().BoolVar(&showConfig, "show", false, "Print current configuration")
-	configCmd.Flags().BoolVar(&resetConfig, "reset", false, "Reset config to defaults")
+	configCmd.AddCommand(configEditCmd)
+	configCmd.AddCommand(configShowCmd)
+	configCmd.AddCommand(configPathCmd)
+	configCmd.AddCommand(configResetCmd)
 }

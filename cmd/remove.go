@@ -23,19 +23,21 @@ var (
 	rmLargerThan string
 )
 
-var rmCmd = &cobra.Command{
-	Use:   "rm [pattern]",
-	Short: "Remove downloaded models",
+var removeCmd = &cobra.Command{
+	Use:     "remove [pattern]",
+	Aliases: []string{"rm"},
+	Short:   "Remove downloaded models",
+	GroupID: "model",
 	Long: `Remove downloaded models by name, pattern, or filter.
 
 Examples:
-  llemme rm user/repo:quant       Remove specific model
-  llemme rm user/repo             Remove all quants of a model
-  llemme rm user/*                Remove all models from user
-  llemme rm *                     Remove all models
-  llemme rm --older-than 30d      Remove models unused for 30 days
-  llemme rm --larger-than 10GB    Remove models larger than 10GB
-  llemme rm user/* --older-than 7d  Combine pattern with filter`,
+  llemme remove user/repo:quant       Remove specific model
+  llemme remove user/repo             Remove all quants of a model
+  llemme remove user/*                Remove all models from user
+  llemme remove *                     Remove all models
+  llemme remove --older-than 30d      Remove models unused for 30 days
+  llemme remove --larger-than 10GB    Remove models larger than 10GB
+  llemme remove user/* --older-than 7d  Combine pattern with filter`,
 	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		pattern := ""
@@ -48,9 +50,9 @@ Examples:
 			fmt.Printf("%s Specify a model pattern or use --older-than/--larger-than\n", ui.ErrorMsg("Error:"))
 			fmt.Println()
 			fmt.Println("Examples:")
-			fmt.Println("  llemme rm user/repo:quant")
-			fmt.Println("  llemme rm --older-than 30d")
-			fmt.Println("  llemme rm --larger-than 10GB")
+			fmt.Println("  llemme remove user/repo:quant")
+			fmt.Println("  llemme remove --older-than 30d")
+			fmt.Println("  llemme remove --larger-than 10GB")
 			os.Exit(1)
 		}
 
@@ -337,8 +339,8 @@ func cleanEmptyDir(dir string) {
 }
 
 func init() {
-	rmCmd.Flags().BoolVarP(&rmForce, "force", "f", false, "Skip confirmation prompt")
-	rmCmd.Flags().StringVar(&rmOlderThan, "older-than", "", "Remove models not used in this duration (e.g., 24h, 7d, 4w)")
-	rmCmd.Flags().StringVar(&rmLargerThan, "larger-than", "", "Remove models larger than this size (e.g., 500MB, 10GB)")
-	rootCmd.AddCommand(rmCmd)
+	removeCmd.Flags().BoolVarP(&rmForce, "force", "f", false, "Skip confirmation prompt")
+	removeCmd.Flags().StringVar(&rmOlderThan, "older-than", "", "Remove models not used in this duration (e.g., 24h, 7d, 4w)")
+	removeCmd.Flags().StringVar(&rmLargerThan, "larger-than", "", "Remove models larger than this size (e.g., 500MB, 10GB)")
+	rootCmd.AddCommand(removeCmd)
 }

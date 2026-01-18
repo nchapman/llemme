@@ -1,6 +1,6 @@
 # llemme
 
-A fast, simple CLI for running LLMs locally. Powered by [llama.cpp](https://github.com/ggerganov/llama.cpp) with direct [Hugging Face](https://huggingface.co) integration.
+Run local LLMs with [llama.cpp](https://github.com/ggerganov/llama.cpp) and [Hugging Face](https://huggingface.co).
 
 ## Features
 
@@ -39,26 +39,46 @@ llemme run llama "Explain quantum computing in one sentence"
 llemme search mistral
 
 # List downloaded models
-llemme list
+llemme list    # or: llemme ls
 
 # Show running models
-llemme ps
+llemme status  # or: llemme ps
 ```
 
 ## Commands
 
+**Model Commands**
+| Command | Alias | Description |
+|---------|-------|-------------|
+| `run <model>` | | Chat with a model (auto-downloads if needed) |
+| `pull <model>` | | Download a model from Hugging Face |
+| `list` | `ls` | List downloaded models |
+| `remove <model>` | `rm` | Delete a downloaded model |
+
+**Discovery**
+| Command | Alias | Description |
+|---------|-------|-------------|
+| `search <query>` | | Search Hugging Face for models |
+| `trending` | | Show trending models |
+| `info <model>` | `show` | Show model details |
+
+**Server**
+| Command | Alias | Description |
+|---------|-------|-------------|
+| `serve` | | Start the proxy server |
+| `status` | `ps` | Show proxy status and loaded models |
+| `stop <model>` | | Unload a model or stop the proxy |
+
+**Configuration**
 | Command | Description |
 |---------|-------------|
-| `run <model>` | Chat with a model (auto-downloads if needed) |
-| `pull <model>` | Download a model from Hugging Face |
-| `list` | List downloaded models |
-| `search <query>` | Search Hugging Face for models |
-| `ps` | Show proxy status and loaded models |
-| `stop <model>` | Unload a model |
-| `serve` | Start the proxy server |
-| `info <model>` | Show model details |
-| `rm <model>` | Delete a downloaded model |
+| `config edit` | Open config in your editor |
+| `config show` | Print current configuration |
+| `config path` | Print config file path |
+| `config reset` | Reset config to defaults |
+| `persona` | Manage personas (saved model configurations) |
 | `update` | Update llama.cpp binaries |
+| `version` | Show version information |
 
 ## Multi-Model Support
 
@@ -66,32 +86,31 @@ Lemme runs a proxy that manages multiple llama.cpp backends. Models load on dema
 
 ```bash
 # Use the OpenAI-compatible API
-curl http://localhost:8080/v1/chat/completions \
+curl http://localhost:11313/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model": "llama", "messages": [{"role": "user", "content": "Hello!"}]}'
 ```
 
 ## Configuration
 
-Config lives at `~/.llemme/config.yaml`:
+Config lives at `~/.llemme/config.yaml`. Edit with `llemme config edit` or view with `llemme config show`.
 
 ```yaml
-context_length: 4096
-temperature: 0.7
-default_quant: Q4_K_M
-gpu_layers: -1      # -1 = all layers on GPU
+huggingface:
+  default_quant: Q4_K_M
 
-proxy:
+server:
   host: 127.0.0.1   # bind address (0.0.0.0 for all interfaces)
-  port: 8080
+  port: 11313
   max_models: 3
-  idle_timeout_mins: 10
+  idle_timeout: 10m
 
-# Pass any llama-server options directly
-llama_server:
-  parallel: 4       # concurrent requests per model
-  threads: 8        # CPU threads (-1 = auto)
-  mlock: true       # lock model in RAM
+llamacpp:
+  options:
+    # ctx-size: 4096
+    # gpu-layers: -1  # -1 = all layers on GPU
+    # threads: 8      # CPU threads
+    # parallel: 4     # concurrent requests per model
 ```
 
 See [llama-server docs](https://github.com/ggerganov/llama.cpp/tree/master/examples/server) for all available options.

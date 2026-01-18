@@ -12,8 +12,10 @@ import (
 )
 
 var infoCmd = &cobra.Command{
-	Use:   "info <user/repo>",
-	Short: "Show model details",
+	Use:     "info <user/repo>",
+	Aliases: []string{"show"},
+	Short:   "Show model details",
+	GroupID: "discovery",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg, err := config.Load()

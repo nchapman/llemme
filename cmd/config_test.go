@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -169,23 +168,24 @@ func TestOpenInEditorCreatesDefaultConfig(t *testing.T) {
 	}
 }
 
-func TestConfigCommandFlags(t *testing.T) {
-	// Test that flags are properly registered
+func TestConfigSubcommands(t *testing.T) {
+	// Test that subcommands are properly registered
 	cmd := configCmd
 
-	pathFlag := cmd.Flags().Lookup("path")
-	if pathFlag == nil {
-		t.Error("Expected --path flag to be registered")
-	}
+	subCmds := cmd.Commands()
+	expectedCmds := []string{"edit", "show", "path", "reset"}
 
-	showFlag := cmd.Flags().Lookup("show")
-	if showFlag == nil {
-		t.Error("Expected --show flag to be registered")
-	}
-
-	resetFlag := cmd.Flags().Lookup("reset")
-	if resetFlag == nil {
-		t.Error("Expected --reset flag to be registered")
+	for _, expected := range expectedCmds {
+		found := false
+		for _, sub := range subCmds {
+			if sub.Name() == expected {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Expected subcommand '%s' to be registered", expected)
+		}
 	}
 }
 
@@ -293,6 +293,3 @@ func TestResetToDefaults(t *testing.T) {
 		t.Error("Expected reset config to contain commented options")
 	}
 }
-
-// Silence the "imported and not used" error for bytes
-var _ = bytes.Buffer{}

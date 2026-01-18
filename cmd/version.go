@@ -11,8 +11,9 @@ import (
 )
 
 var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Show llemme version information",
+	Use:     "version",
+	Short:   "Show version information",
+	GroupID: "config",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Printf("llemme v0.1.0 (%s/%s)\n", runtime.GOOS, runtime.GOARCH)
 

@@ -16,8 +16,10 @@ import (
 )
 
 var listCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List downloaded models",
+	Use:     "list",
+	Aliases: []string{"ls"},
+	Short:   "List downloaded models",
+	GroupID: "model",
 	Run: func(cmd *cobra.Command, args []string) {
 		modelsDir := config.ModelsPath()
 

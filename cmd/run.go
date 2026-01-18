@@ -34,8 +34,9 @@ var (
 )
 
 var runCmd = &cobra.Command{
-	Use:   "run <model|persona> [prompt]",
-	Short: "Run inference with a model or persona",
+	Use:     "run <model|persona> [prompt]",
+	Short:   "Run inference with a model or persona",
+	GroupID: "model",
 	Long: `Run inference with a model or persona. The first argument can be:
 
 Models:
@@ -435,7 +436,7 @@ func init() {
 	runCmd.Flags().Float64Var(&minP, "min-p", 0, "Min-p sampling")
 	runCmd.Flags().Float64Var(&repeatPenalty, "repeat-penalty", 0, "Repeat penalty")
 	runCmd.Flags().IntVarP(&tokens, "predict", "n", 0, "Max tokens to generate")
-	runCmd.Flags().StringVar(&systemPrompt, "system", "", "System prompt")
+	runCmd.Flags().StringVarP(&systemPrompt, "system", "s", "", "System prompt")
 
 	// Server options (affect model loading)
 	runCmd.Flags().IntVar(&ctxSize, "ctx-size", 0, "Context size (0 = model default)")

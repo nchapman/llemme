@@ -20,8 +20,9 @@ var (
 )
 
 var stopCmd = &cobra.Command{
-	Use:   "stop [model]",
-	Short: "Stop a model, all models, or the proxy server",
+	Use:     "stop [model]",
+	Short:   "Stop a model, all models, or the proxy server",
+	GroupID: "server",
 	Long: `Stop running models or the proxy server.
 
 Examples:
@@ -155,6 +156,6 @@ func stopProxyServer(state *proxy.ProxyState) {
 func init() {
 	rootCmd.AddCommand(stopCmd)
 
-	stopCmd.Flags().BoolVar(&stopAll, "all", false, "Stop all loaded models")
+	stopCmd.Flags().BoolVarP(&stopAll, "all", "a", false, "Stop all loaded models")
 	stopCmd.Flags().BoolVar(&stopProxy, "proxy", false, "Stop the proxy server")
 }

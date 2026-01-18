@@ -5,8 +5,9 @@ import (
 )
 
 var trendingCmd = &cobra.Command{
-	Use:   "trending",
-	Short: "Show trending llama.cpp compatible models on Hugging Face",
+	Use:     "trending",
+	Short:   "Show trending llama.cpp compatible models on Hugging Face",
+	GroupID: "discovery",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		searchCmd.Run(cmd, []string{})

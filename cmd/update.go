@@ -10,8 +10,9 @@ import (
 )
 
 var updateCmd = &cobra.Command{
-	Use:   "update",
-	Short: "Update llama.cpp to the latest version",
+	Use:     "update",
+	Short:   "Update llama.cpp to the latest version",
+	GroupID: "config",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Checking for llama.cpp updates...")
 		fmt.Println()
