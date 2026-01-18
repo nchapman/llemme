@@ -1,8 +1,9 @@
 package proxy
 
 import (
-	"fmt"
 	"time"
+
+	"github.com/nchapman/llemme/internal/ui"
 )
 
 // IdleMonitor periodically checks for and shuts down idle backends
@@ -59,10 +60,10 @@ func (m *IdleMonitor) checkAndEvict() {
 		modelName := backend.ModelName
 		idleDuration := backend.IdleDuration()
 
-		fmt.Printf("Unloading idle model %s (idle for %v)\n", modelName, idleDuration.Round(time.Second))
+		ui.Info("Unloading idle model", "model", modelName, "idle", idleDuration.Round(time.Second))
 
 		if err := m.manager.StopBackend(modelName); err != nil {
-			fmt.Printf("Failed to unload %s: %v\n", modelName, err)
+			ui.Warn("Failed to unload model", "model", modelName, "error", err)
 		}
 	}
 }

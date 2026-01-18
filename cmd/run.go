@@ -236,7 +236,7 @@ func offerToPull(cfg *config.Config, user, repo, quant string) (*proxy.Downloade
 		return nil, fmt.Errorf("failed to create model directory: %w", err)
 	}
 
-	progressBar := ui.NewProgressBar("", selectedQuant.Size)
+	progressBar := ui.NewProgressBar()
 	progressBar.Start("", selectedQuant.Size)
 
 	downloaderWithProgress := hf.NewDownloaderWithProgress(client, func(downloaded, total int64, speed float64, eta time.Duration) {

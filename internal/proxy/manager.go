@@ -102,10 +102,16 @@ func (m *ModelManager) GetOrLoadBackend(modelQuery string) (*Backend, error) {
 	// Need to start a new backend
 	// Check if we need to evict
 	if m.config.MaxModels > 0 && len(m.backends) >= m.config.MaxModels {
-		if err := m.evictLRU(); err != nil {
+		lruModel := m.getLRUModel()
+		if lruModel == "" {
 			m.mu.Unlock()
+			return nil, fmt.Errorf("failed to evict model: no models to evict")
+		}
+		m.mu.Unlock()
+		if err := m.StopBackend(lruModel); err != nil {
 			return nil, fmt.Errorf("failed to evict model: %w", err)
 		}
+		m.mu.Lock()
 	}
 
 	// Allocate port
@@ -224,13 +230,7 @@ func (m *ModelManager) StopBackend(modelName string) error {
 	defer m.mu.Unlock()
 
 	backend.SetStatus(BackendStopped)
-	// Only close ReadyChan if not already closed (it's closed when backend becomes ready)
-	select {
-	case <-backend.ReadyChan:
-		// Already closed
-	default:
-		close(backend.ReadyChan)
-	}
+	backend.CloseReadyChan()
 	m.portAllocator.Release(backend.Port)
 	delete(m.backends, modelName)
 	m.removeLRU(modelName)
@@ -287,13 +287,8 @@ func (m *ModelManager) Resolver() *ModelResolver {
 func (m *ModelManager) startBackend(backend *Backend) {
 	defer func() {
 		// Ensure ReadyChan is closed even on error
-		select {
-		case <-backend.ReadyChan:
-			// Already closed
-		default:
-			if backend.GetStatus() != BackendReady {
-				close(backend.ReadyChan)
-			}
+		if backend.GetStatus() != BackendReady {
+			backend.CloseReadyChan()
 		}
 	}()
 
@@ -331,7 +326,7 @@ func (m *ModelManager) startBackend(backend *Backend) {
 	}
 
 	backend.SetStatus(BackendReady)
-	close(backend.ReadyChan)
+	backend.CloseReadyChan()
 }
 
 func (m *ModelManager) buildArgs(backend *Backend) []string {
@@ -420,17 +415,13 @@ func (m *ModelManager) removeLRU(modelName string) {
 	}
 }
 
-func (m *ModelManager) evictLRU() error {
+// getLRUModel returns the least recently used model name.
+// Caller must hold m.mu.
+func (m *ModelManager) getLRUModel() string {
 	if len(m.lruOrder) == 0 {
-		return fmt.Errorf("no models to evict")
+		return ""
 	}
-
-	// Get least recently used (end of list)
-	lruModel := m.lruOrder[len(m.lruOrder)-1]
-	m.mu.Unlock() // Unlock before stopping (StopBackend needs lock)
-	err := m.StopBackend(lruModel)
-	m.mu.Lock() // Re-lock
-	return err
+	return m.lruOrder[len(m.lruOrder)-1]
 }
 
 // AmbiguousModelError is returned when a query matches multiple models

@@ -95,7 +95,7 @@ var pullCmd = &cobra.Command{
 		fmt.Printf("Pulling %s/%s:%s (%s)\n", user, repo, quant, ui.FormatBytes(selectedQuant.Size))
 		fmt.Println()
 
-		progressBar := ui.NewProgressBar("", selectedQuant.Size)
+		progressBar := ui.NewProgressBar()
 		progressBar.Start("", selectedQuant.Size)
 
 		downloaderWithProgress := hf.NewDownloaderWithProgress(client, func(downloaded, total int64, speed float64, eta time.Duration) {

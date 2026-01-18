@@ -164,7 +164,11 @@ func (s *Server) proxyToBackend(w http.ResponseWriter, r *http.Request, path str
 
 	// Proxy the request
 	backendURL := fmt.Sprintf("http://%s:%d", s.config.Host, backend.Port)
-	target, _ := url.Parse(backendURL)
+	target, err := url.Parse(backendURL)
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, "server_error", "invalid backend URL")
+		return
+	}
 
 	proxy := httputil.NewSingleHostReverseProxy(target)
 
@@ -227,13 +231,13 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	writeJSON(w, resp)
 }
 
 // handleHealth returns basic health status
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	writeJSON(w, map[string]string{"status": "ok"})
 }
 
 // handleStatus returns detailed proxy status
@@ -257,7 +261,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(status)
+	writeJSON(w, status)
 }
 
 // handleModelError converts model errors to appropriate HTTP responses
@@ -278,11 +282,17 @@ func (s *Server) handleModelError(w http.ResponseWriter, err error) {
 	}
 }
 
+// writeJSON encodes v as JSON to w. Encoding errors are ignored
+// since there's no meaningful recovery (client connection is typically closed).
+func writeJSON(w http.ResponseWriter, v any) {
+	_ = json.NewEncoder(w).Encode(v)
+}
+
 // writeError writes an OpenAI-compatible error response
 func (s *Server) writeError(w http.ResponseWriter, status int, errType, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(OpenAIError{
+	writeJSON(w, OpenAIError{
 		Error: OpenAIErrorDetail{
 			Message: message,
 			Type:    errType,
@@ -337,7 +347,7 @@ func (s *Server) handleStopModel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSON(w, map[string]any{
 		"success": true,
 		"model":   modelName,
 	})
@@ -357,7 +367,7 @@ func (s *Server) handleStopAll(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSON(w, map[string]any{
 		"success": true,
 		"stopped": count,
 	})

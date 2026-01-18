@@ -147,7 +147,7 @@ type ProgressBar struct {
 	program *tea.Program
 }
 
-func NewProgressBar(message string, total int64) *ProgressBar {
+func NewProgressBar() *ProgressBar {
 	return &ProgressBar{}
 }
 

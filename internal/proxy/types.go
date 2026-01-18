@@ -42,6 +42,14 @@ type Backend struct {
 	StartedAt    time.Time     // When this backend was started
 	Status       BackendStatus // Current status
 	ReadyChan    chan struct{} // Closed when backend is ready (for request coalescing)
+	readyOnce    sync.Once     // Ensures ReadyChan is closed exactly once
+}
+
+// CloseReadyChan safely closes the ReadyChan exactly once
+func (b *Backend) CloseReadyChan() {
+	b.readyOnce.Do(func() {
+		close(b.ReadyChan)
+	})
 }
 
 // UpdateActivity updates the last activity time for this backend

@@ -113,7 +113,7 @@ func TestProgressModelView(t *testing.T) {
 }
 
 func TestNewProgressBar(t *testing.T) {
-	bar := NewProgressBar("test", 1000)
+	bar := NewProgressBar()
 
 	if bar == nil {
 		t.Fatal("NewProgressBar() returned nil")
@@ -125,7 +125,7 @@ func TestNewProgressBar(t *testing.T) {
 }
 
 func TestProgressBarUpdateNilProgram(t *testing.T) {
-	bar := NewProgressBar("test", 1000)
+	bar := NewProgressBar()
 
 	// Update should not panic when program is nil (before Start is called)
 	bar.Update(500)
