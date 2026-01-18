@@ -9,12 +9,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var verbose bool
+var (
+	verbose bool
+	// Version is set via ldflags at build time
+	Version = "dev"
+)
 
 var rootCmd = &cobra.Command{
 	Use:     "llemme",
 	Short:   "Run local LLMs with llama.cpp and Hugging Face",
-	Version: "0.1.0",
+	Version: Version,
 	Long: `Run local LLMs with llama.cpp and Hugging Face.
 
 Point it at any GGUF model on Hugging Face, and it handles the rest—downloading,
