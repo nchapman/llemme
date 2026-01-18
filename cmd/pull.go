@@ -17,7 +17,7 @@ var pullCmd = &cobra.Command{
 	Use:     "pull <user/repo>[:quant]",
 	Short:   "Download a model from Hugging Face",
 	GroupID: "model",
-	Args:  cobra.ExactArgs(1),
+	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		modelRef := args[0]
 
@@ -101,7 +101,7 @@ var pullCmd = &cobra.Command{
 		}
 
 		// Check if local files are up to date with remote manifest
-		upToDate, saveManifest := isUpToDate(user, repo, quant, manifest, manifestJSON)
+		upToDate, saveManifest := isUpToDate(user, repo, quant, manifest)
 		if upToDate {
 			if saveManifest {
 				// Legacy model without manifest - save it now
@@ -239,7 +239,7 @@ func parseModelRef(ref string) (user, repo, quant string, err error) {
 
 // isUpToDate checks if local files match the remote manifest by comparing sha256 hashes.
 // Returns (up-to-date, should-save-manifest).
-func isUpToDate(user, repo, quant string, remote *hf.Manifest, manifestJSON []byte) (bool, bool) {
+func isUpToDate(user, repo, quant string, remote *hf.Manifest) (bool, bool) {
 	manifestPath := hf.GetManifestFilePath(user, repo, quant)
 	modelPath := hf.GetModelFilePath(user, repo, quant)
 

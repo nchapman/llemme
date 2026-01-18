@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestPatchEmptyToolsArray(t *testing.T) {
@@ -312,8 +313,13 @@ func TestWriteTemplateCacheInvalidatesOnMtimeChange(t *testing.T) {
 		t.Fatalf("First writeTemplateCache() error = %v", err)
 	}
 
-	// Update the model file (changes mtime)
+	// Update the model file with a different mtime
+	// Use Chtimes to ensure mtime is definitely different (some filesystems have low resolution)
 	if err := os.WriteFile(modelPath, []byte("version2"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	futureTime := time.Now().Add(time.Hour)
+	if err := os.Chtimes(modelPath, futureTime, futureTime); err != nil {
 		t.Fatal(err)
 	}
 

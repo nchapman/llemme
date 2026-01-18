@@ -3,6 +3,7 @@ package proxy
 import (
 	"bufio"
 	"fmt"
+	"maps"
 	"net/http"
 	"os"
 	"os/exec"
@@ -83,8 +84,8 @@ func (m *ModelManager) GetOrLoadBackend(modelQuery string, options map[string]an
 	m.mu.Lock()
 	backend, exists := m.backends[modelName]
 	if exists {
-		status := backend.GetStatus()
-		if status == BackendReady {
+		switch status := backend.GetStatus(); status {
+		case BackendReady:
 			// Check if options changed - if so, reload the model
 			if optionsChanged(backend.Options, options) {
 				// Mark as stopping to prevent race conditions
@@ -101,7 +102,7 @@ func (m *ModelManager) GetOrLoadBackend(modelQuery string, options map[string]an
 				m.mu.Unlock()
 				return backend, nil
 			}
-		} else if status == BackendStarting {
+		case BackendStarting:
 			// Currently starting - wait for it
 			readyChan := backend.ReadyChan
 			m.mu.Unlock()
@@ -382,12 +383,8 @@ func (m *ModelManager) buildArgs(backend *Backend) []string {
 
 	// Merge config options with backend-specific options (backend overrides config)
 	mergedOptions := make(map[string]any)
-	for k, v := range m.appConfig.LlamaCpp.Options {
-		mergedOptions[k] = v
-	}
-	for k, v := range backend.Options {
-		mergedOptions[k] = v
-	}
+	maps.Copy(mergedOptions, m.appConfig.LlamaCpp.Options)
+	maps.Copy(mergedOptions, backend.Options)
 
 	// Pass through all llama-server options
 	args = append(args, buildLlamaServerArgs(mergedOptions)...)
