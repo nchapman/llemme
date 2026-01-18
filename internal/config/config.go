@@ -87,6 +87,11 @@ func DefaultConfig() *Config {
 			StartupTimeoutS: 120,
 			BackendPortMin:  49152,
 			BackendPortMax:  49200,
+			CORSOrigins: []string{
+				"http://localhost",
+				"http://127.0.0.1",
+				"http://[::1]",
+			},
 		},
 	}
 }
@@ -148,8 +153,10 @@ server:
   startup_timeout_secs: 120  # Max time to wait for model to load
   backend_port_min: 49152    # Port range for llama-server backends
   backend_port_max: 49200
-  # cors_origins:            # Additional allowed CORS origins (local always allowed)
-  #   - https://myapp.example.com
+  cors_origins:              # Allowed CORS origins
+    - http://localhost
+    - http://127.0.0.1
+    - http://[::1]
 `
 
 func Load() (*Config, error) {

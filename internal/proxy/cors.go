@@ -5,15 +5,8 @@ import (
 	"strings"
 )
 
-// localOrigins are origins that are always allowed for local development
-var localOrigins = []string{
-	"http://localhost",
-	"http://127.0.0.1",
-	"http://[::1]",
-}
-
 // CORSMiddleware creates a middleware that handles CORS requests.
-// It allows local origins by default and any additional origins specified in config.
+// Allowed origins are configured in the config file.
 func CORSMiddleware(allowedOrigins []string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -39,18 +32,9 @@ func CORSMiddleware(allowedOrigins []string) func(http.Handler) http.Handler {
 }
 
 // isAllowedOrigin checks if the origin is in the allowed list.
-// Local origins (localhost, 127.0.0.1, [::1]) are always allowed.
+// Uses exact match or port suffix to prevent bypass attacks
+// (e.g., http://localhost.evil.com would bypass simple prefix matching).
 func isAllowedOrigin(origin string, allowedOrigins []string) bool {
-	// Check local origins first (always allowed)
-	// Match exactly or with a port suffix to prevent bypass attacks
-	// (e.g., http://localhost.evil.com would bypass prefix matching)
-	for _, local := range localOrigins {
-		if origin == local || strings.HasPrefix(origin, local+":") {
-			return true
-		}
-	}
-
-	// Check configured origins
 	for _, allowed := range allowedOrigins {
 		if allowed == "*" {
 			return true
@@ -60,6 +44,5 @@ func isAllowedOrigin(origin string, allowedOrigins []string) bool {
 			return true
 		}
 	}
-
 	return false
 }
