@@ -9,11 +9,11 @@ import (
 )
 
 func TestNewAPIClient(t *testing.T) {
-	api := NewAPIClient("127.0.0.1", 8080)
+	api := NewAPIClient("127.0.0.1", 11313)
 	if api == nil {
 		t.Fatal("Expected non-nil APIClient")
 	}
-	expectedURL := "http://127.0.0.1:8080"
+	expectedURL := "http://127.0.0.1:11313"
 	if api.baseURL != expectedURL {
 		t.Errorf("Expected baseURL %s, got %s", expectedURL, api.baseURL)
 	}

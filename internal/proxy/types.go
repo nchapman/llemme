@@ -95,7 +95,7 @@ func (b *Backend) IdleDuration() time.Duration {
 // Config holds proxy configuration
 type Config struct {
 	Host           string        // Proxy host (default: "127.0.0.1")
-	Port           int           // Proxy port (default: 8080)
+	Port           int           // Proxy port (default: 11313)
 	MaxModels      int           // Maximum concurrent models (0 = unlimited)
 	IdleTimeout    time.Duration // How long before idle models are unloaded
 	BackendPortMin int           // Minimum port for backends
@@ -108,7 +108,7 @@ type Config struct {
 func DefaultConfig() *Config {
 	return &Config{
 		Host:           "127.0.0.1",
-		Port:           8080,
+		Port:           11313,
 		MaxModels:      3,
 		IdleTimeout:    10 * time.Minute,
 		BackendPortMin: 49152,

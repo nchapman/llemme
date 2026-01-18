@@ -377,7 +377,7 @@ func ensureProxyRunning(cfg *config.Config) (string, error) {
 	}
 	port := cfg.Server.Port
 	if port == 0 {
-		port = 8080
+		port = 11313
 	}
 
 	args := []string{

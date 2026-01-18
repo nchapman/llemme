@@ -14,7 +14,7 @@ func TestNewManager(t *testing.T) {
 	cfg := &config.Config{
 		Server: config.Server{
 			Host: "127.0.0.1",
-			Port: 8080,
+			Port: 11313,
 		},
 	}
 
@@ -31,8 +31,8 @@ func TestNewManager(t *testing.T) {
 	if sm.config.Server.Host != "127.0.0.1" {
 		t.Errorf("Expected Host 127.0.0.1, got %s", sm.config.Server.Host)
 	}
-	if sm.config.Server.Port != 8080 {
-		t.Errorf("Expected Port 8080, got %d", sm.config.Server.Port)
+	if sm.config.Server.Port != 11313 {
+		t.Errorf("Expected Port 11313, got %d", sm.config.Server.Port)
 	}
 }
 
@@ -49,7 +49,7 @@ func TestServerState(t *testing.T) {
 			Model:     "test-model",
 			ModelPath: "/path/to/model.gguf",
 			Host:      "127.0.0.1",
-			Port:      8080,
+			Port:      11313,
 			StartedAt: time.Date(2024, 1, 15, 10, 0, 0, 0, time.UTC),
 		}
 
@@ -209,7 +209,7 @@ func TestClearState(t *testing.T) {
 			Model:     "test-model",
 			ModelPath: "/path/to/model.gguf",
 			Host:      "127.0.0.1",
-			Port:      8080,
+			Port:      11313,
 			StartedAt: time.Now(),
 		}
 
@@ -299,11 +299,11 @@ func TestGetServerURL(t *testing.T) {
 	t.Run("returns correct URL", func(t *testing.T) {
 		state := &ServerState{
 			Host: "127.0.0.1",
-			Port: 8080,
+			Port: 11313,
 		}
 
 		url := GetServerURL(state)
-		expected := "http://127.0.0.1:8080"
+		expected := "http://127.0.0.1:11313"
 		if url != expected {
 			t.Errorf("Expected URL %s, got %s", expected, url)
 		}
@@ -311,7 +311,7 @@ func TestGetServerURL(t *testing.T) {
 }
 
 func TestNewServerState(t *testing.T) {
-	state := NewServerState(12345, "test-model", "/path/to/model.gguf", "127.0.0.1", 8080)
+	state := NewServerState(12345, "test-model", "/path/to/model.gguf", "127.0.0.1", 11313)
 
 	if state.PID != 12345 {
 		t.Errorf("Expected PID 12345, got %d", state.PID)
@@ -325,8 +325,8 @@ func TestNewServerState(t *testing.T) {
 	if state.Host != "127.0.0.1" {
 		t.Errorf("Expected Host 127.0.0.1, got %s", state.Host)
 	}
-	if state.Port != 8080 {
-		t.Errorf("Expected Port 8080, got %d", state.Port)
+	if state.Port != 11313 {
+		t.Errorf("Expected Port 11313, got %d", state.Port)
 	}
 	if state.StartedAt.IsZero() {
 		t.Error("Expected StartedAt to be set")
@@ -346,11 +346,11 @@ func TestBuildArgs(t *testing.T) {
 			config: &config.Config{
 				Server: config.Server{
 					Host: "127.0.0.1",
-					Port: 8080,
+					Port: 11313,
 				},
 			},
 			modelPath:    "/path/to/model.gguf",
-			expectedArgs: []string{"--model", "/path/to/model.gguf", "--host", "127.0.0.1", "--port", "8080"},
+			expectedArgs: []string{"--model", "/path/to/model.gguf", "--host", "127.0.0.1", "--port", "11313"},
 		},
 		{
 			name: "with context size option",
@@ -371,7 +371,7 @@ func TestBuildArgs(t *testing.T) {
 		{
 			name: "with temperature option",
 			config: &config.Config{
-				Server: config.Server{Host: "127.0.0.1", Port: 8080},
+				Server: config.Server{Host: "127.0.0.1", Port: 11313},
 				LlamaCpp: config.LlamaCpp{
 					Options: map[string]any{"temp": 0.5},
 				},
@@ -380,14 +380,14 @@ func TestBuildArgs(t *testing.T) {
 			expectedFlags: map[string]string{
 				"model": "/path/to/model.gguf",
 				"host":  "127.0.0.1",
-				"port":  "8080",
+				"port":  "11313",
 				"temp":  "0.5",
 			},
 		},
 		{
 			name: "with GPU layers option",
 			config: &config.Config{
-				Server: config.Server{Host: "127.0.0.1", Port: 8080},
+				Server: config.Server{Host: "127.0.0.1", Port: 11313},
 				LlamaCpp: config.LlamaCpp{
 					Options: map[string]any{"gpu-layers": 35},
 				},
@@ -396,14 +396,14 @@ func TestBuildArgs(t *testing.T) {
 			expectedFlags: map[string]string{
 				"model":      "/path/to/model.gguf",
 				"host":       "127.0.0.1",
-				"port":       "8080",
+				"port":       "11313",
 				"gpu-layers": "35",
 			},
 		},
 		{
 			name: "with multiple options",
 			config: &config.Config{
-				Server: config.Server{Host: "127.0.0.1", Port: 8080},
+				Server: config.Server{Host: "127.0.0.1", Port: 11313},
 				LlamaCpp: config.LlamaCpp{
 					Options: map[string]any{
 						"ctx-size":   4096,
@@ -416,7 +416,7 @@ func TestBuildArgs(t *testing.T) {
 			expectedFlags: map[string]string{
 				"model":      "/path/to/model.gguf",
 				"host":       "127.0.0.1",
-				"port":       "8080",
+				"port":       "11313",
 				"ctx-size":   "4096",
 				"temp":       "0.7",
 				"gpu-layers": "20",
@@ -487,7 +487,7 @@ func TestStatus(t *testing.T) {
 	cfg := &config.Config{
 		Server: config.Server{
 			Host: "127.0.0.1",
-			Port: 8080,
+			Port: 11313,
 		},
 	}
 
@@ -520,7 +520,7 @@ func TestStatus(t *testing.T) {
 			Model:     "test-model",
 			ModelPath: "/path/to/model.gguf",
 			Host:      "127.0.0.1",
-			Port:      8080,
+			Port:      11313,
 			StartedAt: time.Now(),
 		}
 		if err := SaveState(state); err != nil {
@@ -548,7 +548,7 @@ func TestStatus(t *testing.T) {
 			Model:     "test-model",
 			ModelPath: "/path/to/model.gguf",
 			Host:      "127.0.0.1",
-			Port:      8080,
+			Port:      11313,
 			StartedAt: time.Now(),
 		}
 		if err := SaveState(state); err != nil {
@@ -613,7 +613,7 @@ func TestPathHelpers(t *testing.T) {
 func TestCheckLogForReady(t *testing.T) {
 	tmpDir := t.TempDir()
 	cfg := &config.Config{
-		Server: config.Server{Host: "127.0.0.1", Port: 8080},
+		Server: config.Server{Host: "127.0.0.1", Port: 11313},
 	}
 	sm := NewManager(cfg)
 
@@ -625,7 +625,7 @@ func TestCheckLogForReady(t *testing.T) {
 	}{
 		{
 			name:       "server ready",
-			logContent: "Starting server...\nlistening on http://127.0.0.1:8080\n",
+			logContent: "Starting server...\nlistening on http://127.0.0.1:11313\n",
 			wantReady:  true,
 			wantErr:    false,
 		},

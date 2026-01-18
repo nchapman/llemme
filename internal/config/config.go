@@ -81,7 +81,7 @@ func DefaultConfig() *Config {
 		LlamaCpp: LlamaCpp{},
 		Server: Server{
 			Host:            "127.0.0.1",
-			Port:            8080,
+			Port:            11313,
 			MaxModels:       3,
 			IdleTimeoutMins: 10,
 			StartupTimeoutS: 120,
@@ -142,7 +142,7 @@ llamacpp:
 # llemme server settings
 server:
   host: 127.0.0.1
-  port: 8080
+  port: 11313
   max_models: 3              # Max concurrent models in memory
   idle_timeout_mins: 10      # Unload idle models after this time
   startup_timeout_secs: 120  # Max time to wait for model to load

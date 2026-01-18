@@ -30,8 +30,8 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.Server.Host != "127.0.0.1" {
 		t.Errorf("Expected Server.Host 127.0.0.1, got %s", cfg.Server.Host)
 	}
-	if cfg.Server.Port != 8080 {
-		t.Errorf("Expected Server.Port 8080, got %d", cfg.Server.Port)
+	if cfg.Server.Port != 11313 {
+		t.Errorf("Expected Server.Port 11313, got %d", cfg.Server.Port)
 	}
 	if cfg.Server.MaxModels != 3 {
 		t.Errorf("Expected Server.MaxModels 3, got %d", cfg.Server.MaxModels)
@@ -55,8 +55,8 @@ func TestLoad(t *testing.T) {
 			t.Fatal("Expected config to be non-nil")
 		}
 
-		if cfg.Server.Port != 8080 {
-			t.Errorf("Expected default Server.Port 8080, got %d", cfg.Server.Port)
+		if cfg.Server.Port != 11313 {
+			t.Errorf("Expected default Server.Port 11313, got %d", cfg.Server.Port)
 		}
 	})
 
