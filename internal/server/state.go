@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/nchapman/llemme/internal/config"
+	"github.com/nchapman/llemme/internal/fileutil"
 )
 
 type ServerState struct {
@@ -60,7 +61,7 @@ func SaveState(state *ServerState) error {
 		return fmt.Errorf("failed to marshal state: %w", err)
 	}
 
-	return atomicWriteFile(StateFilePath(), data, 0644)
+	return fileutil.AtomicWriteFile(StateFilePath(), data, 0644)
 }
 
 func SavePID(pid int) error {
@@ -69,17 +70,7 @@ func SavePID(pid int) error {
 	}
 
 	pidStr := fmt.Sprintf("%d", pid)
-	return atomicWriteFile(PIDFilePath(), []byte(pidStr), 0644)
-}
-
-// atomicWriteFile writes data to a temp file then renames it to path.
-// This ensures the file is never partially written.
-func atomicWriteFile(path string, data []byte, perm os.FileMode) error {
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, perm); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
+	return fileutil.AtomicWriteFile(PIDFilePath(), []byte(pidStr), 0644)
 }
 
 func LoadPID() (int, error) {
@@ -118,7 +109,7 @@ func ClearState() error {
 }
 
 func IsRunning(state *ServerState) bool {
-	if state == nil {
+	if state == nil || state.PID <= 0 {
 		return false
 	}
 
