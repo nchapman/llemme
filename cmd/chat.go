@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"strconv"
@@ -488,7 +489,7 @@ func (s *ChatSession) streamResponse(showSpinner bool) string {
 		},
 	}
 
-	err := s.api.StreamChatCompletion(req, cb)
+	err := s.api.StreamChatCompletion(context.Background(), req, cb)
 
 	if spinnerRunning {
 		spinner.Stop(false, "")

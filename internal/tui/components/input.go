@@ -104,11 +104,6 @@ func (i *Input) SetWidth(width int) {
 	i.textarea.SetWidth(width - 4) // Account for padding (2 on each side)
 }
 
-// SetHeight sets the textarea height
-func (i *Input) SetHeight(height int) {
-	i.textarea.SetHeight(height)
-}
-
 // Focus focuses the input
 func (i *Input) Focus() tea.Cmd {
 	i.focused = true
@@ -131,14 +126,20 @@ func (i *Input) SetValue(v string) {
 	i.textarea.SetValue(v)
 }
 
-// Reset clears the input
+// Reset clears the input and restores default height
 func (i *Input) Reset() {
 	i.textarea.Reset()
+	i.textarea.SetHeight(i.minHeight)
 }
 
-// Focused returns whether the input is focused
-func (i Input) Focused() bool {
+// IsFocused returns whether the input is focused (implements Focusable interface)
+func (i Input) IsFocused() bool {
 	return i.focused
+}
+
+// Focused returns whether the input is focused (alias for IsFocused)
+func (i Input) Focused() bool {
+	return i.IsFocused()
 }
 
 // Height returns the current textarea height

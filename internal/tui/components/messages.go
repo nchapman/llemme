@@ -116,6 +116,11 @@ func (m *Messages) SetSize(width, height int) {
 	m.refresh()
 }
 
+// GetSize returns the current viewport dimensions (implements Sizeable interface)
+func (m Messages) GetSize() (width, height int) {
+	return m.width, m.height
+}
+
 // AddMessage adds a message to the list
 func (m *Messages) AddMessage(msg Message) {
 	m.messages = append(m.messages, msg)

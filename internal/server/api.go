@@ -3,6 +3,7 @@ package server
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -145,7 +146,7 @@ type StreamCallback struct {
 	ReasoningCallback func(string)
 }
 
-func (api *APIClient) StreamChatCompletion(req *ChatCompletionRequest, cb StreamCallback) error {
+func (api *APIClient) StreamChatCompletion(ctx context.Context, req *ChatCompletionRequest, cb StreamCallback) error {
 	url := fmt.Sprintf("%s/v1/chat/completions", api.baseURL)
 
 	body, err := json.Marshal(req)
@@ -153,7 +154,7 @@ func (api *APIClient) StreamChatCompletion(req *ChatCompletionRequest, cb Stream
 		return err
 	}
 
-	httpReq, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(body))
 	if err != nil {
 		return err
 	}
@@ -176,6 +177,11 @@ func (api *APIClient) StreamChatCompletion(req *ChatCompletionRequest, cb Stream
 	var lastParseErr error
 
 	for scanner.Scan() {
+		// Check for context cancellation
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
 		line := scanner.Text()
 
 		if line == "" || line == "data: [DONE]" {

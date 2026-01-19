@@ -1,6 +1,8 @@
 package chat
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -30,6 +32,9 @@ type (
 		Error   error
 		Content string // Full content for history
 	}
+
+	// StreamCancelledMsg indicates streaming was cancelled by the user
+	StreamCancelledMsg struct{}
 
 	// CommandResultMsg is the result of a slash command
 	CommandResultMsg struct {
@@ -68,11 +73,12 @@ type Model struct {
 	pendingReload bool
 
 	// UI state
-	width       int
-	height      int
-	streaming   bool
-	quitting    bool
-	focusedPane FocusedPane
+	width        int
+	height       int
+	streaming    bool
+	quitting     bool
+	focusedPane  FocusedPane
+	cancelStream context.CancelFunc
 
 	// Key bindings
 	keys KeyMap
@@ -195,10 +201,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case msg.Type == tea.KeyEsc:
 			if m.streaming {
-				// Cancel streaming
+				// Cancel streaming - this cancels the HTTP request
+				if m.cancelStream != nil {
+					m.cancelStream()
+				}
 				m.messages.CancelStreaming()
-				m.streaming = false
-				m.status.SetState(components.StatusReady)
+				m.stopStreaming()
 				return m, nil
 			}
 			// Esc returns focus to input
@@ -249,8 +257,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case StreamDoneMsg:
 		m.messages.FinishStreaming()
-		m.streaming = false
-		m.status.SetState(components.StatusReady)
+		m.stopStreaming()
 		if msg.Error != nil {
 			m.messages.AddMessage(components.Message{
 				Role:    components.RoleError,
@@ -263,6 +270,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				Content: msg.Content,
 			})
 		}
+		cmds = append(cmds, m.input.Focus())
+
+	case StreamCancelledMsg:
+		// Stream was cancelled by user - just clean up, no error message
+		m.stopStreaming()
 		cmds = append(cmds, m.input.Focus())
 
 	case CommandResultMsg:
@@ -402,9 +414,11 @@ func (m *Model) sendMessage(content string) tea.Cmd {
 	})
 
 	// Start streaming
-	m.streaming = true
-	m.status.SetState(components.StatusStreaming)
-	m.messages.StartStreaming()
+	m.startStreaming()
+
+	// Create cancellable context for this stream
+	ctx, cancel := context.WithCancel(context.Background())
+	m.cancelStream = cancel
 
 	// Capture values for the goroutine
 	api := m.api
@@ -443,7 +457,12 @@ func (m *Model) sendMessage(content string) tea.Cmd {
 			},
 		}
 
-		err := api.StreamChatCompletion(req, cb)
+		err := api.StreamChatCompletion(ctx, req, cb)
+
+		// Handle cancellation distinctly - no error shown to user
+		if errors.Is(err, context.Canceled) {
+			return StreamCancelledMsg{}
+		}
 
 		return StreamDoneMsg{Error: err, Content: fullContent.String()}
 	}
@@ -482,4 +501,18 @@ func (m *Model) getConfigInt(key string) int {
 		}
 	}
 	return m.cfg.LlamaCpp.GetIntOption(key, 0)
+}
+
+// startStreaming sets streaming state consistently
+func (m *Model) startStreaming() {
+	m.streaming = true
+	m.status.SetState(components.StatusStreaming)
+	m.messages.StartStreaming()
+}
+
+// stopStreaming clears streaming state consistently
+func (m *Model) stopStreaming() {
+	m.streaming = false
+	m.status.SetState(components.StatusReady)
+	m.cancelStream = nil
 }
