@@ -4,8 +4,10 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/nchapman/llemme/internal/tui/styles"
 )
 
@@ -38,15 +40,23 @@ type Messages struct {
 	streaming         bool
 	streamingContent  string
 	streamingThinking string
+	spinner           spinner.Model
+	showSpinner       bool // true until first content arrives
 }
 
 // NewMessages creates a new messages viewport
 func NewMessages() Messages {
 	vp := viewport.New(0, 0) // Size set via SetSize()
 	vp.Style = styles.ViewportStyle
+
+	s := spinner.New()
+	s.Spinner = spinner.Dot
+	s.Style = lipgloss.NewStyle().Foreground(styles.ColorAccent)
+
 	return Messages{
 		viewport: vp,
 		messages: []Message{},
+		spinner:  s,
 	}
 }
 
@@ -57,6 +67,8 @@ func (m Messages) Init() tea.Cmd {
 
 // Update handles viewport events
 func (m Messages) Update(msg tea.Msg) (Messages, tea.Cmd) {
+	var cmds []tea.Cmd
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		// Handle scroll keys explicitly
@@ -89,11 +101,21 @@ func (m Messages) Update(msg tea.Msg) (Messages, tea.Cmd) {
 			m.viewport.GotoBottom()
 			return m, nil
 		}
+
+	case spinner.TickMsg:
+		// Update spinner only while waiting for first chunk
+		if m.streaming && m.showSpinner {
+			var cmd tea.Cmd
+			m.spinner, cmd = m.spinner.Update(msg)
+			cmds = append(cmds, cmd)
+			m.refresh()
+		}
 	}
 
 	var cmd tea.Cmd
 	m.viewport, cmd = m.viewport.Update(msg)
-	return m, cmd
+	cmds = append(cmds, cmd)
+	return m, tea.Batch(cmds...)
 }
 
 // View renders the messages viewport
@@ -134,16 +156,19 @@ func (m *Messages) ClearMessages() {
 	m.refresh()
 }
 
-// StartStreaming begins a streaming response
-func (m *Messages) StartStreaming() {
+// StartStreaming begins a streaming response and returns a command to start the spinner
+func (m *Messages) StartStreaming() tea.Cmd {
 	m.streaming = true
 	m.streamingContent = ""
 	m.streamingThinking = ""
+	m.showSpinner = true
 	m.refresh()
+	return m.spinner.Tick
 }
 
 // AppendStreamContent adds content to the current streaming message
 func (m *Messages) AppendStreamContent(content string) {
+	m.showSpinner = false
 	m.streamingContent += content
 	m.refresh()
 	m.viewport.GotoBottom()
@@ -151,6 +176,7 @@ func (m *Messages) AppendStreamContent(content string) {
 
 // AppendStreamThinking adds thinking content to the current streaming message
 func (m *Messages) AppendStreamThinking(thinking string) {
+	m.showSpinner = false
 	m.streamingThinking += thinking
 	m.refresh()
 	m.viewport.GotoBottom()
@@ -167,6 +193,7 @@ func (m *Messages) FinishStreaming() {
 		m.streaming = false
 		m.streamingContent = ""
 		m.streamingThinking = ""
+		m.showSpinner = false
 		m.refresh()
 		m.viewport.GotoBottom()
 	}
@@ -177,6 +204,7 @@ func (m *Messages) CancelStreaming() {
 	m.streaming = false
 	m.streamingContent = ""
 	m.streamingThinking = ""
+	m.showSpinner = false
 	m.refresh()
 }
 
@@ -277,16 +305,16 @@ func (m Messages) renderStreaming(width int) string {
 		sb.WriteString("\n\n")
 	}
 
-	// Show content with streaming indicator
-	if m.streamingContent == "" {
-		sb.WriteString(styles.StatusStreamingStyle.MarginLeft(2).Render("..."))
-	} else {
+	// Show spinner only while waiting, then show content
+	if m.showSpinner {
+		sb.WriteString(lipgloss.NewStyle().MarginLeft(2).Render(m.spinner.View()))
+	} else if m.streamingContent != "" {
 		// Render markdown for streaming content (glamour handles margin)
 		rendered, err := styles.RenderMarkdown(m.streamingContent, width)
 		if err != nil {
 			rendered = m.streamingContent
 		}
-		rendered = strings.TrimSpace(rendered) + styles.StatusStreamingStyle.Render("▌")
+		rendered = strings.TrimSpace(rendered)
 		sb.WriteString(rendered)
 	}
 

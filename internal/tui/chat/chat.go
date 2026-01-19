@@ -12,7 +12,6 @@ import (
 	"github.com/nchapman/llemme/internal/config"
 	"github.com/nchapman/llemme/internal/server"
 	"github.com/nchapman/llemme/internal/tui/components"
-	"github.com/nchapman/llemme/internal/tui/styles"
 )
 
 // Message types for communication with the model
@@ -59,7 +58,6 @@ type Model struct {
 	messages components.Messages
 	input    components.Input
 	status   components.StatusBar
-	spinner  spinner.Model
 
 	// API and config
 	api     *server.APIClient
@@ -109,16 +107,11 @@ type SessionOptions struct {
 
 // New creates a new chat TUI model
 func New(api *server.APIClient, modelName string, cfg *config.Config, persona *config.Persona) *Model {
-	s := spinner.New()
-	s.Spinner = spinner.Dot
-	s.Style = lipgloss.NewStyle().Foreground(styles.ColorAccent)
-
 	m := &Model{
 		header:   components.NewHeader(),
 		messages: components.NewMessages(),
 		input:    components.NewInput(),
 		status:   components.NewStatusBar(),
-		spinner:  s,
 
 		api:     api,
 		model:   modelName,
@@ -176,10 +169,7 @@ func (m *Model) SetSamplingOptions(temp, topP, minP, repeatPenalty float64, topK
 
 // Init initializes the model
 func (m *Model) Init() tea.Cmd {
-	return tea.Batch(
-		m.input.Init(),
-		m.spinner.Tick,
-	)
+	return m.input.Init()
 }
 
 // Update handles messages
@@ -296,7 +286,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case spinner.TickMsg:
 		if m.streaming {
 			var cmd tea.Cmd
-			m.spinner, cmd = m.spinner.Update(msg)
+			m.messages, cmd = m.messages.Update(msg)
 			cmds = append(cmds, cmd)
 		}
 
@@ -348,7 +338,7 @@ func (m *Model) View() string {
 const (
 	headerHeight  = 2 // content + divider
 	statusHeight  = 2 // divider + content
-	inputOverhead = 1 // divider
+	inputOverhead = 2 // blank line + divider
 )
 
 // updateLayout recalculates component sizes
@@ -413,8 +403,8 @@ func (m *Model) sendMessage(content string) tea.Cmd {
 		Content: content,
 	})
 
-	// Start streaming
-	m.startStreaming()
+	// Start streaming and get spinner tick command
+	spinnerCmd := m.startStreaming()
 
 	// Create cancellable context for this stream
 	ctx, cancel := context.WithCancel(context.Background())
@@ -440,7 +430,7 @@ func (m *Model) sendMessage(content string) tea.Cmd {
 	req.MinP = m.resolveFloat(m.options.MinP, "min-p")
 	req.RepeatPenalty = m.resolveFloat(m.options.RepeatPenalty, "repeat-penalty")
 
-	return func() tea.Msg {
+	streamCmd := func() tea.Msg {
 		var fullContent strings.Builder
 
 		cb := server.StreamCallback{
@@ -466,6 +456,8 @@ func (m *Model) sendMessage(content string) tea.Cmd {
 
 		return StreamDoneMsg{Error: err, Content: fullContent.String()}
 	}
+
+	return tea.Batch(spinnerCmd, streamCmd)
 }
 
 // resolveFloat returns the first non-zero value from: session, persona, config
@@ -503,11 +495,11 @@ func (m *Model) getConfigInt(key string) int {
 	return m.cfg.LlamaCpp.GetIntOption(key, 0)
 }
 
-// startStreaming sets streaming state consistently
-func (m *Model) startStreaming() {
+// startStreaming sets streaming state consistently and returns spinner tick command
+func (m *Model) startStreaming() tea.Cmd {
 	m.streaming = true
 	m.status.SetState(components.StatusStreaming)
-	m.messages.StartStreaming()
+	return m.messages.StartStreaming()
 }
 
 // stopStreaming clears streaming state consistently

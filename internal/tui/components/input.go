@@ -95,7 +95,7 @@ func (i Input) View() string {
 		style = styles.InputFocusedStyle
 	}
 	divider := styles.HorizontalDivider(i.width)
-	return lipgloss.JoinVertical(lipgloss.Left, divider, style.Render(i.textarea.View()))
+	return lipgloss.JoinVertical(lipgloss.Left, "", divider, style.Render(i.textarea.View()))
 }
 
 // SetWidth sets the input width
