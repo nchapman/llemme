@@ -6,6 +6,7 @@ import (
 
 	"github.com/nchapman/llemme/internal/config"
 	"github.com/nchapman/llemme/internal/hf"
+	"github.com/nchapman/llemme/internal/proxy"
 	"github.com/nchapman/llemme/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -49,14 +50,27 @@ var searchCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		// Build set of installed models (by user/repo)
+		installed := make(map[string]bool)
+		resolver := proxy.NewModelResolver()
+		if downloaded, err := resolver.ListDownloadedModels(); err == nil {
+			for _, m := range downloaded {
+				installed[m.User+"/"+m.Repo] = true
+			}
+		}
+
 		table := ui.NewTable().
 			Indent(0).
-			AddColumn("MODEL", 52, ui.AlignLeft).
+			AddColumn("MODEL", 54, ui.AlignLeft).
 			AddColumn("DOWNLOADS", 10, ui.AlignRight).
 			AddColumn("LIKES", 8, ui.AlignRight)
 
 		for _, result := range results {
-			modelName := result.ID
+			indicator := "○"
+			if installed[result.ID] {
+				indicator = "✓"
+			}
+			modelName := indicator + " " + result.ID
 			if result.Gated {
 				modelName += " (gated)"
 			}
@@ -64,6 +78,8 @@ var searchCmd = &cobra.Command{
 		}
 
 		fmt.Print(table.Render())
+		fmt.Println("\n✓ = installed")
+		fmt.Printf("%d results from Hugging Face\n", len(results))
 	},
 }
 
