@@ -21,22 +21,23 @@ type CompletionSelectedMsg struct {
 
 // Input wraps a textarea for message input
 type Input struct {
-	textarea    textarea.Model
-	width       int
-	focused     bool
-	minHeight   int
-	maxHeight   int
-	completions *Completions
-	cmdItems    []Completion // Available command completions
+	textarea       textarea.Model
+	width          int
+	focused        bool
+	minHeight      int
+	maxHeight      int
+	completions    *Completions
+	cmdItems       []Completion // Available command completions
+	setOptionItems []Completion // Available /set option completions
 }
 
 // NewInput creates a new input component
 func NewInput() Input {
-	return NewInputWithCompletions(nil)
+	return NewInputWithCompletions(nil, nil)
 }
 
 // NewInputWithCompletions creates a new input component with command completions
-func NewInputWithCompletions(cmdItems []Completion) Input {
+func NewInputWithCompletions(cmdItems, setOptionItems []Completion) Input {
 	ta := textarea.New()
 	ta.Placeholder = "Type a message..."
 	ta.ShowLineNumbers = false
@@ -48,12 +49,13 @@ func NewInputWithCompletions(cmdItems []Completion) Input {
 	ta.Focus()
 
 	return Input{
-		textarea:    ta,
-		focused:     true,
-		minHeight:   1,
-		maxHeight:   4,
-		completions: NewCompletions(),
-		cmdItems:    cmdItems,
+		textarea:       ta,
+		focused:        true,
+		minHeight:      1,
+		maxHeight:      4,
+		completions:    NewCompletions(),
+		cmdItems:       cmdItems,
+		setOptionItems: setOptionItems,
 	}
 }
 
@@ -77,9 +79,14 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 				return i, nil
 			case "tab", "enter":
 				if sel := i.completions.Selected(); sel != nil {
-					value := sel.Value + " "
-					i.textarea.SetValue(value)
-					i.textarea.SetCursor(len(value))
+					var newValue string
+					if i.isSetOptionContext() {
+						newValue = "/set " + sel.Value + " "
+					} else {
+						newValue = sel.Value + " "
+					}
+					i.textarea.SetValue(newValue)
+					i.textarea.SetCursor(len(newValue))
 					i.completions.Close()
 					return i, func() tea.Msg {
 						return CompletionSelectedMsg{Value: sel.Value}
@@ -210,27 +217,60 @@ func (i Input) CompletionsView() string {
 
 // updateCompletions checks input and opens/updates completions as needed
 func (i *Input) updateCompletions() {
-	if i.completions == nil || len(i.cmdItems) == 0 {
+	if i.completions == nil {
 		return
 	}
 
 	value := i.textarea.Value()
 
-	// Only show completions if input starts with "/" and is on the first line
+	// Check for /set <option> context first
+	if i.isSetOptionContext() {
+		if len(i.setOptionItems) == 0 {
+			i.completions.Close()
+			return
+		}
+
+		// Get the part after "/set "
+		optionPart := value[5:] // len("/set ") == 5
+
+		// If there's another space, user is typing value - close completions
+		if strings.Contains(optionPart, " ") {
+			i.completions.Close()
+			return
+		}
+
+		// Show/filter set options
+		if !i.completions.IsOpen() {
+			i.completions.Open(i.setOptionItems)
+		}
+		i.completions.Filter(optionPart)
+		return
+	}
+
+	// Command completions: only if starts with "/" and no space
+	if len(i.cmdItems) == 0 {
+		return
+	}
+
 	if !strings.HasPrefix(value, "/") {
 		i.completions.Close()
 		return
 	}
 
-	// Don't show completions if there's a space (user is typing args)
+	// Don't show command completions if there's a space (user is typing args)
 	if strings.Contains(value, " ") {
 		i.completions.Close()
 		return
 	}
 
-	// Open or filter completions
+	// Open or filter command completions
 	if !i.completions.IsOpen() {
 		i.completions.Open(i.cmdItems)
 	}
 	i.completions.Filter(value)
+}
+
+// isSetOptionContext returns true if input is in "/set <option>" context
+func (i Input) isSetOptionContext() bool {
+	return strings.HasPrefix(strings.ToLower(i.textarea.Value()), "/set ")
 }

@@ -1,7 +1,5 @@
 package chat
 
-import "strings"
-
 // CommandDef defines a slash command for the TUI
 type CommandDef struct {
 	Name        string   // Primary name (e.g., "/help")
@@ -20,26 +18,20 @@ var Commands = []CommandDef{
 	{Name: "/bye", Aliases: []string{"/exit", "/quit"}, Description: "Exit chat"},
 }
 
-// FilterCommands returns commands where the name or aliases start with the query
-func FilterCommands(query string) []CommandDef {
-	if query == "" {
-		return Commands
-	}
+// SetOptionDef defines an option for the /set command
+type SetOptionDef struct {
+	Name        string // Option name (e.g., "temp")
+	Description string // Description with value hint
+}
 
-	query = strings.ToLower(query)
-	var results []CommandDef
-
-	for _, cmd := range Commands {
-		if strings.HasPrefix(strings.ToLower(cmd.Name), query) {
-			results = append(results, cmd)
-			continue
-		}
-		for _, alias := range cmd.Aliases {
-			if strings.HasPrefix(strings.ToLower(alias), query) {
-				results = append(results, cmd)
-				break
-			}
-		}
-	}
-	return results
+// SetOptions is the list of available /set options
+var SetOptions = []SetOptionDef{
+	{Name: "temp", Description: "Temperature (0.0-2.0)"},
+	{Name: "top-p", Description: "Top-P sampling (0.0-1.0)"},
+	{Name: "top-k", Description: "Top-K sampling (integer)"},
+	{Name: "min-p", Description: "Min-P sampling (0.0-1.0)"},
+	{Name: "repeat-penalty", Description: "Repeat penalty (0.0-2.0)"},
+	{Name: "ctx-size", Description: "Context size (requires /reload)"},
+	{Name: "gpu-layers", Description: "GPU layers (requires /reload)"},
+	{Name: "threads", Description: "CPU threads (requires /reload)"},
 }

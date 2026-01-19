@@ -27,7 +27,7 @@ type Completions struct {
 // NewCompletions creates a new completions component
 func NewCompletions() *Completions {
 	return &Completions{
-		maxItems: 6,
+		maxItems: 10,
 	}
 }
 
@@ -56,7 +56,12 @@ func (c *Completions) IsOpen() bool {
 
 // Filter filters the items by query and updates the filtered list
 func (c *Completions) Filter(query string) {
+	// Skip if query hasn't changed
+	if c.query == query {
+		return
+	}
 	c.query = query
+
 	if query == "" {
 		c.filtered = c.items
 		c.selected = 0
@@ -161,7 +166,7 @@ func (c *Completions) View() string {
 
 // renderItem renders a single completion item
 func (c *Completions) renderItem(item Completion, selected bool) string {
-	textStyle := lipgloss.NewStyle().Width(10)
+	textStyle := lipgloss.NewStyle().Width(16)
 	descStyle := lipgloss.NewStyle().
 		Foreground(styles.ColorMuted)
 

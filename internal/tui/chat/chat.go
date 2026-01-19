@@ -110,7 +110,7 @@ func New(api *server.APIClient, modelName string, cfg *config.Config, persona *c
 	m := &Model{
 		header:   components.NewHeader(),
 		messages: components.NewMessages(),
-		input:    components.NewInputWithCompletions(commandCompletions()),
+		input:    components.NewInputWithCompletions(commandCompletions(), setOptionCompletions()),
 		status:   components.NewStatusBar(),
 
 		api:     api,
@@ -525,6 +525,19 @@ func commandCompletions() []components.Completion {
 			Text:        cmd.Name,
 			Description: cmd.Description,
 			Value:       cmd.Name,
+		})
+	}
+	return items
+}
+
+// setOptionCompletions converts set option definitions to completion items
+func setOptionCompletions() []components.Completion {
+	var items []components.Completion
+	for _, opt := range SetOptions {
+		items = append(items, components.Completion{
+			Text:        opt.Name,
+			Description: opt.Description,
+			Value:       opt.Name,
 		})
 	}
 	return items
