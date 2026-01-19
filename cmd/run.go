@@ -9,11 +9,13 @@ import (
 	"syscall"
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/nchapman/llemme/internal/config"
 	"github.com/nchapman/llemme/internal/hf"
 	"github.com/nchapman/llemme/internal/llama"
 	"github.com/nchapman/llemme/internal/proxy"
 	"github.com/nchapman/llemme/internal/server"
+	"github.com/nchapman/llemme/internal/tui/chat"
 	"github.com/nchapman/llemme/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -161,30 +163,46 @@ Models are loaded on-demand and unloaded after idle timeout.`,
 			promptArg = strings.Join(args[promptStartIdx:], " ")
 		}
 
-		// Start chat session
-		session := NewChatSession(api, modelName, cfg, activePersona)
+		// Check if input is piped (non-interactive)
+		stat, _ := os.Stdin.Stat()
+		isPiped := (stat.Mode() & os.ModeCharDevice) == 0
 
-		// Apply CLI server options to session (for /reload to preserve them)
-		session.SetInitialServerOptions(ctxSize, gpuLayers, threads, ctxSizeSet, gpuLayersSet, threadsSet)
+		// Use classic mode for piped input or one-shot prompts
+		if isPiped || promptArg != "" {
+			// Use classic stdin/stdout chat session
+			session := NewChatSession(api, modelName, cfg, activePersona)
+			session.SetInitialServerOptions(ctxSize, gpuLayers, threads, ctxSizeSet, gpuLayersSet, threadsSet)
+			if temperature != 0 {
+				session.options.temp = temperature
+			}
+			if topP != 0 {
+				session.options.topP = topP
+			}
+			if topK != 0 {
+				session.options.topK = topK
+			}
+			if minP != 0 {
+				session.options.minP = minP
+			}
+			if repeatPenalty != 0 {
+				session.options.repeatPenalty = repeatPenalty
+			}
+			session.Run(promptArg)
+			return
+		}
 
-		// Apply CLI flags to session options (sampling parameters)
-		if temperature != 0 {
-			session.options.temp = temperature
-		}
-		if topP != 0 {
-			session.options.topP = topP
-		}
-		if topK != 0 {
-			session.options.topK = topK
-		}
-		if minP != 0 {
-			session.options.minP = minP
-		}
-		if repeatPenalty != 0 {
-			session.options.repeatPenalty = repeatPenalty
-		}
+		// Launch TUI for interactive mode
+		m := chat.New(api, modelName, cfg, activePersona)
+		m.SetInitialServerOptions(ctxSize, gpuLayers, threads, ctxSizeSet, gpuLayersSet, threadsSet)
+		m.SetSamplingOptions(temperature, topP, minP, repeatPenalty, topK)
 
-		session.Run(promptArg)
+		p := tea.NewProgram(m, tea.WithAltScreen())
+		m.SetProgram(p)
+
+		if _, err := p.Run(); err != nil {
+			fmt.Printf("%s TUI error: %v\n", ui.ErrorMsg("Error:"), err)
+			os.Exit(1)
+		}
 	},
 }
 
