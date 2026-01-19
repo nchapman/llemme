@@ -544,7 +544,7 @@ func setOptionCompletions() []components.Completion {
 }
 
 // overlayCompletions renders the completions popup over the base view
-func overlayCompletions(base, popup string, width, height, inputHeight int) string {
+func overlayCompletions(base, popup string, _, height, inputHeight int) string {
 	if popup == "" {
 		return base
 	}
@@ -553,42 +553,20 @@ func overlayCompletions(base, popup string, width, height, inputHeight int) stri
 	popupLines := strings.Split(popup, "\n")
 
 	// Position popup directly above the input divider line
-	// From bottom: status (2) + input height + divider (1) + blank (1) = where input section starts
-	// We want to place popup so its bottom edge is just above the divider
 	popupY := max(headerHeight, height-statusHeight-inputHeight-inputOverhead-len(popupLines)+1)
 
 	// Left-align popup with some padding
 	popupX := 1
 
-	// Overlay popup onto base
+	// Replace entire lines with popup content (padded to position)
 	for i, pLine := range popupLines {
 		lineIdx := popupY + i
 		if lineIdx >= 0 && lineIdx < len(baseLines) {
-			baseLines[lineIdx] = overlayLine(baseLines[lineIdx], pLine, popupX, width)
+			// Create padding, then popup line
+			padding := strings.Repeat(" ", popupX)
+			baseLines[lineIdx] = padding + pLine
 		}
 	}
 
 	return strings.Join(baseLines, "\n")
-}
-
-// overlayLine overlays popup text onto a base line at position x
-func overlayLine(baseLine, popupLine string, x, maxWidth int) string {
-	// Convert to runes for proper unicode handling
-	baseRunes := []rune(baseLine)
-	popupRunes := []rune(popupLine)
-
-	// Ensure base line is long enough
-	for len(baseRunes) < x+len(popupRunes) && len(baseRunes) < maxWidth {
-		baseRunes = append(baseRunes, ' ')
-	}
-
-	// Overlay popup onto base
-	for i, r := range popupRunes {
-		pos := x + i
-		if pos < len(baseRunes) {
-			baseRunes[pos] = r
-		}
-	}
-
-	return string(baseRunes)
 }
