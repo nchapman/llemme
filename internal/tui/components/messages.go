@@ -42,7 +42,7 @@ type Messages struct {
 
 // NewMessages creates a new messages viewport
 func NewMessages() Messages {
-	vp := viewport.New(80, 20)
+	vp := viewport.New(0, 0) // Size set via SetSize()
 	vp.Style = styles.ViewportStyle
 	return Messages{
 		viewport: vp,
@@ -103,6 +103,12 @@ func (m Messages) View() string {
 
 // SetSize sets the viewport dimensions
 func (m *Messages) SetSize(width, height int) {
+	// Clear render cache when width changes
+	if m.width != width {
+		for i := range m.messages {
+			m.messages[i].rendered = ""
+		}
+	}
 	m.width = width
 	m.height = height
 	m.viewport.Width = width
@@ -226,25 +232,20 @@ func (m Messages) renderMessage(msg Message, width int) string {
 	case RoleAssistant:
 		// Render thinking first if present
 		if msg.Thinking != "" {
-			sb.WriteString(styles.ThinkingPrefixStyle.String())
-			sb.WriteString(styles.RenderThinking(msg.Thinking, width-4))
+			rendered, err := styles.RenderThinking(msg.Thinking, width)
+			if err != nil {
+				rendered = msg.Thinking
+			}
+			sb.WriteString(strings.TrimSpace(rendered))
 			sb.WriteString("\n\n")
 		}
 
-		// Render content with markdown
-		prefix := styles.AssistantPrefixStyle.String()
-		rendered, err := styles.RenderMarkdown(msg.Content, width-4)
+		// Render content with markdown (glamour handles margin)
+		rendered, err := styles.RenderMarkdown(msg.Content, width)
 		if err != nil {
 			rendered = msg.Content
 		}
-		// Indent each line
-		lines := strings.Split(strings.TrimSpace(rendered), "\n")
-		for i, line := range lines {
-			if i > 0 {
-				sb.WriteString("\n")
-			}
-			sb.WriteString(prefix + line)
-		}
+		sb.WriteString(strings.TrimSpace(rendered))
 
 	case RoleSystem:
 		content := styles.SystemMessageStyle.Width(width).Render(msg.Content)
@@ -260,30 +261,28 @@ func (m Messages) renderMessage(msg Message, width int) string {
 
 func (m Messages) renderStreaming(width int) string {
 	var sb strings.Builder
-	prefix := styles.AssistantPrefixStyle.String()
 
 	// Show thinking if present
 	if m.streamingThinking != "" {
-		sb.WriteString(styles.ThinkingPrefixStyle.String())
-		sb.WriteString(styles.RenderThinking(m.streamingThinking, width-4))
+		rendered, err := styles.RenderThinking(m.streamingThinking, width)
+		if err != nil {
+			rendered = m.streamingThinking
+		}
+		sb.WriteString(strings.TrimSpace(rendered))
 		sb.WriteString("\n\n")
 	}
 
 	// Show content with streaming indicator
-	content := m.streamingContent
-	if content == "" {
-		content = styles.StatusStreamingStyle.Render("...")
+	if m.streamingContent == "" {
+		sb.WriteString(styles.StatusStreamingStyle.MarginLeft(2).Render("..."))
 	} else {
-		// Add cursor indicator
-		content = content + styles.StatusStreamingStyle.Render("▌")
-	}
-
-	lines := strings.Split(content, "\n")
-	for i, line := range lines {
-		if i > 0 {
-			sb.WriteString("\n")
+		// Render markdown for streaming content (glamour handles margin)
+		rendered, err := styles.RenderMarkdown(m.streamingContent, width)
+		if err != nil {
+			rendered = m.streamingContent
 		}
-		sb.WriteString(prefix + line)
+		rendered = strings.TrimSpace(rendered) + styles.StatusStreamingStyle.Render("▌")
+		sb.WriteString(rendered)
 	}
 
 	return sb.String()

@@ -9,11 +9,18 @@ import (
 	"github.com/nchapman/llemme/internal/tui/styles"
 )
 
+// InputHeightChangedMsg is sent when the input height changes
+type InputHeightChangedMsg struct {
+	Height int
+}
+
 // Input wraps a textarea for message input
 type Input struct {
-	textarea textarea.Model
-	width    int
-	focused  bool
+	textarea  textarea.Model
+	width     int
+	focused   bool
+	minHeight int
+	maxHeight int
 }
 
 // NewInput creates a new input component
@@ -22,15 +29,17 @@ func NewInput() Input {
 	ta.Placeholder = "Type a message..."
 	ta.ShowLineNumbers = false
 	ta.CharLimit = 0 // No limit
-	ta.SetHeight(3)
+	ta.SetHeight(1)
 	ta.FocusedStyle.CursorLine = lipgloss.NewStyle()
 	// No prompt - the border indicates input area
 	ta.Prompt = ""
 	ta.Focus()
 
 	return Input{
-		textarea: ta,
-		focused:  true,
+		textarea:  ta,
+		focused:   true,
+		minHeight: 1,
+		maxHeight: 4,
 	}
 }
 
@@ -47,7 +56,7 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 		case "shift+enter", "ctrl+j":
 			// Insert newline
 			i.textarea.InsertRune('\n')
-			return i, nil
+			return i, i.checkHeightChange()
 		case "enter":
 			// Plain enter - let parent handle send
 			return i, nil
@@ -56,7 +65,27 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 
 	var cmd tea.Cmd
 	i.textarea, cmd = i.textarea.Update(msg)
+
+	// Check if we need to resize after update
+	if heightCmd := i.checkHeightChange(); heightCmd != nil {
+		return i, tea.Batch(cmd, heightCmd)
+	}
 	return i, cmd
+}
+
+// checkHeightChange adjusts height based on line count and returns a command if changed
+func (i *Input) checkHeightChange() tea.Cmd {
+	lines := i.textarea.LineCount()
+	targetHeight := max(i.minHeight, min(lines, i.maxHeight))
+	currentHeight := i.textarea.Height()
+
+	if currentHeight != targetHeight {
+		i.textarea.SetHeight(targetHeight)
+		return func() tea.Msg {
+			return InputHeightChangedMsg{Height: targetHeight}
+		}
+	}
+	return nil
 }
 
 // View renders the input
@@ -65,7 +94,8 @@ func (i Input) View() string {
 	if i.focused {
 		style = styles.InputFocusedStyle
 	}
-	return style.Render(i.textarea.View())
+	divider := styles.HorizontalDivider(i.width)
+	return lipgloss.JoinVertical(lipgloss.Left, divider, style.Render(i.textarea.View()))
 }
 
 // SetWidth sets the input width
@@ -109,4 +139,9 @@ func (i *Input) Reset() {
 // Focused returns whether the input is focused
 func (i Input) Focused() bool {
 	return i.focused
+}
+
+// Height returns the current textarea height
+func (i Input) Height() int {
+	return i.textarea.Height()
 }

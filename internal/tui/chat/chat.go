@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -287,6 +288,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, cmd)
 		}
 
+	case components.InputHeightChangedMsg:
+		// Input height changed, recalculate layout
+		m.updateLayout()
+
 	default:
 		// Update input for other messages (like blink)
 		var cmd tea.Cmd
@@ -329,20 +334,23 @@ func (m *Model) View() string {
 
 // Layout constants
 const (
-	headerHeight = 2 // content + divider
-	statusHeight = 2 // divider + content
-	editorHeight = 5 // padding(1) + 3 lines + padding(1)
+	headerHeight  = 2 // content + divider
+	statusHeight  = 2 // divider + content
+	inputOverhead = 1 // divider
 )
 
 // updateLayout recalculates component sizes
 func (m *Model) updateLayout() {
+	// Input height is dynamic based on content
+	inputHeight := m.input.Height()
+	editorHeight := inputOverhead + inputHeight
+
 	// Messages viewport gets remaining space
 	messagesHeight := max(1, m.height-headerHeight-statusHeight-editorHeight)
 
 	m.header.SetWidth(m.width)
 	m.messages.SetSize(m.width, messagesHeight)
 	m.input.SetWidth(m.width)
-	m.input.SetHeight(3) // 3 lines of text
 	m.status.SetWidth(m.width)
 }
 
@@ -374,6 +382,13 @@ func (m *Model) initSystemPrompt() {
 
 // sendMessage sends a user message and starts streaming
 func (m *Model) sendMessage(content string) tea.Cmd {
+	// Ensure program is initialized for streaming callbacks
+	if m.program == nil {
+		return func() tea.Msg {
+			return StreamDoneMsg{Error: fmt.Errorf("internal error: program not initialized")}
+		}
+	}
+
 	// Add to UI
 	m.messages.AddMessage(components.Message{
 		Role:    components.RoleUser,

@@ -51,19 +51,6 @@ var (
 			Bold(true).
 			SetString("┃ ")
 
-	AssistantPrefixStyle = lipgloss.NewStyle().
-				Foreground(ColorMuted).
-				SetString("  ")
-
-	ThinkingStyle = lipgloss.NewStyle().
-			Foreground(ColorMuted).
-			Italic(true)
-
-	ThinkingPrefixStyle = lipgloss.NewStyle().
-				Foreground(ColorMuted).
-				Italic(true).
-				SetString("💭 ")
-
 	ErrorMessageStyle = lipgloss.NewStyle().
 				Foreground(ColorError)
 
@@ -75,10 +62,13 @@ var (
 // Input styles
 var (
 	InputStyle = lipgloss.NewStyle().
-			Padding(1, 2)
+			PaddingLeft(2).
+			PaddingRight(2).
+			Foreground(ColorMuted)
 
 	InputFocusedStyle = lipgloss.NewStyle().
-				Padding(1, 2)
+				PaddingLeft(2).
+				PaddingRight(2)
 )
 
 // Status bar styles
