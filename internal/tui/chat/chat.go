@@ -110,7 +110,7 @@ func New(api *server.APIClient, modelName string, cfg *config.Config, persona *c
 	m := &Model{
 		header:   components.NewHeader(),
 		messages: components.NewMessages(),
-		input:    components.NewInput(),
+		input:    components.NewInputWithCompletions(commandCompletions()),
 		status:   components.NewStatusBar(),
 
 		api:     api,
@@ -205,12 +205,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.input.Focus()
 			}
 
-		case msg.Type == tea.KeyTab:
-			// Toggle focus between input and messages
+		case msg.Type == tea.KeyTab && !m.input.IsCompletionsOpen():
+			// Toggle focus between input and messages (not when completions open)
 			return m, m.toggleFocus()
 
-		case msg.Type == tea.KeyEnter && m.focusedPane == PaneInput && !m.streaming:
-			// Send message (only when input is focused)
+		case msg.Type == tea.KeyEnter && m.focusedPane == PaneInput && !m.streaming && !m.input.IsCompletionsOpen():
+			// Send message (only when input is focused and completions not open)
 			value := m.input.Value()
 			if value != "" {
 				m.input.Reset()
@@ -331,7 +331,15 @@ func (m *Model) View() string {
 	// Status bar
 	sections = append(sections, m.status.View())
 
-	return lipgloss.JoinVertical(lipgloss.Left, sections...)
+	baseView := lipgloss.JoinVertical(lipgloss.Left, sections...)
+
+	// Overlay completions popup if open
+	if m.input.IsCompletionsOpen() {
+		completionsView := m.input.CompletionsView()
+		baseView = overlayCompletions(baseView, completionsView, m.width, m.height, m.input.Height())
+	}
+
+	return baseView
 }
 
 // Layout constants
@@ -507,4 +515,67 @@ func (m *Model) stopStreaming() {
 	m.streaming = false
 	m.status.SetState(components.StatusReady)
 	m.cancelStream = nil
+}
+
+// commandCompletions converts command definitions to completion items
+func commandCompletions() []components.Completion {
+	var items []components.Completion
+	for _, cmd := range Commands {
+		items = append(items, components.Completion{
+			Text:        cmd.Name,
+			Description: cmd.Description,
+			Value:       cmd.Name,
+		})
+	}
+	return items
+}
+
+// overlayCompletions renders the completions popup over the base view
+func overlayCompletions(base, popup string, width, height, inputHeight int) string {
+	if popup == "" {
+		return base
+	}
+
+	baseLines := strings.Split(base, "\n")
+	popupLines := strings.Split(popup, "\n")
+
+	// Position popup directly above the input divider line
+	// From bottom: status (2) + input height + divider (1) + blank (1) = where input section starts
+	// We want to place popup so its bottom edge is just above the divider
+	popupY := max(headerHeight, height-statusHeight-inputHeight-inputOverhead-len(popupLines)+1)
+
+	// Left-align popup with some padding
+	popupX := 1
+
+	// Overlay popup onto base
+	for i, pLine := range popupLines {
+		lineIdx := popupY + i
+		if lineIdx >= 0 && lineIdx < len(baseLines) {
+			baseLines[lineIdx] = overlayLine(baseLines[lineIdx], pLine, popupX, width)
+		}
+	}
+
+	return strings.Join(baseLines, "\n")
+}
+
+// overlayLine overlays popup text onto a base line at position x
+func overlayLine(baseLine, popupLine string, x, maxWidth int) string {
+	// Convert to runes for proper unicode handling
+	baseRunes := []rune(baseLine)
+	popupRunes := []rune(popupLine)
+
+	// Ensure base line is long enough
+	for len(baseRunes) < x+len(popupRunes) && len(baseRunes) < maxWidth {
+		baseRunes = append(baseRunes, ' ')
+	}
+
+	// Overlay popup onto base
+	for i, r := range popupRunes {
+		pos := x + i
+		if pos < len(baseRunes) {
+			baseRunes[pos] = r
+		}
+	}
+
+	return string(baseRunes)
 }

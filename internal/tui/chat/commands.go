@@ -184,18 +184,20 @@ func (m *Model) handleReload() CommandResultMsg {
 
 // helpText returns the help message
 func (m *Model) helpText() string {
-	return `Commands:
-  /help, /?              Show this help
-  /clear                 Clear conversation history
-  /system [prompt]       Show or set system prompt
-  /set <option> <value>  Change a setting
-  /show                  Show current settings
-  /reload                Reload model (apply server options)
-  /bye, /exit, /quit     Exit chat
-
-Options for /set:
-  temp, top-p, top-k, repeat-penalty, min-p
-  ctx-size*, gpu-layers*, threads*  (* require /reload)`
+	var sb strings.Builder
+	sb.WriteString("Commands:\n")
+	for _, cmd := range Commands {
+		// Format: name + aliases, padded to 22 chars, then description
+		names := cmd.Name
+		if len(cmd.Aliases) > 0 {
+			names += ", " + strings.Join(cmd.Aliases, ", ")
+		}
+		fmt.Fprintf(&sb, "  %-20s %s\n", names, cmd.Description)
+	}
+	sb.WriteString("\nOptions for /set:\n")
+	sb.WriteString("  temp, top-p, top-k, repeat-penalty, min-p\n")
+	sb.WriteString("  ctx-size*, gpu-layers*, threads*  (* require /reload)")
+	return sb.String()
 }
 
 // showSettings returns the current settings as a string

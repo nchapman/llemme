@@ -14,17 +14,29 @@ type InputHeightChangedMsg struct {
 	Height int
 }
 
+// CompletionSelectedMsg is sent when a completion is selected
+type CompletionSelectedMsg struct {
+	Value string
+}
+
 // Input wraps a textarea for message input
 type Input struct {
-	textarea  textarea.Model
-	width     int
-	focused   bool
-	minHeight int
-	maxHeight int
+	textarea    textarea.Model
+	width       int
+	focused     bool
+	minHeight   int
+	maxHeight   int
+	completions *Completions
+	cmdItems    []Completion // Available command completions
 }
 
 // NewInput creates a new input component
 func NewInput() Input {
+	return NewInputWithCompletions(nil)
+}
+
+// NewInputWithCompletions creates a new input component with command completions
+func NewInputWithCompletions(cmdItems []Completion) Input {
 	ta := textarea.New()
 	ta.Placeholder = "Type a message..."
 	ta.ShowLineNumbers = false
@@ -36,10 +48,12 @@ func NewInput() Input {
 	ta.Focus()
 
 	return Input{
-		textarea:  ta,
-		focused:   true,
-		minHeight: 1,
-		maxHeight: 4,
+		textarea:    ta,
+		focused:     true,
+		minHeight:   1,
+		maxHeight:   4,
+		completions: NewCompletions(),
+		cmdItems:    cmdItems,
 	}
 }
 
@@ -52,6 +66,37 @@ func (i Input) Init() tea.Cmd {
 func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		// Handle completions navigation when open
+		if i.completions != nil && i.completions.IsOpen() {
+			switch msg.String() {
+			case "up":
+				i.completions.MoveUp()
+				return i, nil
+			case "down":
+				i.completions.MoveDown()
+				return i, nil
+			case "tab", "enter":
+				if sel := i.completions.Selected(); sel != nil {
+					value := sel.Value + " "
+					i.textarea.SetValue(value)
+					i.textarea.SetCursor(len(value))
+					i.completions.Close()
+					return i, func() tea.Msg {
+						return CompletionSelectedMsg{Value: sel.Value}
+					}
+				}
+				i.completions.Close()
+				return i, nil
+			case "esc":
+				i.completions.Close()
+				return i, nil
+			case " ":
+				// Space closes completions
+				i.completions.Close()
+				// Fall through to normal handling
+			}
+		}
+
 		switch msg.String() {
 		case "shift+enter", "ctrl+j":
 			// Insert newline
@@ -65,6 +110,9 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 
 	var cmd tea.Cmd
 	i.textarea, cmd = i.textarea.Update(msg)
+
+	// Check for slash command completions
+	i.updateCompletions()
 
 	// Check if we need to resize after update
 	if heightCmd := i.checkHeightChange(); heightCmd != nil {
@@ -145,4 +193,44 @@ func (i Input) Focused() bool {
 // Height returns the current textarea height
 func (i Input) Height() int {
 	return i.textarea.Height()
+}
+
+// IsCompletionsOpen returns whether completions popup is open
+func (i Input) IsCompletionsOpen() bool {
+	return i.completions != nil && i.completions.IsOpen()
+}
+
+// CompletionsView returns the rendered completions popup
+func (i Input) CompletionsView() string {
+	if i.completions == nil {
+		return ""
+	}
+	return i.completions.View()
+}
+
+// updateCompletions checks input and opens/updates completions as needed
+func (i *Input) updateCompletions() {
+	if i.completions == nil || len(i.cmdItems) == 0 {
+		return
+	}
+
+	value := i.textarea.Value()
+
+	// Only show completions if input starts with "/" and is on the first line
+	if !strings.HasPrefix(value, "/") {
+		i.completions.Close()
+		return
+	}
+
+	// Don't show completions if there's a space (user is typing args)
+	if strings.Contains(value, " ") {
+		i.completions.Close()
+		return
+	}
+
+	// Open or filter completions
+	if !i.completions.IsOpen() {
+		i.completions.Open(i.cmdItems)
+	}
+	i.completions.Filter(value)
 }
