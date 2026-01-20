@@ -15,15 +15,15 @@ import (
 var statusCmd = &cobra.Command{
 	Use:     "status",
 	Aliases: []string{"ps"},
-	Short:   "Show proxy status and loaded models",
-	GroupID: "server",
+	Short:   "Show server status and loaded models",
+	GroupID: "model",
 	Run: func(cmd *cobra.Command, args []string) {
 		state := proxy.GetRunningProxyState()
 		if state == nil {
-			fmt.Println(ui.Muted("Proxy is not running"))
+			fmt.Println(ui.Muted("Server is not running"))
 			fmt.Println()
-			fmt.Println("Start it with: llemme serve")
-			fmt.Println("Or use: llemme run <model> (will auto-start proxy)")
+			fmt.Println("Start it with: llemme server start")
+			fmt.Println("Or use: llemme run <model> (will auto-start server)")
 			return
 		}
 
@@ -32,7 +32,7 @@ var statusCmd = &cobra.Command{
 		status, err := getProxyStatus(proxyURL)
 		if err != nil {
 			// Fall back to basic info
-			fmt.Println(ui.Header("Proxy Status"))
+			fmt.Println(ui.Header("Server Status"))
 			fmt.Printf("  %-12s %s\n", "Address", proxyURL)
 			fmt.Printf("  %-12s %d\n", "PID", state.PID)
 			fmt.Printf("  %-12s %s\n", "Started", formatTimeSince(state.StartedAt))
@@ -42,7 +42,7 @@ var statusCmd = &cobra.Command{
 		}
 
 		// Pretty print status
-		fmt.Println(ui.Header("Proxy Status"))
+		fmt.Println(ui.Header("Server Status"))
 		fmt.Printf("  %-12s %s\n", "Address", proxyURL)
 		fmt.Printf("  %-12s %d\n", "PID", state.PID)
 		fmt.Printf("  %-12s %s\n", "Uptime", formatUptime(time.Duration(status.UptimeSeconds)*time.Second))

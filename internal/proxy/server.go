@@ -3,6 +3,8 @@ package proxy
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -50,6 +52,10 @@ func NewServer(cfg *Config, appCfg *config.Config) *Server {
 	mux.HandleFunc("/v1/completions", s.handleCompletions)
 	mux.HandleFunc("/v1/embeddings", s.handleEmbeddings)
 	mux.HandleFunc("/v1/models", s.handleModels)
+
+	// Anthropic Messages API
+	mux.HandleFunc("/v1/messages", s.handleAnthropicMessages)
+	mux.HandleFunc("/v1/messages/count_tokens", s.handleAnthropicCountTokens)
 	mux.HandleFunc("/health", s.handleHealth)
 	mux.HandleFunc("/api/status", s.handleStatus)
 	mux.HandleFunc("/api/run", s.handleRun)
@@ -128,6 +134,16 @@ func (s *Server) handleEmbeddings(w http.ResponseWriter, r *http.Request) {
 	s.proxyToBackend(w, r, "/v1/embeddings")
 }
 
+// handleAnthropicMessages proxies Anthropic Messages API requests
+func (s *Server) handleAnthropicMessages(w http.ResponseWriter, r *http.Request) {
+	s.proxyToBackendAnthropic(w, r, "/v1/messages")
+}
+
+// handleAnthropicCountTokens proxies Anthropic token counting requests
+func (s *Server) handleAnthropicCountTokens(w http.ResponseWriter, r *http.Request) {
+	s.proxyToBackendAnthropic(w, r, "/v1/messages/count_tokens")
+}
+
 // proxyToBackend handles the common logic of extracting model and proxying
 func (s *Server) proxyToBackend(w http.ResponseWriter, r *http.Request, path string) {
 	if r.Method != http.MethodPost {
@@ -185,6 +201,149 @@ func (s *Server) proxyToBackend(w http.ResponseWriter, r *http.Request, path str
 	r.URL.Path = path
 
 	proxy.ServeHTTP(w, r)
+}
+
+// proxyToBackendAnthropic handles Anthropic API requests with proper error format
+func (s *Server) proxyToBackendAnthropic(w http.ResponseWriter, r *http.Request, path string) {
+	requestID := generateRequestID()
+
+	if r.Method != http.MethodPost {
+		s.writeAnthropicError(w, requestID, http.StatusMethodNotAllowed, AnthropicInvalidRequest, "Only POST is allowed")
+		return
+	}
+
+	// Read and parse body to get model
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		s.writeAnthropicError(w, requestID, http.StatusBadRequest, AnthropicInvalidRequest, "Failed to read request body")
+		return
+	}
+	r.Body.Close()
+
+	var req struct {
+		Model string `json:"model"`
+	}
+	if err := json.Unmarshal(body, &req); err != nil {
+		s.writeAnthropicError(w, requestID, http.StatusBadRequest, AnthropicInvalidRequest, "Failed to parse request body as JSON")
+		return
+	}
+
+	if req.Model == "" {
+		s.writeAnthropicError(w, requestID, http.StatusBadRequest, AnthropicInvalidRequest, "model: Field required")
+		return
+	}
+
+	// Map claude-* model names to the configured local model
+	modelToLoad := req.Model
+	if strings.HasPrefix(strings.ToLower(req.Model), "claude-") {
+		if strings.TrimSpace(s.config.ClaudeModel) == "" {
+			s.writeAnthropicError(w, requestID, http.StatusBadRequest, AnthropicInvalidRequest,
+				"Received Claude model name but no local model configured. "+
+					"Set 'claude_model' in config or use ANTHROPIC_DEFAULT_SONNET_MODEL env var in Claude Code.")
+			return
+		}
+		modelToLoad = s.config.ClaudeModel
+
+		// Rewrite the model in the request body so backend sees the correct name
+		var bodyMap map[string]any
+		if err := json.Unmarshal(body, &bodyMap); err != nil {
+			s.writeAnthropicError(w, requestID, http.StatusBadRequest, AnthropicInvalidRequest,
+				"Failed to parse request body for model rewriting")
+			return
+		}
+		bodyMap["model"] = modelToLoad
+		rewritten, err := json.Marshal(bodyMap)
+		if err != nil {
+			s.writeAnthropicError(w, requestID, http.StatusInternalServerError, AnthropicAPIError,
+				"Failed to rewrite request body")
+			return
+		}
+		body = rewritten
+	}
+
+	// Get or load the backend
+	backend, err := s.manager.GetOrLoadBackend(modelToLoad, nil)
+	if err != nil {
+		s.handleAnthropicModelError(w, requestID, err)
+		return
+	}
+
+	// Update activity
+	backend.UpdateActivity()
+
+	// Proxy the request
+	backendURL := fmt.Sprintf("http://%s:%d", s.config.Host, backend.Port)
+	target, err := url.Parse(backendURL)
+	if err != nil {
+		s.writeAnthropicError(w, requestID, http.StatusInternalServerError, AnthropicAPIError, "Internal server error")
+		return
+	}
+
+	proxy := httputil.NewSingleHostReverseProxy(target)
+
+	// Handle streaming responses properly
+	proxy.FlushInterval = -1 // Flush immediately for SSE
+
+	// Modify response to add request-id header
+	proxy.ModifyResponse = func(resp *http.Response) error {
+		resp.Header.Set("request-id", requestID)
+		return nil
+	}
+
+	// Handle backend errors
+	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
+		s.writeAnthropicError(w, requestID, http.StatusBadGateway, AnthropicAPIError, "Backend server error: "+err.Error())
+	}
+
+	// Restore the body for the proxied request
+	r.Body = io.NopCloser(bytes.NewReader(body))
+	r.ContentLength = int64(len(body))
+	r.URL.Path = path
+
+	// Strip Anthropic auth headers before forwarding (local server doesn't need them)
+	r.Header.Del("x-api-key")
+
+	proxy.ServeHTTP(w, r)
+}
+
+// generateRequestID creates a unique request ID in Anthropic format
+func generateRequestID() string {
+	b := make([]byte, 12)
+	_, _ = rand.Read(b)
+	return "req_" + hex.EncodeToString(b)
+}
+
+// writeAnthropicError writes an Anthropic-compatible error response
+func (s *Server) writeAnthropicError(w http.ResponseWriter, requestID string, status int, errType AnthropicErrorType, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("request-id", requestID)
+	w.WriteHeader(status)
+	writeJSON(w, AnthropicError{
+		Type: "error",
+		Error: AnthropicErrorDetail{
+			Type:    errType,
+			Message: message,
+		},
+		RequestID: requestID,
+	})
+}
+
+// handleAnthropicModelError converts model errors to Anthropic-formatted HTTP responses
+func (s *Server) handleAnthropicModelError(w http.ResponseWriter, requestID string, err error) {
+	switch e := err.(type) {
+	case *AmbiguousModelError:
+		msg := fmt.Sprintf("Ambiguous model name '%s'. Matches: %s",
+			e.Query, strings.Join(e.Matches, ", "))
+		s.writeAnthropicError(w, requestID, http.StatusBadRequest, AnthropicInvalidRequest, msg)
+	case *ModelNotFoundError:
+		msg := fmt.Sprintf("No downloaded model matches '%s'", e.Query)
+		if len(e.Suggestions) > 0 {
+			msg += fmt.Sprintf(". Did you mean: %s", strings.Join(e.Suggestions, ", "))
+		}
+		s.writeAnthropicError(w, requestID, http.StatusNotFound, AnthropicNotFound, msg)
+	default:
+		s.writeAnthropicError(w, requestID, http.StatusInternalServerError, AnthropicAPIError, err.Error())
+	}
 }
 
 // handleModels returns the list of loaded models

@@ -183,4 +183,3 @@ func (c *Completions) renderItem(item Completion, selected bool) string {
 
 	return text + " " + desc
 }
-
