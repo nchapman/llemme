@@ -58,48 +58,58 @@ _To record one, you can use `asciinema rec llemme-demo.cast` then convert with `
 
 ## Commands
 
-**Model Commands**
-| Command | Alias | Description |
-|---------|-------|-------------|
-| `run <model>` | | Chat with a model (auto-downloads if needed) |
-| `pull <model>` | | Download a model from Hugging Face |
-| `list` | `ls` | List downloaded models |
-| `remove <model>` | `rm` | Delete a downloaded model |
-| `unload <model>` | | Unload a running model |
-| `status` | `ps` | Show server status and loaded models |
+| Category | Command | Alias | Description |
+|---|---|---|---|
+| Model | `run <model>` | | Chat with a model (auto-downloads if needed) |
+| Model | `pull <model>` | | Download a model from Hugging Face |
+| Model | `list` | `ls` | List downloaded models |
+| Model | `remove [pattern]` | `rm` | Delete downloaded models by name, pattern, or filter (--older-than, --larger-than) |
+| Model | `unload <model>` | | Unload a running model |
+| Model | `status` | `ps` | Show server status and loaded models |
+| Personas | `persona list` | | List all personas |
+| Personas | `persona create <name>` | | Create a new persona |
+| Personas | `persona show <name>` | | Show persona details |
+| Personas | `persona edit <name>` | | Edit a persona in your editor |
+| Personas | `persona rm <name>` | | Delete a persona |
+| Server | `server start` | | Start the proxy server |
+| Server | `server stop` | | Stop the proxy server |
+| Server | `server restart` | | Restart the proxy server |
+| Discovery | `search <query>` | | Search Hugging Face for models |
+| Discovery | `trending` | | Show trending models |
+| Discovery | `info <model>` | `show` | Show model details |
+| Config | `config edit` | | Open config in your editor |
+| Config | `config show` | | Print current configuration |
+| Config | `config path` | | Print config file path |
+| Config | `config reset` | | Reset config to defaults |
+| Config | `update` | | Update llama.cpp binaries |
+| Config | `version` | | Show version information |
 
-**Personas**
-| Command | Description |
-|---------|-------------|
-| `persona list` | List all personas |
-| `persona create <name>` | Create a new persona |
-| `persona show <name>` | Show persona details |
-| `persona edit <name>` | Edit a persona in your editor |
-| `persona rm <name>` | Delete a persona |
+### Advanced Model Removal
 
-**Server**
-| Command | Description |
-|---------|-------------|
-| `server start` | Start the proxy server |
-| `server stop` | Stop the proxy server |
-| `server restart` | Restart the proxy server |
+The `remove` command offers powerful filtering options to manage your downloaded models:
 
-**Discovery**
-| Command | Alias | Description |
-|---------|-------|-------------|
-| `search <query>` | | Search Hugging Face for models |
-| `trending` | | Show trending models |
-| `info <model>` | `show` | Show model details |
-
-**Configuration**
-| Command | Description |
-|---------|-------------|
-| `config edit` | Open config in your editor |
-| `config show` | Print current configuration |
-| `config path` | Print config file path |
-| `config reset` | Reset config to defaults |
-| `update` | Update llama.cpp binaries |
-| `version` | Show version information |
+-   **By specific name/pattern:**
+    ```bash
+    llemme remove user/repo:quant       # Remove a specific model quantization
+    llemme remove user/repo             # Remove all quantizations of a model
+    llemme remove user/*                # Remove all models from a specific user
+    llemme remove *                     # Remove all downloaded models
+    ```
+-   **By age:**
+    ```bash
+    llemme remove --older-than 30d      # Remove models not used in 30 days
+    llemme remove --older-than 4w       # Remove models not used in 4 weeks
+    ```
+-   **By size:**
+    ```bash
+    llemme remove --larger-than 10GB    # Remove models larger than 10GB
+    llemme remove --larger-than 500MB   # Remove models larger than 500MB
+    ```
+-   **Combine patterns and filters:**
+    ```bash
+    llemme remove user/* --older-than 7d  # Remove models from 'user' not used in 7 days
+    ```
+    Use the `--force` (`-f`) flag to skip the confirmation prompt.
 
 ## Multi-Model Support
 
