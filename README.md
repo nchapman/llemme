@@ -36,10 +36,10 @@ go build -o llemme .
 
 ```bash
 # Run a model (downloads automatically)
-llemme run meta-llama/Meta-Llama-3-8B-Instruct-GGUF:Q4_K_M
+llemme run unsloth/gpt-oss-20b-GGUF
 
 # One-shot prompt
-llemme run meta-llama/Meta-Llama-3-8B-Instruct-GGUF:Q4_K_M "Explain quantum computing in one sentence"
+llemme run unsloth/gpt-oss-20b-GGUF "Explain quantum computing in one sentence"
 
 # Search for models
 llemme search mistral
@@ -51,7 +51,7 @@ llemme list    # or: llemme ls
 llemme status  # or: llemme ps
 ```
 
-**Note on Model Names:** `llemme` is smart about resolving downloaded model names via a case-insensitive substring search. For example, a partial query like `llama-3-8b` would match `meta-llama/Meta-Llama-3-8B-Instruct-GGUF:Q4_K_M`. Punctuation is significant and not removed before matching. If a partial name matches uniquely, it runs. If it matches multiple quantizations of the same model, `llemme` picks the best one. If ambiguous, it will ask for more specifics.
+**Note on Model Names:** `llemme` is smart about resolving downloaded model names via a case-insensitive substring search. For example, a partial query like `gpt-oss-20b` would match `unsloth/gpt-oss-20b-GGUF:Q4_K_M`. Punctuation is significant and not removed before matching. If a partial name matches uniquely, it runs. If it matches multiple quantizations of the same model, `llemme` picks the best one. If ambiguous, it will ask for more specifics.
 
 _An animated demonstration of `llemme run` will go here._
 _To record one, you can use `asciinema rec llemme-demo.cast` then convert with `svg-term --in llemme-demo.cast --out llemme-demo.svg`._
@@ -109,7 +109,7 @@ Lemme runs a proxy that manages multiple llama.cpp backends. Models load on dema
 # Use the OpenAI-compatible API
 curl http://localhost:11313/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -d '{"model": "meta-llama/Meta-Llama-3-8B-Instruct-GGUF", "messages": [{"role": "user", "content": "Hello!"}]}'
+  -d '{"model": "unsloth/gpt-oss-20b-GGUF", "messages": [{"role": "user", "content": "Hello!"}]}'
 ```
 
 ## Using with Claude Code
