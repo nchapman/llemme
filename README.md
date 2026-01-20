@@ -4,14 +4,13 @@ Run local LLMs with [llama.cpp](https://github.com/ggerganov/llama.cpp) and [Hug
 
 ## Features
 
-- 🚀 **Run any GGUF model** from Hugging Face with a single command
-- 🔄 **Multi-model support** - load multiple models, auto-unload when idle
-- 💬 **Interactive chat** or one-shot inference
-- 📦 **Automatic downloads** with progress tracking
-- 🔍 **Fuzzy model matching** - type `llama` instead of `bartowski/Llama-3.2-3B-Instruct-GGUF:Q4_K_M`
-- ⚡ **OpenAI-compatible API** - works with existing tools and libraries
-- 🤖 **Anthropic API support** - use with Claude Code and Anthropic SDKs
-- 🎯 **Zero config** - auto-downloads llama.cpp, picks optimal quantization
+- 🚀 **Run Any GGUF Model**: Execute any model from Hugging Face with a single command.
+- 🔄 **Dynamic Multi-Model Serving**: Serves multiple models, loading them on-demand and unloading them when idle to conserve resources.
+- 💬 **Interactive & One-Shot Chat**: Chat with models in an interactive TUI or get quick answers via single command-line prompts.
+- 🔎 **Discover & Manage Models**: Search Hugging Face, view trending models, and manage your local model library (`list`, `pull`, `rm`).
+- 🤖 **Custom Personas**: Create and switch between custom personalities and system prompts for tailored interactions.
+- ⚡ **Universal API Support**: Acts as a local, drop-in replacement for both OpenAI and Anthropic APIs.
+- ⚙️ **Powered by [llama.cpp](https://github.com/ggerganov/llama.cpp)**: Enjoy a zero-config start with smart defaults, or take full control with direct access to all underlying `llama.cpp` parameters.
 
 ## Install
 
@@ -37,10 +36,10 @@ go build -o llemme .
 
 ```bash
 # Run a model (downloads automatically)
-llemme run bartowski/Llama-3.2-3B-Instruct-GGUF
+llemme run meta-llama/Meta-Llama-3-8B-Instruct-GGUF:Q4_K_M
 
 # One-shot prompt
-llemme run llama "Explain quantum computing in one sentence"
+llemme run meta-llama/Meta-Llama-3-8B-Instruct-GGUF:Q4_K_M "Explain quantum computing in one sentence"
 
 # Search for models
 llemme search mistral
@@ -51,6 +50,11 @@ llemme list    # or: llemme ls
 # Show running models
 llemme status  # or: llemme ps
 ```
+
+**Note on Model Names:** `llemme` is smart about resolving downloaded model names via a case-insensitive substring search. For example, a partial query like `llama-3-8b` would match `meta-llama/Meta-Llama-3-8B-Instruct-GGUF:Q4_K_M`. Punctuation is significant and not removed before matching. If a partial name matches uniquely, it runs. If it matches multiple quantizations of the same model, `llemme` picks the best one. If ambiguous, it will ask for more specifics.
+
+_An animated demonstration of `llemme run` will go here._
+_To record one, you can use `asciinema rec llemme-demo.cast` then convert with `svg-term --in llemme-demo.cast --out llemme-demo.svg`._
 
 ## Commands
 
@@ -99,13 +103,13 @@ llemme status  # or: llemme ps
 
 ## Multi-Model Support
 
-Lemme runs a proxy that manages multiple llama.cpp backends. Models load on demand and unload after 10 minutes idle.
+Lemme runs a proxy that manages multiple llama.cpp backends. Models load on demand and unload after a configurable idle period (defaulting to 10 minutes) to conserve resources.
 
 ```bash
 # Use the OpenAI-compatible API
 curl http://localhost:11313/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -d '{"model": "llama", "messages": [{"role": "user", "content": "Hello!"}]}'
+  -d '{"model": "meta-llama/Meta-Llama-3-8B-Instruct-GGUF", "messages": [{"role": "user", "content": "Hello!"}]}'
 ```
 
 ## Using with Claude Code
