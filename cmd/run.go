@@ -70,10 +70,12 @@ Models are loaded on-demand and unloaded after idle timeout.`,
 
 		modelQuery := args[0]
 		promptStartIdx := 1 // Where prompt args begin (shifts if persona has no model)
+		personaName := ""   // Track persona name for display
 
 		// Check if this is a persona (personas take precedence over model names)
 		var activePersona *config.Persona
 		if config.PersonaExists(modelQuery) {
+			personaName = modelQuery // Save persona name before modelQuery changes
 			persona, err := config.LoadPersona(modelQuery)
 			if err != nil {
 				fmt.Printf("%s Failed to load persona: %v\n", ui.ErrorMsg("Error:"), err)
@@ -192,7 +194,7 @@ Models are loaded on-demand and unloaded after idle timeout.`,
 		}
 
 		// Launch TUI for interactive mode
-		m := chat.New(api, modelName, cfg, activePersona)
+		m := chat.New(api, modelName, cfg, activePersona, personaName)
 		m.SetInitialServerOptions(ctxSize, gpuLayers, threads, ctxSizeSet, gpuLayersSet, threadsSet)
 		m.SetSamplingOptions(temperature, topP, minP, repeatPenalty, topK, tokens)
 		m.SetSystemPrompt(systemPrompt)

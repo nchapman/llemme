@@ -35,6 +35,11 @@ type (
 	// StreamCancelledMsg indicates streaming was cancelled by the user
 	StreamCancelledMsg struct{}
 
+	// StreamTimingsMsg contains timing stats from the server
+	StreamTimingsMsg struct {
+		TokensPerSecond float64
+	}
+
 	// CommandResultMsg is the result of a slash command
 	CommandResultMsg struct {
 		Message string
@@ -60,10 +65,11 @@ type Model struct {
 	status   components.StatusBar
 
 	// API and config
-	api     *server.APIClient
-	model   string
-	cfg     *config.Config
-	persona *config.Persona
+	api         *server.APIClient
+	model       string
+	cfg         *config.Config
+	persona     *config.Persona
+	personaName string
 
 	// Session state
 	chatMessages         []server.ChatMessage
@@ -108,17 +114,18 @@ type SessionOptions struct {
 }
 
 // New creates a new chat TUI model
-func New(api *server.APIClient, modelName string, cfg *config.Config, persona *config.Persona) *Model {
+func New(api *server.APIClient, modelName string, cfg *config.Config, persona *config.Persona, personaName string) *Model {
 	m := &Model{
 		header:   components.NewHeader(),
 		messages: components.NewMessages(),
 		input:    components.NewInputWithCompletions(commandCompletions(), setOptionCompletions()),
 		status:   components.NewStatusBar(),
 
-		api:     api,
-		model:   modelName,
-		cfg:     cfg,
-		persona: persona,
+		api:         api,
+		model:       modelName,
+		cfg:         cfg,
+		persona:     persona,
+		personaName: personaName,
 
 		chatMessages: []server.ChatMessage{},
 		keys:         DefaultKeyMap(),
@@ -129,7 +136,8 @@ func New(api *server.APIClient, modelName string, cfg *config.Config, persona *c
 
 	// Set initial header stats
 	m.header.SetStats(components.HeaderStats{
-		Model: modelName,
+		Persona: personaName,
+		Model:   modelName,
 	})
 
 	return m
@@ -257,6 +265,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case StreamThinkingMsg:
 		m.messages.AppendStreamThinking(msg.Content)
+
+	case StreamTimingsMsg:
+		m.header.SetStats(components.HeaderStats{
+			Persona:      m.personaName,
+			Model:        m.model,
+			TokensPerSec: msg.TokensPerSecond,
+		})
 
 	case StreamDoneMsg:
 		m.messages.FinishStreaming()
@@ -443,6 +458,7 @@ func (m *Model) sendMessage(content string) tea.Cmd {
 		Model:           model,
 		Messages:        messages,
 		Stream:          true,
+		StreamOptions:   &server.StreamOptions{IncludeUsage: true},
 		MaxTokens:       m.options.MaxTokens,
 		ReasoningFormat: "auto",
 	}
@@ -465,6 +481,11 @@ func (m *Model) sendMessage(content string) tea.Cmd {
 			ReasoningCallback: func(reasoning string) {
 				if program != nil {
 					program.Send(StreamThinkingMsg{Content: reasoning})
+				}
+			},
+			TimingsCallback: func(timings *server.Timings) {
+				if program != nil && timings != nil {
+					program.Send(StreamTimingsMsg{TokensPerSecond: timings.PredictedPerSecond})
 				}
 			},
 		}
