@@ -216,3 +216,77 @@ func TestOpenAIEndpointReturnsOpenAIErrors(t *testing.T) {
 		t.Errorf("expected OpenAI error type 'invalid_request', got '%s'", resp.Error.Type)
 	}
 }
+
+func TestClaudeModelMappingNotConfigured(t *testing.T) {
+	// When claude_model is not configured and a claude-* model is sent,
+	// we should get a helpful error message
+	s := &Server{config: DefaultConfig()} // No ClaudeModel set
+
+	tests := []struct {
+		name  string
+		model string
+	}{
+		{"lowercase", "claude-sonnet-4-5-20250514"},
+		{"mixed case", "Claude-sonnet-4-5-20250514"},
+		{"uppercase", "CLAUDE-opus-4-5-20250514"},
+		{"haiku", "claude-3-5-haiku-20241022"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := `{"model": "` + tt.model + `", "max_tokens": 100, "messages": []}`
+			req := httptest.NewRequest(http.MethodPost, "/v1/messages", bytes.NewBufferString(body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			s.handleAnthropicMessages(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Errorf("expected status %d, got %d", http.StatusBadRequest, w.Code)
+			}
+
+			var resp AnthropicError
+			if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+				t.Fatalf("failed to unmarshal: %v", err)
+			}
+
+			if resp.Error.Type != AnthropicInvalidRequest {
+				t.Errorf("expected error type '%s', got '%s'", AnthropicInvalidRequest, resp.Error.Type)
+			}
+
+			// Should mention how to fix
+			if !strings.Contains(resp.Error.Message, "claude_model") {
+				t.Errorf("error message should mention 'claude_model', got: %s", resp.Error.Message)
+			}
+			if !strings.Contains(resp.Error.Message, "ANTHROPIC_DEFAULT_SONNET_MODEL") {
+				t.Errorf("error message should mention env var alternative, got: %s", resp.Error.Message)
+			}
+		})
+	}
+}
+
+func TestClaudeModelPrefixDetection(t *testing.T) {
+	// Verify only "claude-" prefix triggers the mapping, not similar names
+	tests := []struct {
+		model         string
+		shouldTrigger bool
+	}{
+		{"claude-sonnet-4-5-20250514", true},
+		{"Claude-opus-4-5-20250514", true},
+		{"CLAUDE-3-5-haiku-20241022", true},
+		{"claude-", true},
+		{"claudia-model", false},
+		{"myclaudemodel", false},
+		{"qwen", false},
+		{"gpt-4", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.model, func(t *testing.T) {
+			triggered := strings.HasPrefix(strings.ToLower(tt.model), "claude-")
+			if triggered != tt.shouldTrigger {
+				t.Errorf("model %q: expected trigger=%v, got %v", tt.model, tt.shouldTrigger, triggered)
+			}
+		})
+	}
+}

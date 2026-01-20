@@ -233,8 +233,29 @@ func (s *Server) proxyToBackendAnthropic(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
+	// Map claude-* model names to the configured local model
+	modelToLoad := req.Model
+	if strings.HasPrefix(strings.ToLower(req.Model), "claude-") {
+		if strings.TrimSpace(s.config.ClaudeModel) == "" {
+			s.writeAnthropicError(w, requestID, http.StatusBadRequest, AnthropicInvalidRequest,
+				"Received Claude model name but no local model configured. "+
+					"Set 'claude_model' in config or use ANTHROPIC_DEFAULT_SONNET_MODEL env var in Claude Code.")
+			return
+		}
+		modelToLoad = s.config.ClaudeModel
+
+		// Rewrite the model in the request body so backend sees the correct name
+		var bodyMap map[string]any
+		if err := json.Unmarshal(body, &bodyMap); err == nil {
+			bodyMap["model"] = modelToLoad
+			if rewritten, err := json.Marshal(bodyMap); err == nil {
+				body = rewritten
+			}
+		}
+	}
+
 	// Get or load the backend
-	backend, err := s.manager.GetOrLoadBackend(req.Model, nil)
+	backend, err := s.manager.GetOrLoadBackend(modelToLoad, nil)
 	if err != nil {
 		s.handleAnthropicModelError(w, requestID, err)
 		return
