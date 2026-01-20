@@ -230,3 +230,33 @@ type RunResponse struct {
 	Status  string `json:"status"`
 	Port    int    `json:"port"`
 }
+
+// Anthropic API error types
+// See: https://docs.anthropic.com/en/api/errors
+
+// AnthropicErrorType represents the type of Anthropic API error
+type AnthropicErrorType string
+
+const (
+	AnthropicInvalidRequest  AnthropicErrorType = "invalid_request_error"
+	AnthropicAuthentication  AnthropicErrorType = "authentication_error"
+	AnthropicPermission      AnthropicErrorType = "permission_error"
+	AnthropicNotFound        AnthropicErrorType = "not_found_error"
+	AnthropicRequestTooLarge AnthropicErrorType = "request_too_large"
+	AnthropicRateLimit       AnthropicErrorType = "rate_limit_error"
+	AnthropicAPIError        AnthropicErrorType = "api_error"
+	AnthropicOverloaded      AnthropicErrorType = "overloaded_error"
+)
+
+// AnthropicError represents the full Anthropic error response
+type AnthropicError struct {
+	Type      string               `json:"type"` // Always "error"
+	Error     AnthropicErrorDetail `json:"error"`
+	RequestID string               `json:"request_id,omitempty"`
+}
+
+// AnthropicErrorDetail contains the error details
+type AnthropicErrorDetail struct {
+	Type    AnthropicErrorType `json:"type"`
+	Message string             `json:"message"`
+}
