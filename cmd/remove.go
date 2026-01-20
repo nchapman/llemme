@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/huh"
 	"github.com/nchapman/llemme/internal/config"
 	"github.com/nchapman/llemme/internal/hf"
 	"github.com/nchapman/llemme/internal/ui"
@@ -100,7 +99,6 @@ Examples:
 			totalSize += m.Size
 		}
 
-		// Confirm
 		if !rmForce {
 			fmt.Println("Models to remove:")
 			fmt.Println()
@@ -109,22 +107,15 @@ Examples:
 			}
 			fmt.Println()
 
-			confirm := false
-			title := fmt.Sprintf("Remove %d model(s), %s total?", len(models), ui.FormatBytes(totalSize))
 			if len(models) == 1 {
-				title = fmt.Sprintf("Remove %s/%s:%s (%s)?", models[0].User, models[0].Repo, models[0].Quant, ui.FormatBytes(models[0].Size))
+				m := models[0]
+				fmt.Printf("Remove %s/%s:%s (%s)? [y/N] ", m.User, m.Repo, m.Quant, ui.FormatBytes(m.Size))
+			} else {
+				fmt.Printf("Remove %d model(s), %s total? [y/N] ", len(models), ui.FormatBytes(totalSize))
 			}
 
-			prompt := huh.NewConfirm().
-				Title(title).
-				Value(&confirm)
-
-			if err := prompt.Run(); err != nil {
-				fmt.Printf("%s %v\n", ui.ErrorMsg("Error:"), err)
-				os.Exit(1)
-			}
-
-			if !confirm {
+			var response string
+			if _, err := fmt.Scanln(&response); err != nil || (response != "y" && response != "Y") {
 				fmt.Println(ui.Muted("Cancelled"))
 				return
 			}

@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/charmbracelet/huh"
 	"github.com/nchapman/llemme/internal/config"
 	"github.com/nchapman/llemme/internal/ui"
 	"github.com/spf13/cobra"
@@ -201,17 +200,10 @@ var personaRmCmd = &cobra.Command{
 		}
 
 		if !personaForce {
-			confirm := false
-			prompt := huh.NewConfirm().
-				Title(fmt.Sprintf("Remove persona '%s'?", name)).
-				Value(&confirm)
+			fmt.Printf("Remove persona '%s'? [y/N] ", name)
 
-			if err := prompt.Run(); err != nil {
-				fmt.Printf("%s %v\n", ui.ErrorMsg("Error:"), err)
-				os.Exit(1)
-			}
-
-			if !confirm {
+			var response string
+			if _, err := fmt.Scanln(&response); err != nil || (response != "y" && response != "Y") {
 				fmt.Println(ui.Muted("Cancelled"))
 				return
 			}
