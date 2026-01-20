@@ -144,7 +144,7 @@ func (s *ChatSession) initSystemPrompt() {
 		sysPrompt = s.persona.System
 	}
 	if sysPrompt == "" {
-		sysPrompt = "You are a helpful assistant."
+		sysPrompt = config.DefaultSystemPrompt()
 	}
 	s.messages = []server.ChatMessage{{Role: "system", Content: sysPrompt}}
 }

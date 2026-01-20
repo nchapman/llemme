@@ -66,9 +66,10 @@ type Model struct {
 	persona *config.Persona
 
 	// Session state
-	chatMessages  []server.ChatMessage
-	options       SessionOptions
-	pendingReload bool
+	chatMessages         []server.ChatMessage
+	options              SessionOptions
+	pendingReload        bool
+	systemPromptOverride string
 
 	// UI state
 	width        int
@@ -93,6 +94,7 @@ type SessionOptions struct {
 	TopK          int
 	RepeatPenalty float64
 	MinP          float64
+	MaxTokens     int
 
 	// Server options (require model reload)
 	CtxSize   int
@@ -149,7 +151,7 @@ func (m *Model) SetInitialServerOptions(ctxSize, gpuLayers, threads int, ctxSize
 }
 
 // SetSamplingOptions sets the sampling options from CLI flags
-func (m *Model) SetSamplingOptions(temp, topP, minP, repeatPenalty float64, topK int) {
+func (m *Model) SetSamplingOptions(temp, topP, minP, repeatPenalty float64, topK, maxTokens int) {
 	if temp != 0 {
 		m.options.Temp = temp
 	}
@@ -164,6 +166,17 @@ func (m *Model) SetSamplingOptions(temp, topP, minP, repeatPenalty float64, topK
 	}
 	if repeatPenalty != 0 {
 		m.options.RepeatPenalty = repeatPenalty
+	}
+	if maxTokens != 0 {
+		m.options.MaxTokens = maxTokens
+	}
+}
+
+// SetSystemPrompt sets a system prompt override from CLI flags
+func (m *Model) SetSystemPrompt(prompt string) {
+	if prompt != "" {
+		m.systemPromptOverride = prompt
+		m.initSystemPrompt() // Re-initialize with the override
 	}
 }
 
@@ -380,12 +393,12 @@ func (m *Model) toggleFocus() tea.Cmd {
 
 // initSystemPrompt sets up the initial system message
 func (m *Model) initSystemPrompt() {
-	sysPrompt := ""
-	if m.persona != nil && m.persona.System != "" {
+	sysPrompt := m.systemPromptOverride
+	if sysPrompt == "" && m.persona != nil && m.persona.System != "" {
 		sysPrompt = m.persona.System
 	}
 	if sysPrompt == "" {
-		sysPrompt = "You are a helpful assistant."
+		sysPrompt = config.DefaultSystemPrompt()
 	}
 	m.chatMessages = []server.ChatMessage{{Role: "system", Content: sysPrompt}}
 }
@@ -430,6 +443,7 @@ func (m *Model) sendMessage(content string) tea.Cmd {
 		Model:           model,
 		Messages:        messages,
 		Stream:          true,
+		MaxTokens:       m.options.MaxTokens,
 		ReasoningFormat: "auto",
 	}
 	req.Temperature = m.resolveFloat(m.options.Temp, "temp")

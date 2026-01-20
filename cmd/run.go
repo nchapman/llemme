@@ -194,7 +194,8 @@ Models are loaded on-demand and unloaded after idle timeout.`,
 		// Launch TUI for interactive mode
 		m := chat.New(api, modelName, cfg, activePersona)
 		m.SetInitialServerOptions(ctxSize, gpuLayers, threads, ctxSizeSet, gpuLayersSet, threadsSet)
-		m.SetSamplingOptions(temperature, topP, minP, repeatPenalty, topK)
+		m.SetSamplingOptions(temperature, topP, minP, repeatPenalty, topK, tokens)
+		m.SetSystemPrompt(systemPrompt)
 
 		p := tea.NewProgram(m, tea.WithAltScreen())
 		m.SetProgram(p)
