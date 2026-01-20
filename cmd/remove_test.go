@@ -122,6 +122,10 @@ func TestGlobToRegex(t *testing.T) {
 		// Exact match
 		{"exact match", "user/repo", "user/repo", true},
 		{"exact no match", "user/repo", "user/other", false},
+
+		// Special characters (regression test for dot escaping)
+		{"dots in name", "user/GLM-4.7-Flash", "user/GLM-4.7-Flash", true},
+		{"dots escaped properly", "user/GLM-4.7-Flash", "user/GLM-4x7-Flash", false},
 	}
 
 	for _, tt := range tests {
