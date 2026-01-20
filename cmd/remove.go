@@ -252,15 +252,9 @@ func findModelsInDir(modelsDir, pattern string, olderThan time.Duration, largerT
 
 // globToRegex converts a glob pattern to a regex pattern
 func globToRegex(glob string) string {
-	// Escape regex special chars except * and ?
-	special := []string{".", "+", "^", "$", "(", ")", "[", "]", "{", "}", "|", "\\"}
-	result := glob
-	for _, s := range special {
-		result = strings.ReplaceAll(result, s, "\\"+s)
-	}
-	// Convert glob wildcards to regex
-	result = strings.ReplaceAll(result, "*", ".*")
-	result = strings.ReplaceAll(result, "?", ".")
+	result := regexp.QuoteMeta(glob)
+	result = strings.ReplaceAll(result, `\*`, ".*")
+	result = strings.ReplaceAll(result, `\?`, ".")
 	return result
 }
 
