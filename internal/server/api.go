@@ -3,6 +3,7 @@ package server
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -20,19 +21,24 @@ type ChatMessage struct {
 	Content string `json:"content"`
 }
 
+type StreamOptions struct {
+	IncludeUsage bool `json:"include_usage,omitempty"`
+}
+
 type ChatCompletionRequest struct {
-	Model           string        `json:"model"`
-	Messages        []ChatMessage `json:"messages"`
-	Stream          bool          `json:"stream"`
-	Temperature     float64       `json:"temperature,omitempty"`
-	TopP            float64       `json:"top_p,omitempty"`
-	TopK            int           `json:"top_k,omitempty"`
-	MinP            float64       `json:"min_p,omitempty"`
-	RepeatPenalty   float64       `json:"repeat_penalty,omitempty"`
-	FreqPenalty     float64       `json:"frequency_penalty,omitempty"`
-	PresencePenalty float64       `json:"presence_penalty,omitempty"`
-	MaxTokens       int           `json:"max_tokens,omitempty"`
-	ReasoningFormat string        `json:"reasoning_format,omitempty"`
+	Model           string         `json:"model"`
+	Messages        []ChatMessage  `json:"messages"`
+	Stream          bool           `json:"stream"`
+	StreamOptions   *StreamOptions `json:"stream_options,omitempty"`
+	Temperature     float64        `json:"temperature,omitempty"`
+	TopP            float64        `json:"top_p,omitempty"`
+	TopK            int            `json:"top_k,omitempty"`
+	MinP            float64        `json:"min_p,omitempty"`
+	RepeatPenalty   float64        `json:"repeat_penalty,omitempty"`
+	FreqPenalty     float64        `json:"frequency_penalty,omitempty"`
+	PresencePenalty float64        `json:"presence_penalty,omitempty"`
+	MaxTokens       int            `json:"max_tokens,omitempty"`
+	ReasoningFormat string         `json:"reasoning_format,omitempty"`
 }
 
 type ChatCompletionResponse struct {
@@ -67,6 +73,23 @@ type StreamChunk struct {
 	Created int64          `json:"created"`
 	Model   string         `json:"model"`
 	Choices []StreamChoice `json:"choices"`
+	Usage   *Usage         `json:"usage,omitempty"`
+	Timings *Timings       `json:"timings,omitempty"`
+}
+
+type Usage struct {
+	PromptTokens     int `json:"prompt_tokens"`
+	CompletionTokens int `json:"completion_tokens"`
+	TotalTokens      int `json:"total_tokens"`
+}
+
+type Timings struct {
+	PredictedN         int     `json:"predicted_n"`
+	PredictedMS        float64 `json:"predicted_ms"`
+	PredictedPerSecond float64 `json:"predicted_per_second"`
+	PromptN            int     `json:"prompt_n"`
+	PromptMS           float64 `json:"prompt_ms"`
+	PromptPerSecond    float64 `json:"prompt_per_second"`
 }
 
 type HealthResponse struct {
@@ -140,12 +163,14 @@ func (api *APIClient) ChatCompletion(req *ChatCompletionRequest) (*ChatCompletio
 // StreamCallback holds callbacks for streaming chat completion responses.
 // ContentCallback is called for regular response content.
 // ReasoningCallback is called for reasoning/thinking content (optional).
+// TimingsCallback is called with timing stats from the final chunk (optional).
 type StreamCallback struct {
 	ContentCallback   func(string)
 	ReasoningCallback func(string)
+	TimingsCallback   func(*Timings)
 }
 
-func (api *APIClient) StreamChatCompletion(req *ChatCompletionRequest, cb StreamCallback) error {
+func (api *APIClient) StreamChatCompletion(ctx context.Context, req *ChatCompletionRequest, cb StreamCallback) error {
 	url := fmt.Sprintf("%s/v1/chat/completions", api.baseURL)
 
 	body, err := json.Marshal(req)
@@ -153,7 +178,7 @@ func (api *APIClient) StreamChatCompletion(req *ChatCompletionRequest, cb Stream
 		return err
 	}
 
-	httpReq, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(body))
 	if err != nil {
 		return err
 	}
@@ -176,15 +201,19 @@ func (api *APIClient) StreamChatCompletion(req *ChatCompletionRequest, cb Stream
 	var lastParseErr error
 
 	for scanner.Scan() {
+		// Check for context cancellation. The HTTP request was created with context,
+		// so the response body read will also be interrupted on cancellation.
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
 		line := scanner.Text()
 
 		if line == "" || line == "data: [DONE]" {
 			continue
 		}
 
-		if strings.HasPrefix(line, "data: ") {
-			jsonData := strings.TrimPrefix(line, "data: ")
-
+		if jsonData, found := strings.CutPrefix(line, "data: "); found {
 			var chunk StreamChunk
 			if err := json.Unmarshal([]byte(jsonData), &chunk); err != nil {
 				parseErrors++
@@ -200,6 +229,11 @@ func (api *APIClient) StreamChatCompletion(req *ChatCompletionRequest, cb Stream
 				if delta.Content != "" && cb.ContentCallback != nil {
 					cb.ContentCallback(delta.Content)
 				}
+			}
+
+			// Call timings callback if we got timing stats (usually in final chunk)
+			if chunk.Timings != nil && cb.TimingsCallback != nil {
+				cb.TimingsCallback(chunk.Timings)
 			}
 		}
 	}

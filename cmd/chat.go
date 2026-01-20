@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"strconv"
@@ -143,7 +144,7 @@ func (s *ChatSession) initSystemPrompt() {
 		sysPrompt = s.persona.System
 	}
 	if sysPrompt == "" {
-		sysPrompt = "You are a helpful assistant."
+		sysPrompt = config.DefaultSystemPrompt()
 	}
 	s.messages = []server.ChatMessage{{Role: "system", Content: sysPrompt}}
 }
@@ -488,7 +489,7 @@ func (s *ChatSession) streamResponse(showSpinner bool) string {
 		},
 	}
 
-	err := s.api.StreamChatCompletion(req, cb)
+	err := s.api.StreamChatCompletion(context.Background(), req, cb)
 
 	if spinnerRunning {
 		spinner.Stop(false, "")

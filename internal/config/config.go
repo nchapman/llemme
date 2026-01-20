@@ -8,10 +8,15 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// DefaultSystemPrompt returns the default system prompt for chat sessions.
+func DefaultSystemPrompt() string {
+	return "You are a helpful assistant."
+}
+
 type Config struct {
 	HuggingFace HuggingFace `yaml:"huggingface"`
-	LlamaCpp    LlamaCpp    `yaml:"llamacpp"`
 	Server      Server      `yaml:"server"`
+	LlamaCpp    LlamaCpp    `yaml:"llamacpp"`
 }
 
 type HuggingFace struct {
@@ -105,6 +110,20 @@ huggingface:
   # Default quantization when pulling models
   default_quant: Q4_K_M
 
+# llemme server settings
+server:
+  host: 127.0.0.1
+  port: 11313
+  max_models: 3              # Max concurrent models in memory
+  idle_timeout_mins: 10      # Unload idle models after this time
+  startup_timeout_secs: 120  # Max time to wait for model to load
+  backend_port_min: 49152    # Port range for llama-server backends
+  backend_port_max: 49200
+  cors_origins:              # Allowed CORS origins
+    - http://localhost
+    - http://127.0.0.1
+    - http://[::1]
+
 # llama.cpp server settings
 # All options here are passed directly to llama-server.
 # See 'llama-server --help' for the full list.
@@ -143,20 +162,6 @@ llamacpp:
 
     # --- Reasoning models ---
     # reasoning-format: auto   # Thinking token handling (auto, none, deepseek)
-
-# llemme server settings
-server:
-  host: 127.0.0.1
-  port: 11313
-  max_models: 3              # Max concurrent models in memory
-  idle_timeout_mins: 10      # Unload idle models after this time
-  startup_timeout_secs: 120  # Max time to wait for model to load
-  backend_port_min: 49152    # Port range for llama-server backends
-  backend_port_max: 49200
-  cors_origins:              # Allowed CORS origins
-    - http://localhost
-    - http://127.0.0.1
-    - http://[::1]
 `
 
 func Load() (*Config, error) {

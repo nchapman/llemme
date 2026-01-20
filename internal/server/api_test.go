@@ -1,10 +1,13 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -275,7 +278,7 @@ func TestStreamChatCompletion(t *testing.T) {
 		}
 
 		var receivedChunks []string
-		err := api.StreamChatCompletion(&expectedReq, StreamCallback{
+		err := api.StreamChatCompletion(context.Background(), &expectedReq, StreamCallback{
 			ContentCallback: func(content string) {
 				receivedChunks = append(receivedChunks, content)
 			},
@@ -313,7 +316,7 @@ func TestStreamChatCompletion(t *testing.T) {
 		}
 
 		callCount := 0
-		err := api.StreamChatCompletion(&ChatCompletionRequest{}, StreamCallback{
+		err := api.StreamChatCompletion(context.Background(), &ChatCompletionRequest{}, StreamCallback{
 			ContentCallback: func(string) {
 				callCount++
 			},
@@ -346,7 +349,7 @@ func TestStreamChatCompletion(t *testing.T) {
 			Stream:   true,
 		}
 
-		err := api.StreamChatCompletion(req, StreamCallback{})
+		err := api.StreamChatCompletion(context.Background(), req, StreamCallback{})
 		if err == nil {
 			t.Error("Expected error for failed request, got nil")
 		}
@@ -382,7 +385,7 @@ func TestStreamChatCompletion(t *testing.T) {
 		}
 
 		callCount := 0
-		err := api.StreamChatCompletion(&ChatCompletionRequest{}, StreamCallback{
+		err := api.StreamChatCompletion(context.Background(), &ChatCompletionRequest{}, StreamCallback{
 			ContentCallback: func(string) {
 				callCount++
 			},
@@ -453,7 +456,7 @@ func TestStreamChatCompletion(t *testing.T) {
 
 		var reasoningChunks []string
 		var contentChunks []string
-		err := api.StreamChatCompletion(&ChatCompletionRequest{}, StreamCallback{
+		err := api.StreamChatCompletion(context.Background(), &ChatCompletionRequest{}, StreamCallback{
 			ReasoningCallback: func(reasoning string) {
 				reasoningChunks = append(reasoningChunks, reasoning)
 			},
@@ -531,7 +534,7 @@ func TestStreamChatCompletion(t *testing.T) {
 
 		var contentChunks []string
 		// Only provide ContentCallback, no ReasoningCallback - should not panic
-		err := api.StreamChatCompletion(&ChatCompletionRequest{}, StreamCallback{
+		err := api.StreamChatCompletion(context.Background(), &ChatCompletionRequest{}, StreamCallback{
 			ContentCallback: func(content string) {
 				contentChunks = append(contentChunks, content)
 			},
@@ -543,6 +546,59 @@ func TestStreamChatCompletion(t *testing.T) {
 
 		if len(contentChunks) != 1 || contentChunks[0] != "Hello" {
 			t.Errorf("Expected content chunk 'Hello', got %v", contentChunks)
+		}
+	})
+
+	t.Run("returns context.Canceled when context is cancelled", func(t *testing.T) {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/event-stream")
+			w.WriteHeader(http.StatusOK)
+
+			// Simulate slow streaming - will be interrupted by context cancellation
+			flusher, ok := w.(http.Flusher)
+			if !ok {
+				return
+			}
+
+			// Send one chunk, then stall
+			chunk := StreamChunk{
+				ID:      "test-id",
+				Object:  "chat.completion.chunk",
+				Created: 1234567890,
+				Model:   "test-model",
+				Choices: []StreamChoice{
+					{Index: 0, Delta: StreamDelta{Content: "Hello"}},
+				},
+			}
+			jsonData, _ := json.Marshal(chunk)
+			fmt.Fprintf(w, "data: %s\n\n", string(jsonData))
+			flusher.Flush()
+
+			// Block until request context is done (simulates slow server)
+			<-r.Context().Done()
+		}))
+		defer ts.Close()
+
+		api := &APIClient{
+			baseURL: ts.URL,
+			client:  ts.Client(),
+		}
+
+		ctx, cancel := context.WithCancel(context.Background())
+
+		// Cancel after a short delay
+		go func() {
+			cancel()
+		}()
+
+		err := api.StreamChatCompletion(ctx, &ChatCompletionRequest{}, StreamCallback{})
+
+		if err == nil {
+			t.Error("Expected error when context is cancelled, got nil")
+		}
+		// Error could be context.Canceled or a wrapped error from the HTTP client
+		if !errors.Is(err, context.Canceled) && !strings.Contains(err.Error(), "context canceled") {
+			t.Errorf("Expected context.Canceled error, got: %v", err)
 		}
 	})
 }
