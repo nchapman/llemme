@@ -45,8 +45,9 @@ func init() {
 	// Add command groups
 	rootCmd.AddGroup(
 		&cobra.Group{ID: "model", Title: "Model Commands:"},
-		&cobra.Group{ID: "discovery", Title: "Discovery:"},
+		&cobra.Group{ID: "persona", Title: "Personas:"},
 		&cobra.Group{ID: "server", Title: "Server:"},
+		&cobra.Group{ID: "discovery", Title: "Discovery:"},
 		&cobra.Group{ID: "config", Title: "Configuration:"},
 	)
 }

@@ -61,6 +61,24 @@ llemme status  # or: llemme ps
 | `pull <model>` | | Download a model from Hugging Face |
 | `list` | `ls` | List downloaded models |
 | `remove <model>` | `rm` | Delete a downloaded model |
+| `unload <model>` | | Unload a running model |
+| `status` | `ps` | Show server status and loaded models |
+
+**Personas**
+| Command | Description |
+|---------|-------------|
+| `persona list` | List all personas |
+| `persona create <name>` | Create a new persona |
+| `persona show <name>` | Show persona details |
+| `persona edit <name>` | Edit a persona in your editor |
+| `persona rm <name>` | Delete a persona |
+
+**Server**
+| Command | Description |
+|---------|-------------|
+| `server start` | Start the proxy server |
+| `server stop` | Stop the proxy server |
+| `server restart` | Restart the proxy server |
 
 **Discovery**
 | Command | Alias | Description |
@@ -69,13 +87,6 @@ llemme status  # or: llemme ps
 | `trending` | | Show trending models |
 | `info <model>` | `show` | Show model details |
 
-**Server**
-| Command | Alias | Description |
-|---------|-------|-------------|
-| `serve` | | Start the proxy server |
-| `status` | `ps` | Show proxy status and loaded models |
-| `stop <model>` | | Unload a model or stop the proxy |
-
 **Configuration**
 | Command | Description |
 |---------|-------------|
@@ -83,7 +94,6 @@ llemme status  # or: llemme ps
 | `config show` | Print current configuration |
 | `config path` | Print config file path |
 | `config reset` | Reset config to defaults |
-| `persona` | Manage personas (saved model configurations) |
 | `update` | Update llama.cpp binaries |
 | `version` | Show version information |
 
@@ -119,7 +129,7 @@ server:
 **3. Start llemme and run Claude Code:**
 
 ```bash
-llemme serve
+llemme server start
 ANTHROPIC_BASE_URL=http://127.0.0.1:11313 claude
 ```
 

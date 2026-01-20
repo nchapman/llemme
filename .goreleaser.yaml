@@ -45,7 +45,7 @@ brews:
     install: |
       bin.install "llemme"
     service: |
-      run [opt_bin/"llemme", "serve"]
+      run [opt_bin/"llemme", "server", "start"]
       keep_alive crashed: true
       log_path var/"log/llemme.log"
       error_log_path var/"log/llemme.log"
