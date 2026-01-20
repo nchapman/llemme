@@ -59,7 +59,11 @@ Examples:
 func unloadModel(proxyURL, modelName string) {
 	client := &http.Client{Timeout: 30 * time.Second}
 
-	reqBody, _ := json.Marshal(map[string]string{"model": modelName})
+	reqBody, err := json.Marshal(map[string]string{"model": modelName})
+	if err != nil {
+		fmt.Printf("%s Failed to encode request: %v\n", ui.ErrorMsg("Error:"), err)
+		os.Exit(1)
+	}
 	resp, err := client.Post(proxyURL+"/api/stop", "application/json", bytes.NewReader(reqBody))
 	if err != nil {
 		fmt.Printf("%s Failed to unload model: %v\n", ui.ErrorMsg("Error:"), err)

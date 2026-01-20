@@ -215,6 +215,7 @@ func startServerForeground(proxyCfg *proxy.Config, appCfg *config.Config) {
 	fmt.Println(ui.Header("Endpoints"))
 	fmt.Printf("  %-12s %s %s\n", "Chat", ui.Muted("POST"), "/v1/chat/completions")
 	fmt.Printf("  %-12s %s %s\n", "Completions", ui.Muted("POST"), "/v1/completions")
+	fmt.Printf("  %-12s %s %s\n", "Messages", ui.Muted("POST"), "/v1/messages")
 	fmt.Printf("  %-12s %s %s\n", "Models", ui.Muted("GET"), "/v1/models")
 	fmt.Printf("  %-12s %s %s\n", "Status", ui.Muted("GET"), "/api/status")
 	fmt.Println()

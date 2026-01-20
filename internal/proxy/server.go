@@ -246,12 +246,19 @@ func (s *Server) proxyToBackendAnthropic(w http.ResponseWriter, r *http.Request,
 
 		// Rewrite the model in the request body so backend sees the correct name
 		var bodyMap map[string]any
-		if err := json.Unmarshal(body, &bodyMap); err == nil {
-			bodyMap["model"] = modelToLoad
-			if rewritten, err := json.Marshal(bodyMap); err == nil {
-				body = rewritten
-			}
+		if err := json.Unmarshal(body, &bodyMap); err != nil {
+			s.writeAnthropicError(w, requestID, http.StatusBadRequest, AnthropicInvalidRequest,
+				"Failed to parse request body for model rewriting")
+			return
 		}
+		bodyMap["model"] = modelToLoad
+		rewritten, err := json.Marshal(bodyMap)
+		if err != nil {
+			s.writeAnthropicError(w, requestID, http.StatusInternalServerError, AnthropicAPIError,
+				"Failed to rewrite request body")
+			return
+		}
+		body = rewritten
 	}
 
 	// Get or load the backend
