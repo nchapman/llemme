@@ -78,9 +78,9 @@ func (h Header) View() string {
 	// Build left side: Persona • Model
 	var leftPart string
 	if h.stats.Persona != "" {
+		// When persona is shown, mute the entire model name so persona stands out
 		leftPart = styles.HeaderModelStyle.Render(h.stats.Persona) +
-			styles.HeaderStatStyle.Render(" • ") +
-			formatModelName(h.stats.Model)
+			styles.HeaderStatStyle.Render(" • "+h.stats.Model)
 	} else {
 		leftPart = formatModelName(h.stats.Model)
 	}
