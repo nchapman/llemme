@@ -50,7 +50,8 @@ var searchCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// Build set of installed models (by user/repo)
+		// Build set of installed models (by user/repo).
+		// Errors are ignored since install indicators are non-critical UI hints.
 		installed := make(map[string]bool)
 		resolver := proxy.NewModelResolver()
 		if downloaded, err := resolver.ListDownloadedModels(); err == nil {

@@ -18,6 +18,11 @@ var (
 	ColorBorder    = lipgloss.AdaptiveColor{Light: "250", Dark: "238"}
 )
 
+// Color values for glamour markdown styling (ANSI 256 color codes as strings)
+const (
+	ColorMutedCode = "243" // Muted gray for thinking/reasoning content
+)
+
 // Header styles
 var (
 	HeaderStyle = lipgloss.NewStyle().

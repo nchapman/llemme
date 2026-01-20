@@ -234,31 +234,48 @@ func (m *Model) showSettings() string {
 	return sb.String()
 }
 
-func (m *Model) formatOption(name string, sessionVal, configVal float64) string {
-	if sessionVal != 0 {
-		return fmt.Sprintf("    %s = %g (session)\n", name, sessionVal)
-	} else if configVal != 0 {
-		return fmt.Sprintf("    %s = %g (config)\n", name, configVal)
+// formatSetting formats a setting line showing session/config/default value.
+func formatSetting(name, sessionVal, configVal string) string {
+	if sessionVal != "" {
+		return fmt.Sprintf("    %s = %s (session)\n", name, sessionVal)
+	}
+	if configVal != "" {
+		return fmt.Sprintf("    %s = %s (config)\n", name, configVal)
 	}
 	return fmt.Sprintf("    %s = default\n", name)
+}
+
+func (m *Model) formatOption(name string, sessionVal, configVal float64) string {
+	var session, config string
+	if sessionVal != 0 {
+		session = fmt.Sprintf("%g", sessionVal)
+	}
+	if configVal != 0 {
+		config = fmt.Sprintf("%g", configVal)
+	}
+	return formatSetting(name, session, config)
 }
 
 func (m *Model) formatOptionInt(name string, sessionVal, configVal int) string {
+	var session, config string
 	if sessionVal != 0 {
-		return fmt.Sprintf("    %s = %d (session)\n", name, sessionVal)
-	} else if configVal != 0 {
-		return fmt.Sprintf("    %s = %d (config)\n", name, configVal)
+		session = fmt.Sprintf("%d", sessionVal)
 	}
-	return fmt.Sprintf("    %s = default\n", name)
+	if configVal != 0 {
+		config = fmt.Sprintf("%d", configVal)
+	}
+	return formatSetting(name, session, config)
 }
 
 func (m *Model) formatServerOption(name string, sessionVal int, isSet bool, configVal int) string {
+	var session, config string
 	if isSet {
-		return fmt.Sprintf("    %s = %d (session)\n", name, sessionVal)
-	} else if configVal != 0 {
-		return fmt.Sprintf("    %s = %d (config)\n", name, configVal)
+		session = fmt.Sprintf("%d", sessionVal)
 	}
-	return fmt.Sprintf("    %s = default\n", name)
+	if configVal != 0 {
+		config = fmt.Sprintf("%d", configVal)
+	}
+	return formatSetting(name, session, config)
 }
 
 func (m *Model) getConfigFloat(key string) float64 {

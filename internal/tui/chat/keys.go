@@ -41,7 +41,7 @@ func DefaultKeyMap() KeyMap {
 			key.WithHelp("pgup", "page up"),
 		),
 		PageDown: key.NewBinding(
-			key.WithKeys("pgdown", "ctrl+d"),
+			key.WithKeys("pgdown"),
 			key.WithHelp("pgdn", "page down"),
 		),
 		Top: key.NewBinding(

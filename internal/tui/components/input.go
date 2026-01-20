@@ -215,6 +215,8 @@ func (i Input) CompletionsView() string {
 	return i.completions.View()
 }
 
+const setCommandPrefix = "/set "
+
 // updateCompletions checks input and opens/updates completions as needed
 func (i *Input) updateCompletions() {
 	if i.completions == nil {
@@ -231,7 +233,7 @@ func (i *Input) updateCompletions() {
 		}
 
 		// Get the part after "/set "
-		optionPart := value[5:] // len("/set ") == 5
+		optionPart := value[len(setCommandPrefix):]
 
 		// If there's another space, user is typing value - close completions
 		if strings.Contains(optionPart, " ") {
@@ -272,5 +274,5 @@ func (i *Input) updateCompletions() {
 
 // isSetOptionContext returns true if input is in "/set <option>" context
 func (i Input) isSetOptionContext() bool {
-	return strings.HasPrefix(strings.ToLower(i.textarea.Value()), "/set ")
+	return strings.HasPrefix(strings.ToLower(i.textarea.Value()), setCommandPrefix)
 }

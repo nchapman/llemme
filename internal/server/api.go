@@ -201,7 +201,8 @@ func (api *APIClient) StreamChatCompletion(ctx context.Context, req *ChatComplet
 	var lastParseErr error
 
 	for scanner.Scan() {
-		// Check for context cancellation
+		// Check for context cancellation. The HTTP request was created with context,
+		// so the response body read will also be interrupted on cancellation.
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
@@ -212,9 +213,7 @@ func (api *APIClient) StreamChatCompletion(ctx context.Context, req *ChatComplet
 			continue
 		}
 
-		if strings.HasPrefix(line, "data: ") {
-			jsonData := strings.TrimPrefix(line, "data: ")
-
+		if jsonData, found := strings.CutPrefix(line, "data: "); found {
 			var chunk StreamChunk
 			if err := json.Unmarshal([]byte(jsonData), &chunk); err != nil {
 				parseErrors++

@@ -364,7 +364,7 @@ func (m *Model) View() string {
 	// Overlay completions popup if open
 	if m.input.IsCompletionsOpen() {
 		completionsView := m.input.CompletionsView()
-		baseView = overlayCompletions(baseView, completionsView, m.width, m.height, m.input.Height())
+		baseView = overlayCompletions(baseView, completionsView, m.height, m.input.Height())
 	}
 
 	return baseView
@@ -579,7 +579,7 @@ func setOptionCompletions() []components.Completion {
 }
 
 // overlayCompletions renders the completions popup over the base view
-func overlayCompletions(base, popup string, _, height, inputHeight int) string {
+func overlayCompletions(base, popup string, height, inputHeight int) string {
 	if popup == "" {
 		return base
 	}
