@@ -69,12 +69,7 @@ var serverStartCmd = &cobra.Command{
 		}
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		cfg, err := config.Load()
-		if err != nil {
-			fmt.Printf("%s Failed to load config: %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
-		}
-
+		// Check if already running
 		if existingState := proxy.GetRunningProxyState(); existingState != nil {
 			fmt.Printf("%s Server already running on http://%s:%d (PID %d)\n",
 				ui.ErrorMsg("Error:"), existingState.Host, existingState.Port, existingState.PID)
@@ -82,24 +77,14 @@ var serverStartCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		proxyCfg := proxy.ConfigFromAppConfig(cfg.Server)
-
-		if serverHost != "" {
-			proxyCfg.Host = serverHost
-		}
-		if serverPort != 0 {
-			proxyCfg.Port = serverPort
-		}
-		if serverMaxModels != 0 {
-			proxyCfg.MaxModels = serverMaxModels
-		}
-
 		if serverDetach {
-			startServerDetached(proxyCfg)
+			// Detached mode: spawn daemon with CLI overrides, daemon handles everything else
+			startServerDetached()
 			return
 		}
 
-		startServerForeground(proxyCfg, cfg)
+		// Foreground mode: we ARE the server
+		startServerForeground()
 	},
 }
 
@@ -131,28 +116,10 @@ var serverRestartCmd = &cobra.Command{
 
 		fmt.Println("Starting server...")
 
-		cfg, err := config.Load()
-		if err != nil {
-			fmt.Printf("%s Failed to load config: %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
-		}
-
-		proxyCfg := proxy.ConfigFromAppConfig(cfg.Server)
-
-		if serverHost != "" {
-			proxyCfg.Host = serverHost
-		}
-		if serverPort != 0 {
-			proxyCfg.Port = serverPort
-		}
-		if serverMaxModels != 0 {
-			proxyCfg.MaxModels = serverMaxModels
-		}
-
 		if serverDetach {
-			startServerDetached(proxyCfg)
+			startServerDetached()
 		} else {
-			startServerForeground(proxyCfg, cfg)
+			startServerForeground()
 		}
 	},
 }
@@ -188,24 +155,34 @@ func stopServer() (bool, error) {
 	return true, nil
 }
 
-func startServerForeground(proxyCfg *proxy.Config, appCfg *config.Config) {
-	server := proxy.NewServer(proxyCfg, appCfg)
+func startServerForeground() {
+	// Load config
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Printf("%s Failed to load config: %v\n", ui.ErrorMsg("Error:"), err)
+		os.Exit(1)
+	}
 
+	// Build proxy config from app config + CLI overrides
+	proxyCfg := proxy.ConfigFromAppConfig(cfg.Server)
+	if serverHost != "" {
+		proxyCfg.Host = serverHost
+	}
+	if serverPort != 0 {
+		proxyCfg.Port = serverPort
+	}
+	if serverMaxModels != 0 {
+		proxyCfg.MaxModels = serverMaxModels
+	}
+
+	// Create and start server (handles orphan cleanup internally)
+	server := proxy.NewServer(proxyCfg, cfg)
 	if err := server.Start(); err != nil {
 		fmt.Printf("%s Failed to start server: %v\n", ui.ErrorMsg("Error:"), err)
 		os.Exit(1)
 	}
 
-	state := &proxy.ProxyState{
-		PID:       os.Getpid(),
-		Host:      proxyCfg.Host,
-		Port:      proxyCfg.Port,
-		StartedAt: time.Now(),
-	}
-	if err := proxy.SaveProxyState(state); err != nil {
-		fmt.Printf("%s Failed to save server state: %v\n", ui.ErrorMsg("Warning:"), err)
-	}
-
+	// Print startup info
 	fmt.Printf("Server started on http://%s:%d\n", proxyCfg.Host, proxyCfg.Port)
 	fmt.Println()
 	fmt.Printf("  %-14s %d\n", "Max models", proxyCfg.MaxModels)
@@ -226,6 +203,7 @@ func startServerForeground(proxyCfg *proxy.Config, appCfg *config.Config) {
 	}
 	fmt.Println(ui.Muted("Press Ctrl+C to stop"))
 
+	// Wait for shutdown signal
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	<-sigChan
@@ -241,68 +219,74 @@ func startServerForeground(proxyCfg *proxy.Config, appCfg *config.Config) {
 	fmt.Println("Server stopped")
 }
 
-func startServerDetached(proxyCfg *proxy.Config) {
+func startServerDetached() {
 	executable, err := os.Executable()
 	if err != nil {
 		fmt.Printf("%s Failed to get executable path: %v\n", ui.ErrorMsg("Error:"), err)
 		os.Exit(1)
 	}
 
-	args := []string{
-		"internal-serve",
-		"--host", proxyCfg.Host,
-		"--port", fmt.Sprintf("%d", proxyCfg.Port),
-		"--max-models", fmt.Sprintf("%d", proxyCfg.MaxModels),
+	// Build args: only pass CLI overrides that were explicitly set
+	args := []string{"internal-serve"}
+	if serverHost != "" {
+		args = append(args, "--host", serverHost)
+	}
+	if serverPort != 0 {
+		args = append(args, "--port", fmt.Sprintf("%d", serverPort))
+	}
+	if serverMaxModels != 0 {
+		args = append(args, "--max-models", fmt.Sprintf("%d", serverMaxModels))
 	}
 
+	// Spawn daemon - it handles its own logging, config loading, etc.
 	cmd := exec.Command(executable, args...)
 	cmd.Env = os.Environ()
-
-	logWriter, err := logs.NewRotatingWriter(logs.ProxyLogPath())
-	if err != nil {
-		fmt.Printf("%s Failed to open log file: %v\n", ui.ErrorMsg("Error:"), err)
-		os.Exit(1)
-	}
-	cmd.Stdout = logWriter
-	cmd.Stderr = logWriter
-
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setsid: true,
 	}
 
 	if err := cmd.Start(); err != nil {
-		logWriter.Close()
 		fmt.Printf("%s Failed to start server in background: %v\n", ui.ErrorMsg("Error:"), err)
 		os.Exit(1)
 	}
 
-	logWriter.Close()
-
-	time.Sleep(500 * time.Millisecond)
-
+	// Poll for state file (up to 5 seconds)
 	logPath := logs.ProxyLogPath()
-	if state := proxy.GetRunningProxyState(); state != nil {
-		fmt.Printf("Server started in background on http://%s:%d (PID %d)\n", state.Host, state.Port, state.PID)
-		fmt.Printf("Logs: %s\n", ui.Muted(logPath))
-	} else {
-		fmt.Printf("%s Server may have failed to start. Check logs: %s\n", ui.ErrorMsg("Warning:"), logPath)
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if state := proxy.GetRunningProxyState(); state != nil {
+			fmt.Printf("Server started in background on http://%s:%d (PID %d)\n", state.Host, state.Port, state.PID)
+			fmt.Printf("Logs: %s\n", ui.Muted(logPath))
+			return
+		}
+		time.Sleep(100 * time.Millisecond)
 	}
+	fmt.Printf("%s Server may have failed to start. Check logs: %s\n", ui.ErrorMsg("Warning:"), logPath)
 }
 
-// internalServeCmd is a hidden command used for background serving.
-// Output goes to the log file, so errors are logged for debugging.
+// internalServeCmd is the daemon process for background serving.
+// Fully self-contained: handles its own logging, config, lifecycle, and state.
 var internalServeCmd = &cobra.Command{
 	Use:    "internal-serve",
 	Hidden: true,
 	Run: func(cmd *cobra.Command, args []string) {
+		// Set up logging - daemon owns its log file
+		logFile, err := logs.NewRotatingWriter(logs.ProxyLogPath())
+		if err != nil {
+			os.Exit(1)
+		}
+		defer logFile.Close()
+		logs.InitLogger(logFile, false)
+
+		// Load config
 		cfg, err := config.Load()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to load config: %v\n", err)
+			logs.Warn("Failed to load config", "error", err)
 			os.Exit(1)
 		}
 
+		// Build proxy config from app config + CLI overrides
 		proxyCfg := proxy.ConfigFromAppConfig(cfg.Server)
-
 		if serverHost != "" {
 			proxyCfg.Host = serverHost
 		}
@@ -313,23 +297,14 @@ var internalServeCmd = &cobra.Command{
 			proxyCfg.MaxModels = serverMaxModels
 		}
 
+		// Create and start server (handles orphan cleanup and state persistence internally)
 		server := proxy.NewServer(proxyCfg, cfg)
-
 		if err := server.Start(); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to start server: %v\n", err)
+			logs.Warn("Failed to start server", "error", err)
 			os.Exit(1)
 		}
 
-		state := &proxy.ProxyState{
-			PID:       os.Getpid(),
-			Host:      proxyCfg.Host,
-			Port:      proxyCfg.Port,
-			StartedAt: time.Now(),
-		}
-		if err := proxy.SaveProxyState(state); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to save state: %v\n", err)
-		}
-
+		// Wait for shutdown signal
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 		<-sigChan

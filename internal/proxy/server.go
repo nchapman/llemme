@@ -12,11 +12,13 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/nchapman/lleme/internal/config"
+	"github.com/nchapman/lleme/internal/logs"
 )
 
 const Version = "0.2.0"
@@ -30,10 +32,14 @@ type Server struct {
 	config       *Config
 	startedAt    time.Time
 	shutdownChan chan struct{}
+	stateMu      sync.Mutex // protects state file writes
 }
 
 // NewServer creates a new proxy server
 func NewServer(cfg *Config, appCfg *config.Config) *Server {
+	// Clean up any orphaned backends from a previous crash
+	CleanupOrphanedBackends()
+
 	manager := NewModelManager(cfg, appCfg)
 
 	s := &Server{
@@ -42,6 +48,11 @@ func NewServer(cfg *Config, appCfg *config.Config) *Server {
 		startedAt:    time.Now(),
 		shutdownChan: make(chan struct{}),
 	}
+
+	// Set up state persistence callback
+	manager.SetStateChangeCallback(func() {
+		s.saveState()
+	})
 
 	// Create idle monitor
 	s.idleMonitor = NewIdleMonitor(manager, cfg.IdleTimeout, 60*time.Second)
@@ -89,6 +100,9 @@ func (s *Server) Start() error {
 		}
 	}()
 
+	// Save initial state (no backends yet)
+	s.saveState()
+
 	return nil
 }
 
@@ -112,6 +126,37 @@ func (s *Server) Stop() error {
 // Manager returns the model manager
 func (s *Server) Manager() *ModelManager {
 	return s.manager
+}
+
+// saveState persists the current proxy and backend state to disk
+func (s *Server) saveState() {
+	s.stateMu.Lock()
+	defer s.stateMu.Unlock()
+
+	backends := s.manager.ListBackends()
+	var backendStates []BackendState
+	for _, b := range backends {
+		if b.Status == "ready" || b.Status == "starting" {
+			backendStates = append(backendStates, BackendState{
+				ModelName: b.ModelName,
+				PID:       b.PID,
+				Port:      b.Port,
+				StartedAt: b.StartedAt,
+			})
+		}
+	}
+
+	state := &ProxyState{
+		PID:       os.Getpid(),
+		Host:      s.config.Host,
+		Port:      s.config.Port,
+		StartedAt: s.startedAt,
+		Backends:  backendStates,
+	}
+
+	if err := SaveProxyState(state); err != nil {
+		logs.Warn("Failed to persist proxy state", "error", err)
+	}
 }
 
 // Addr returns the address the server is listening on

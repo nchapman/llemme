@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/nchapman/lleme/internal/config"
-	"github.com/nchapman/lleme/internal/ui"
+	"github.com/nchapman/lleme/internal/logs"
 	"github.com/spf13/cobra"
 )
 
@@ -24,7 +24,7 @@ var rootCmd = &cobra.Command{
 Point it at any GGUF model on Hugging Face, and it handles the rest—downloading,
 caching, and running inference.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		ui.InitLogger(verbose)
+		logs.InitLogger(nil, verbose)
 		if err := config.EnsureDirectories(); err != nil {
 			fmt.Printf("Error: Failed to create directories: %v\n", err)
 			os.Exit(1)

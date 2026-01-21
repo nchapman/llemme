@@ -113,3 +113,153 @@ func parseArgsToMap(args []string) map[string]string {
 	}
 	return m
 }
+
+func TestSetStateChangeCallback(t *testing.T) {
+	cfg := DefaultConfig()
+	manager := NewModelManager(cfg, nil)
+
+	callCount := 0
+	manager.SetStateChangeCallback(func() {
+		callCount++
+	})
+
+	// Verify callback is set (we can't trigger it without starting a real backend,
+	// but we can verify the mechanism works)
+	if manager.onStateChange == nil {
+		t.Error("expected onStateChange callback to be set")
+	}
+
+	// Call it directly to verify it works
+	manager.onStateChange()
+	if callCount != 1 {
+		t.Errorf("expected callback to be called once, got %d", callCount)
+	}
+}
+
+func TestOptionsChanged(t *testing.T) {
+	tests := []struct {
+		name     string
+		current  map[string]any
+		new      map[string]any
+		expected bool
+	}{
+		{
+			name:     "both nil",
+			current:  nil,
+			new:      nil,
+			expected: false,
+		},
+		{
+			name:     "new nil",
+			current:  map[string]any{"ctx-size": 4096},
+			new:      nil,
+			expected: false,
+		},
+		{
+			name:     "new empty",
+			current:  map[string]any{"ctx-size": 4096},
+			new:      map[string]any{},
+			expected: false,
+		},
+		{
+			name:     "current nil new has values",
+			current:  nil,
+			new:      map[string]any{"ctx-size": 4096},
+			expected: true,
+		},
+		{
+			name:     "same values",
+			current:  map[string]any{"ctx-size": 4096},
+			new:      map[string]any{"ctx-size": 4096},
+			expected: false,
+		},
+		{
+			name:     "different values",
+			current:  map[string]any{"ctx-size": 4096},
+			new:      map[string]any{"ctx-size": 8192},
+			expected: true,
+		},
+		{
+			name:     "int vs float64 same value",
+			current:  map[string]any{"ctx-size": 4096},
+			new:      map[string]any{"ctx-size": float64(4096)},
+			expected: false,
+		},
+		{
+			name:     "new key added",
+			current:  map[string]any{"ctx-size": 4096},
+			new:      map[string]any{"ctx-size": 4096, "gpu-layers": 35},
+			expected: true,
+		},
+		{
+			name:     "non-server option ignored",
+			current:  map[string]any{"ctx-size": 4096},
+			new:      map[string]any{"ctx-size": 4096, "custom-option": "value"},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := optionsChanged(tt.current, tt.new)
+			if result != tt.expected {
+				t.Errorf("optionsChanged(%v, %v) = %v, want %v", tt.current, tt.new, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestOptionValuesEqual(t *testing.T) {
+	tests := []struct {
+		name string
+		a, b any
+		want bool
+	}{
+		{"int equal", 42, 42, true},
+		{"int not equal", 42, 43, false},
+		{"int vs float64 equal", 42, float64(42), true},
+		{"float64 equal", 3.14, 3.14, true},
+		{"float64 not equal", 3.14, 3.15, false},
+		{"string equal", "test", "test", true},
+		{"string not equal", "test", "other", false},
+		{"bool equal", true, true, true},
+		{"bool not equal", true, false, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := optionValuesEqual(tt.a, tt.b)
+			if got != tt.want {
+				t.Errorf("optionValuesEqual(%v, %v) = %v, want %v", tt.a, tt.b, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestToFloat64(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  any
+		want   float64
+		wantOk bool
+	}{
+		{"int", 42, 42.0, true},
+		{"int64", int64(42), 42.0, true},
+		{"float64", 3.14, 3.14, true},
+		{"float32", float32(3.14), float64(float32(3.14)), true},
+		{"string", "42", 0, false},
+		{"bool", true, 0, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := toFloat64(tt.input)
+			if ok != tt.wantOk {
+				t.Errorf("toFloat64(%v) ok = %v, want %v", tt.input, ok, tt.wantOk)
+			}
+			if ok && got != tt.want {
+				t.Errorf("toFloat64(%v) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
+	}
+}

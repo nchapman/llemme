@@ -50,7 +50,8 @@ const (
 	pidsDir    = "pids"
 )
 
-func GetHomeDir() string {
+// UserHomeDir returns the user's home directory.
+func UserHomeDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "."
@@ -58,28 +59,37 @@ func GetHomeDir() string {
 	return home
 }
 
+// BaseDir returns the base directory for all lleme data.
+// Uses LLEME_HOME environment variable if set, otherwise ~/.lleme
+func BaseDir() string {
+	if dir := os.Getenv("LLEME_HOME"); dir != "" {
+		return dir
+	}
+	return filepath.Join(UserHomeDir(), configDir)
+}
+
 func ConfigPath() string {
-	return filepath.Join(GetHomeDir(), configDir, configFile)
+	return filepath.Join(BaseDir(), configFile)
 }
 
 func ModelsPath() string {
-	return filepath.Join(GetHomeDir(), configDir, modelsDir)
+	return filepath.Join(BaseDir(), modelsDir)
 }
 
 func BinPath() string {
-	return filepath.Join(GetHomeDir(), configDir, binDir)
+	return filepath.Join(BaseDir(), binDir)
 }
 
 func CachePath() string {
-	return filepath.Join(GetHomeDir(), configDir, cacheDir)
+	return filepath.Join(BaseDir(), cacheDir)
 }
 
 func LogsPath() string {
-	return filepath.Join(GetHomeDir(), configDir, logsDir)
+	return filepath.Join(BaseDir(), logsDir)
 }
 
 func PidsPath() string {
-	return filepath.Join(GetHomeDir(), configDir, pidsDir)
+	return filepath.Join(BaseDir(), pidsDir)
 }
 
 func DefaultConfig() *Config {

@@ -126,7 +126,7 @@ func getToken(cfg *config.Config) string {
 		return token
 	}
 
-	tokenPath := filepath.Join(config.GetHomeDir(), ".cache", "huggingface", "token")
+	tokenPath := filepath.Join(config.UserHomeDir(), ".cache", "huggingface", "token")
 	if data, err := os.ReadFile(tokenPath); err == nil {
 		return string(data)
 	}

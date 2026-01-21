@@ -1,6 +1,7 @@
-package ui
+package logs
 
 import (
+	"io"
 	"os"
 
 	"github.com/charmbracelet/log"
@@ -8,8 +9,12 @@ import (
 
 var logger *log.Logger
 
-func InitLogger(verbose bool) {
-	logger = log.NewWithOptions(os.Stderr, log.Options{
+// InitLogger initializes the global logger. If w is nil, logs to stderr.
+func InitLogger(w io.Writer, verbose bool) {
+	if w == nil {
+		w = os.Stderr
+	}
+	logger = log.NewWithOptions(w, log.Options{
 		Level:           log.InfoLevel,
 		ReportTimestamp: false,
 		ReportCaller:    false,

@@ -105,7 +105,7 @@ func ValidatePersonaName(name string) error {
 
 // PersonasPath returns the path to the personas directory.
 func PersonasPath() string {
-	return filepath.Join(GetHomeDir(), configDir, personasDir)
+	return filepath.Join(BaseDir(), personasDir)
 }
 
 // PersonaPath returns the path to a specific persona file.
