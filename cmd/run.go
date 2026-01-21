@@ -324,7 +324,7 @@ func offerToPull(cfg *config.Config, user, repo, quant string) (*proxy.Downloade
 	selectedQuant, _ := hf.FindQuantization(quants, quant)
 
 	// Prompt user to download
-	prompt := fmt.Sprintf("Model not downloaded. Pull %s/%s:%s (%s)?", user, repo, quant, ui.FormatBytes(selectedQuant.Size))
+	prompt := fmt.Sprintf("Model not downloaded. Pull %s (%s)?", hf.FormatModelName(user, repo, quant), ui.FormatBytes(selectedQuant.Size))
 	if !ui.PromptYesNo(prompt, true) {
 		return nil, fmt.Errorf("model required to continue")
 	}
@@ -351,7 +351,7 @@ func offerToPull(cfg *config.Config, user, repo, quant string) (*proxy.Downloade
 		return nil, fmt.Errorf("failed to download: %w", err)
 	}
 
-	progressBar.Finish(fmt.Sprintf("Downloaded %s/%s:%s", user, repo, quant))
+	progressBar.Finish(fmt.Sprintf("Downloaded %s", hf.FormatModelName(user, repo, quant)))
 	fmt.Println()
 
 	// Return the downloaded model info
@@ -359,7 +359,7 @@ func offerToPull(cfg *config.Config, user, repo, quant string) (*proxy.Downloade
 		User:      user,
 		Repo:      repo,
 		Quant:     quant,
-		FullName:  fmt.Sprintf("%s/%s:%s", user, repo, quant),
+		FullName:  hf.FormatModelName(user, repo, quant),
 		ModelPath: modelPath,
 	}, nil
 }

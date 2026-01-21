@@ -100,14 +100,14 @@ Examples:
 			fmt.Println("Models to remove:")
 			fmt.Println()
 			for _, m := range models {
-				fmt.Printf("  %s/%s:%s (%s)\n", m.User, m.Repo, m.Quant, ui.FormatBytes(m.Size))
+				fmt.Printf("  %s (%s)\n", hf.FormatModelName(m.User, m.Repo, m.Quant), ui.FormatBytes(m.Size))
 			}
 			fmt.Println()
 
 			var prompt string
 			if len(models) == 1 {
 				m := models[0]
-				prompt = fmt.Sprintf("Remove %s/%s:%s (%s)?", m.User, m.Repo, m.Quant, ui.FormatBytes(m.Size))
+				prompt = fmt.Sprintf("Remove %s (%s)?", hf.FormatModelName(m.User, m.Repo, m.Quant), ui.FormatBytes(m.Size))
 			} else {
 				prompt = fmt.Sprintf("Remove %d model(s), %s total?", len(models), ui.FormatBytes(totalSize))
 			}
@@ -124,7 +124,7 @@ Examples:
 		for _, m := range models {
 			modelPath := hf.GetModelFilePath(m.User, m.Repo, m.Quant)
 			if err := os.Remove(modelPath); err != nil {
-				ui.PrintError("Failed to remove %s/%s:%s: %v", m.User, m.Repo, m.Quant, err)
+				ui.PrintError("Failed to remove %s: %v", hf.FormatModelName(m.User, m.Repo, m.Quant), err)
 				continue
 			}
 			freedSize += m.Size
@@ -145,7 +145,7 @@ Examples:
 
 		if removed == 1 {
 			m := models[0]
-			fmt.Printf("Removed %s/%s:%s\n", m.User, m.Repo, m.Quant)
+			fmt.Printf("Removed %s\n", hf.FormatModelName(m.User, m.Repo, m.Quant))
 		} else {
 			fmt.Printf("Removed %d models, %s freed\n", removed, ui.FormatBytes(freedSize))
 		}
@@ -192,7 +192,7 @@ func findModelsInDir(modelsDir, pattern string, olderThan time.Duration, largerT
 		quant := strings.TrimSuffix(d.Name(), ".gguf")
 
 		// Check pattern match
-		fullName := fmt.Sprintf("%s/%s:%s", user, repo, quant)
+		fullName := hf.FormatModelName(user, repo, quant)
 		repoName := fmt.Sprintf("%s/%s", user, repo)
 
 		// Try matching full name, repo name, or repo/* pattern
