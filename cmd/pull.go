@@ -39,12 +39,12 @@ var pullCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		if modelInfo.Gated && cfg.HuggingFace.Token == "" && os.Getenv("HF_TOKEN") == "" {
+		if bool(modelInfo.Gated) && !hf.HasToken(cfg) {
 			ui.PrintError("Authentication required")
 			fmt.Printf("\nThe repository '%s/%s' requires authentication.\n\n", user, repo)
 			fmt.Println("To access gated models, provide a Hugging Face token:")
 			fmt.Println("  1. Get a token at https://huggingface.co/settings/tokens")
-			fmt.Println("  2. Run: huggingface-cli login")
+			fmt.Println("  2. Run: hf auth login")
 			fmt.Println("     Or set: export HF_TOKEN=hf_xxxxx")
 			os.Exit(1)
 		}
@@ -57,9 +57,7 @@ var pullCmd = &cobra.Command{
 		quants := hf.ExtractQuantizations(files)
 		if len(quants) == 0 {
 			ui.PrintError("No GGUF files found")
-			fmt.Printf("\nThe repository '%s/%s' exists but contains no GGUF files.\n\n", user, repo)
-			fmt.Println("Try one of these GGUF versions:")
-			fmt.Printf("  • %s/%s\n", user+"GGUF", repo)
+			fmt.Printf("\nThe repository '%s/%s' exists but contains no GGUF files.\n", user, repo)
 			os.Exit(1)
 		}
 
@@ -85,7 +83,12 @@ var pullCmd = &cobra.Command{
 		}
 
 		// Fetch remote manifest to check for updates and get file info
-		manifest, manifestJSON, err := client.GetManifest(user, repo, quant)
+		// Use "latest" tag for models without quantization suffix
+		manifestTag := quant
+		if quant == "default" {
+			manifestTag = "latest"
+		}
+		manifest, manifestJSON, err := client.GetManifest(user, repo, manifestTag)
 		if err != nil {
 			ui.Fatal("Failed to get manifest: %v", err)
 		}
@@ -113,7 +116,7 @@ var pullCmd = &cobra.Command{
 			totalSize += manifest.MMProjFile.Size
 		}
 
-		modelName := ui.Keyword(fmt.Sprintf("%s/%s:%s", user, repo, quant))
+		modelName := ui.Keyword(hf.FormatModelName(user, repo, quant))
 		if hasMMProj {
 			fmt.Printf("Pulling %s (%s + %s mmproj)\n",
 				modelName,

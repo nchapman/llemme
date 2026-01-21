@@ -17,9 +17,10 @@ import (
 )
 
 var (
-	rmForce      bool
-	rmOlderThan  string
-	rmLargerThan string
+	rmForce            bool
+	rmOlderThan        string
+	rmLargerThan       string
+	rmPartialDownloads bool
 )
 
 var removeCmd = &cobra.Command{
@@ -36,9 +37,24 @@ Examples:
   lleme remove *                     Remove all models
   lleme remove --older-than 30d      Remove models unused for 30 days
   lleme remove --larger-than 10GB    Remove models larger than 10GB
+  lleme remove --partial-downloads   Remove incomplete downloads
   lleme remove user/* --older-than 7d  Combine pattern with filter`,
 	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		// Handle --partial-downloads flag
+		if rmPartialDownloads {
+			count, err := hf.CleanupPartialFiles()
+			if err != nil {
+				ui.Fatal("Failed to clean up partial downloads: %v", err)
+			}
+			if count == 0 {
+				fmt.Println("No partial downloads found")
+			} else {
+				fmt.Printf("Removed %d partial download(s)\n", count)
+			}
+			return
+		}
+
 		pattern := ""
 		if len(args) > 0 {
 			pattern = args[0]
@@ -100,14 +116,14 @@ Examples:
 			fmt.Println("Models to remove:")
 			fmt.Println()
 			for _, m := range models {
-				fmt.Printf("  %s/%s:%s (%s)\n", m.User, m.Repo, m.Quant, ui.FormatBytes(m.Size))
+				fmt.Printf("  %s (%s)\n", hf.FormatModelName(m.User, m.Repo, m.Quant), ui.FormatBytes(m.Size))
 			}
 			fmt.Println()
 
 			var prompt string
 			if len(models) == 1 {
 				m := models[0]
-				prompt = fmt.Sprintf("Remove %s/%s:%s (%s)?", m.User, m.Repo, m.Quant, ui.FormatBytes(m.Size))
+				prompt = fmt.Sprintf("Remove %s (%s)?", hf.FormatModelName(m.User, m.Repo, m.Quant), ui.FormatBytes(m.Size))
 			} else {
 				prompt = fmt.Sprintf("Remove %d model(s), %s total?", len(models), ui.FormatBytes(totalSize))
 			}
@@ -124,7 +140,7 @@ Examples:
 		for _, m := range models {
 			modelPath := hf.GetModelFilePath(m.User, m.Repo, m.Quant)
 			if err := os.Remove(modelPath); err != nil {
-				ui.PrintError("Failed to remove %s/%s:%s: %v", m.User, m.Repo, m.Quant, err)
+				ui.PrintError("Failed to remove %s: %v", hf.FormatModelName(m.User, m.Repo, m.Quant), err)
 				continue
 			}
 			freedSize += m.Size
@@ -145,7 +161,7 @@ Examples:
 
 		if removed == 1 {
 			m := models[0]
-			fmt.Printf("Removed %s/%s:%s\n", m.User, m.Repo, m.Quant)
+			fmt.Printf("Removed %s\n", hf.FormatModelName(m.User, m.Repo, m.Quant))
 		} else {
 			fmt.Printf("Removed %d models, %s freed\n", removed, ui.FormatBytes(freedSize))
 		}
@@ -192,7 +208,7 @@ func findModelsInDir(modelsDir, pattern string, olderThan time.Duration, largerT
 		quant := strings.TrimSuffix(d.Name(), ".gguf")
 
 		// Check pattern match
-		fullName := fmt.Sprintf("%s/%s:%s", user, repo, quant)
+		fullName := hf.FormatModelName(user, repo, quant)
 		repoName := fmt.Sprintf("%s/%s", user, repo)
 
 		// Try matching full name, repo name, or repo/* pattern
@@ -324,5 +340,6 @@ func init() {
 	removeCmd.Flags().BoolVarP(&rmForce, "force", "f", false, "Skip confirmation prompt")
 	removeCmd.Flags().StringVar(&rmOlderThan, "older-than", "", "Remove models not used in this duration (e.g., 24h, 7d, 4w)")
 	removeCmd.Flags().StringVar(&rmLargerThan, "larger-than", "", "Remove models larger than this size (e.g., 500MB, 10GB)")
+	removeCmd.Flags().BoolVar(&rmPartialDownloads, "partial-downloads", false, "Remove incomplete/interrupted downloads")
 	rootCmd.AddCommand(removeCmd)
 }

@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/nchapman/lleme/internal/config"
@@ -28,15 +29,15 @@ type Client struct {
 }
 
 type ModelInfo struct {
-	ModelId      string    `json:"modelId"`
-	Author       string    `json:"author"`
-	CreatedAt    time.Time `json:"createdAt"`
-	LastModified time.Time `json:"lastModified"`
-	Private      bool      `json:"private"`
-	Gated        bool      `json:"gated"`
-	Siblings     []Sibling `json:"siblings"`
-	Tags         []string  `json:"tags"`
-	CardData     CardData  `json:"cardData"`
+	ModelId      string      `json:"modelId"`
+	Author       string      `json:"author"`
+	CreatedAt    time.Time   `json:"createdAt"`
+	LastModified time.Time   `json:"lastModified"`
+	Private      bool        `json:"private"`
+	Gated        GatedStatus `json:"gated"`
+	Siblings     []Sibling   `json:"siblings"`
+	Tags         []string    `json:"tags"`
+	CardData     CardData    `json:"cardData"`
 }
 
 type Sibling struct {
@@ -128,10 +129,15 @@ func getToken(cfg *config.Config) string {
 
 	tokenPath := filepath.Join(config.UserHomeDir(), ".cache", "huggingface", "token")
 	if data, err := os.ReadFile(tokenPath); err == nil {
-		return string(data)
+		return strings.TrimSpace(string(data))
 	}
 
 	return cfg.HuggingFace.Token
+}
+
+// HasToken returns true if a HuggingFace token is available from any source.
+func HasToken(cfg *config.Config) bool {
+	return getToken(cfg) != ""
 }
 
 func (c *Client) doRequest(req *http.Request) (*http.Response, error) {
@@ -215,7 +221,7 @@ func (c *Client) ListFiles(user, repo, branch string) ([]FileTree, error) {
 
 func (c *Client) SearchModels(query string, limit int) ([]SearchResult, error) {
 	// Use models-json endpoint with apps=llama.cpp filter for llama.cpp compatible models
-	searchURL := fmt.Sprintf("%s/models-json?apps=llama.cpp&sort=trending", baseURL)
+	searchURL := fmt.Sprintf("%s/models-json?apps=llama.cpp&pipeline_tag=text-generation&sort=trending", baseURL)
 	if query != "" {
 		searchURL += "&search=" + url.QueryEscape(query)
 	}

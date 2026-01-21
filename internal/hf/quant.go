@@ -71,7 +71,8 @@ func ExtractQuantizations(files []FileTree) []Quantization {
 
 		quant := ParseQuantization(file.Path)
 		if quant == "" {
-			continue
+			// GGUF file without quantization suffix - use "default"
+			quant = "default"
 		}
 
 		quants = append(quants, Quantization{
@@ -133,4 +134,12 @@ func FindQuantization(quants []Quantization, name string) (Quantization, bool) {
 
 func IsGGUFFile(filename string) bool {
 	return strings.HasSuffix(filename, ".gguf")
+}
+
+// FormatModelName returns a display name for the model, omitting the quant suffix for "default".
+func FormatModelName(user, repo, quant string) string {
+	if quant == "" || quant == "default" {
+		return user + "/" + repo
+	}
+	return user + "/" + repo + ":" + quant
 }

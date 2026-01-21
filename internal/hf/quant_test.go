@@ -142,6 +142,55 @@ func TestExtractQuantizationsEmpty(t *testing.T) {
 	}
 }
 
+func TestExtractQuantizationsNoSuffix(t *testing.T) {
+	files := []FileTree{
+		{Path: "gemma-7b.gguf", Size: 34200000000},
+		{Path: "README.md", Size: 1024},
+		{Path: "config.json", Size: 2048},
+	}
+
+	quants := ExtractQuantizations(files)
+
+	if len(quants) != 1 {
+		t.Errorf("ExtractQuantizations() got %d quants, want 1", len(quants))
+	}
+
+	if quants[0].Name != "default" {
+		t.Errorf("ExtractQuantizations()[0].Name = %v, want 'default'", quants[0].Name)
+	}
+
+	if quants[0].File != "gemma-7b.gguf" {
+		t.Errorf("ExtractQuantizations()[0].File = %v, want 'gemma-7b.gguf'", quants[0].File)
+	}
+}
+
+func TestExtractQuantizationsMixed(t *testing.T) {
+	files := []FileTree{
+		{Path: "model.gguf", Size: 10000000000},
+		{Path: "model-Q4_K_M.gguf", Size: 4000000000},
+		{Path: "README.md", Size: 1024},
+	}
+
+	quants := ExtractQuantizations(files)
+
+	if len(quants) != 2 {
+		t.Errorf("ExtractQuantizations() got %d quants, want 2", len(quants))
+	}
+
+	// Check that both default and Q4_K_M are found
+	names := make(map[string]bool)
+	for _, q := range quants {
+		names[q.Name] = true
+	}
+
+	if !names["default"] {
+		t.Error("ExtractQuantizations() missing 'default' quant")
+	}
+	if !names["Q4_K_M"] {
+		t.Error("ExtractQuantizations() missing 'Q4_K_M' quant")
+	}
+}
+
 func TestGetBestQuantization(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -178,6 +227,21 @@ func TestGetBestQuantization(t *testing.T) {
 			name:   "empty",
 			quants: []Quantization{},
 			want:   "",
+		},
+		{
+			name: "default only",
+			quants: []Quantization{
+				{Name: "default"},
+			},
+			want: "default",
+		},
+		{
+			name: "default with preferred quants",
+			quants: []Quantization{
+				{Name: "default"},
+				{Name: "Q4_K_M"},
+			},
+			want: "Q4_K_M",
 		},
 	}
 
