@@ -221,7 +221,7 @@ func (c *Client) ListFiles(user, repo, branch string) ([]FileTree, error) {
 
 func (c *Client) SearchModels(query string, limit int) ([]SearchResult, error) {
 	// Use models-json endpoint with apps=llama.cpp filter for llama.cpp compatible models
-	searchURL := fmt.Sprintf("%s/models-json?apps=llama.cpp&sort=trending", baseURL)
+	searchURL := fmt.Sprintf("%s/models-json?apps=llama.cpp&pipeline_tag=text-generation&sort=trending", baseURL)
 	if query != "" {
 		searchURL += "&search=" + url.QueryEscape(query)
 	}
