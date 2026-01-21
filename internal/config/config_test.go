@@ -61,7 +61,7 @@ func TestLoad(t *testing.T) {
 	})
 
 	t.Run("parses valid config file with options", func(t *testing.T) {
-		configDir := filepath.Join(tmpDir, ".llemme")
+		configDir := filepath.Join(tmpDir, ".lleme")
 		if err := os.MkdirAll(configDir, 0755); err != nil {
 			t.Fatalf("Failed to create test config dir: %v", err)
 		}
@@ -132,7 +132,7 @@ server:
 	})
 
 	t.Run("returns error for invalid YAML", func(t *testing.T) {
-		configDir := filepath.Join(tmpDir, ".llemme")
+		configDir := filepath.Join(tmpDir, ".lleme")
 		if err := os.MkdirAll(configDir, 0755); err != nil {
 			t.Fatalf("Failed to create test config dir: %v", err)
 		}
@@ -161,7 +161,7 @@ func TestSaveDefault(t *testing.T) {
 		t.Fatalf("Expected no error saving default config, got %v", err)
 	}
 
-	configPath := filepath.Join(tmpDir, ".llemme", "config.yaml")
+	configPath := filepath.Join(tmpDir, ".lleme", "config.yaml")
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		t.Fatalf("Failed to read saved config: %v", err)
@@ -247,13 +247,15 @@ func TestEnsureDirectories(t *testing.T) {
 		t.Fatalf("Expected no error creating directories, got %v", err)
 	}
 
-	baseDir := filepath.Join(tmpDir, ".llemme")
+	baseDir := filepath.Join(tmpDir, ".lleme")
 
 	expectedDirs := []string{
 		baseDir,
 		filepath.Join(baseDir, "models"),
 		filepath.Join(baseDir, "bin"),
-		filepath.Join(baseDir, "blobs"),
+		filepath.Join(baseDir, "cache"),
+		filepath.Join(baseDir, "logs"),
+		filepath.Join(baseDir, "pids"),
 	}
 
 	for _, dir := range expectedDirs {
@@ -271,26 +273,32 @@ func TestPathHelpers(t *testing.T) {
 	os.Setenv("HOME", tmpDir)
 
 	configPath := ConfigPath()
-	expectedConfigPath := filepath.Join(tmpDir, ".llemme", "config.yaml")
+	expectedConfigPath := filepath.Join(tmpDir, ".lleme", "config.yaml")
 	if configPath != expectedConfigPath {
 		t.Errorf("Expected ConfigPath %s, got %s", expectedConfigPath, configPath)
 	}
 
 	modelsPath := ModelsPath()
-	expectedModelsPath := filepath.Join(tmpDir, ".llemme", "models")
+	expectedModelsPath := filepath.Join(tmpDir, ".lleme", "models")
 	if modelsPath != expectedModelsPath {
 		t.Errorf("Expected ModelsPath %s, got %s", expectedModelsPath, modelsPath)
 	}
 
 	binPath := BinPath()
-	expectedBinPath := filepath.Join(tmpDir, ".llemme", "bin")
+	expectedBinPath := filepath.Join(tmpDir, ".lleme", "bin")
 	if binPath != expectedBinPath {
 		t.Errorf("Expected BinPath %s, got %s", expectedBinPath, binPath)
 	}
 
-	blobsPath := BlobsPath()
-	expectedBlobsPath := filepath.Join(tmpDir, ".llemme", "blobs")
-	if blobsPath != expectedBlobsPath {
-		t.Errorf("Expected BlobsPath %s, got %s", expectedBlobsPath, blobsPath)
+	cachePath := CachePath()
+	expectedCachePath := filepath.Join(tmpDir, ".lleme", "cache")
+	if cachePath != expectedCachePath {
+		t.Errorf("Expected CachePath %s, got %s", expectedCachePath, cachePath)
+	}
+
+	pidsPath := PidsPath()
+	expectedPidsPath := filepath.Join(tmpDir, ".lleme", "pids")
+	if pidsPath != expectedPidsPath {
+		t.Errorf("Expected PidsPath %s, got %s", expectedPidsPath, pidsPath)
 	}
 }

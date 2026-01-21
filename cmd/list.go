@@ -3,15 +3,14 @@ package cmd
 import (
 	"fmt"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
-	"github.com/nchapman/llemme/internal/config"
-	"github.com/nchapman/llemme/internal/hf"
-	"github.com/nchapman/llemme/internal/ui"
+	"github.com/nchapman/lleme/internal/config"
+	"github.com/nchapman/lleme/internal/hf"
+	"github.com/nchapman/lleme/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -77,14 +76,13 @@ var listCmd = &cobra.Command{
 		})
 
 		if err != nil {
-			fmt.Printf("%s Failed to list models: %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("Failed to list models: %v", err)
 		}
 
 		if len(models) == 0 {
 			fmt.Println(ui.Muted("No models downloaded yet"))
 			fmt.Println()
-			fmt.Println("Use 'llemme pull <user/repo>' to download a model")
+			fmt.Println("Use 'lleme pull <user/repo>' to download a model")
 			return
 		}
 

@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nchapman/llemme/internal/config"
-	"github.com/nchapman/llemme/internal/hf"
-	"github.com/nchapman/llemme/internal/ui"
+	"github.com/nchapman/lleme/internal/config"
+	"github.com/nchapman/lleme/internal/hf"
+	"github.com/nchapman/lleme/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -23,14 +23,12 @@ var pullCmd = &cobra.Command{
 
 		user, repo, quant, err := parseModelRef(modelRef)
 		if err != nil {
-			fmt.Printf("%s %s\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("%s", err)
 		}
 
 		cfg, err := config.Load()
 		if err != nil {
-			fmt.Printf("%s Failed to load config: %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("Failed to load config: %v", err)
 		}
 
 		client := hf.NewClient(cfg)
@@ -42,7 +40,7 @@ var pullCmd = &cobra.Command{
 		}
 
 		if modelInfo.Gated && cfg.HuggingFace.Token == "" && os.Getenv("HF_TOKEN") == "" {
-			fmt.Printf("%s\n", ui.ErrorMsg("Error: Authentication required"))
+			ui.PrintError("Authentication required")
 			fmt.Printf("\nThe repository '%s/%s' requires authentication.\n\n", user, repo)
 			fmt.Println("To access gated models, provide a Hugging Face token:")
 			fmt.Println("  1. Get a token at https://huggingface.co/settings/tokens")
@@ -53,13 +51,12 @@ var pullCmd = &cobra.Command{
 
 		files, err := client.ListFiles(user, repo, "main")
 		if err != nil {
-			fmt.Printf("%s Failed to list files: %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("Failed to list files: %v", err)
 		}
 
 		quants := hf.ExtractQuantizations(files)
 		if len(quants) == 0 {
-			fmt.Printf("%s No GGUF files found\n", ui.ErrorMsg("Error:"))
+			ui.PrintError("No GGUF files found")
 			fmt.Printf("\nThe repository '%s/%s' exists but contains no GGUF files.\n\n", user, repo)
 			fmt.Println("Try one of these GGUF versions:")
 			fmt.Printf("  • %s/%s\n", user+"GGUF", repo)
@@ -71,7 +68,7 @@ var pullCmd = &cobra.Command{
 		} else {
 			_, found := hf.FindQuantization(quants, quant)
 			if !found {
-				fmt.Printf("%s Quantization '%s' not found\n", ui.ErrorMsg("Error:"), quant)
+				ui.PrintError("Quantization '%s' not found", quant)
 				fmt.Println("\nAvailable quantizations:")
 				for _, q := range hf.SortQuantizations(quants) {
 					fmt.Printf("  • %s (%s)\n", q.Name, ui.FormatBytes(q.Size))
@@ -84,20 +81,17 @@ var pullCmd = &cobra.Command{
 		modelPath := hf.GetModelFilePath(user, repo, quant)
 
 		if err := os.MkdirAll(modelDir, 0755); err != nil {
-			fmt.Printf("%s Failed to create model directory: %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("Failed to create model directory: %v", err)
 		}
 
 		// Fetch remote manifest to check for updates and get file info
 		manifest, manifestJSON, err := client.GetManifest(user, repo, quant)
 		if err != nil {
-			fmt.Printf("%s Failed to get manifest: %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("Failed to get manifest: %v", err)
 		}
 
 		if manifest.GGUFFile == nil {
-			fmt.Printf("%s Manifest does not contain a GGUF file\n", ui.ErrorMsg("Error:"))
-			os.Exit(1)
+			ui.Fatal("Manifest does not contain a GGUF file")
 		}
 
 		// Check if local files are up to date with remote manifest
@@ -141,8 +135,7 @@ var pullCmd = &cobra.Command{
 		_, err = downloaderWithProgress.DownloadModel(user, repo, "main", manifest.GGUFFile.RFilename, modelPath)
 		if err != nil {
 			progressBar.Stop()
-			fmt.Printf("%s Failed to download model: %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("Failed to download model: %v", err)
 		}
 		downloaded += manifest.GGUFFile.Size
 
@@ -153,8 +146,7 @@ var pullCmd = &cobra.Command{
 			_, err = downloaderWithProgress.DownloadModel(user, repo, "main", manifest.MMProjFile.RFilename, mmprojPath)
 			if err != nil {
 				progressBar.Stop()
-				fmt.Printf("%s Failed to download mmproj: %v\n", ui.ErrorMsg("Error:"), err)
-				os.Exit(1)
+				ui.Fatal("Failed to download mmproj: %v", err)
 			}
 		}
 
@@ -171,14 +163,12 @@ var pullCmd = &cobra.Command{
 			})
 			if err != nil {
 				verifyBar.Stop()
-				fmt.Printf("%s Failed to verify model: %v\n", ui.ErrorMsg("Error:"), err)
-				os.Exit(1)
+				ui.Fatal("Failed to verify model: %v", err)
 			}
 			if hash != manifest.GGUFFile.LFS.SHA256 {
 				verifyBar.Stop()
-				fmt.Printf("%s Model verification failed: hash mismatch\n", ui.ErrorMsg("Error:"))
 				os.Remove(modelPath)
-				os.Exit(1)
+				ui.Fatal("Model verification failed: hash mismatch")
 			}
 			verified += manifest.GGUFFile.Size
 
@@ -188,14 +178,12 @@ var pullCmd = &cobra.Command{
 				})
 				if err != nil {
 					verifyBar.Stop()
-					fmt.Printf("%s Failed to verify mmproj: %v\n", ui.ErrorMsg("Error:"), err)
-					os.Exit(1)
+					ui.Fatal("Failed to verify mmproj: %v", err)
 				}
 				if hash != manifest.MMProjFile.LFS.SHA256 {
 					verifyBar.Stop()
-					fmt.Printf("%s mmproj verification failed: hash mismatch\n", ui.ErrorMsg("Error:"))
 					os.Remove(mmprojPath)
-					os.Exit(1)
+					ui.Fatal("mmproj verification failed: hash mismatch")
 				}
 			}
 
@@ -205,8 +193,7 @@ var pullCmd = &cobra.Command{
 		// Save manifest for offline reference and verification
 		manifestPath := hf.GetManifestFilePath(user, repo, quant)
 		if err := os.WriteFile(manifestPath, manifestJSON, 0644); err != nil {
-			fmt.Printf("%s Failed to save manifest: %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("Failed to save manifest: %v", err)
 		}
 
 		if hasMMProj {
@@ -313,7 +300,7 @@ func handleModelError(err error, user, repo string) {
 		fmt.Printf("\nCould not find '%s/%s' on Hugging Face.\n\n", user, repo)
 		fmt.Println("Tips:")
 		fmt.Println("  • Check the spelling of the repository name")
-		fmt.Println("  • Use 'llemme search <query>' to find models")
+		fmt.Println("  • Use 'lleme search <query>' to find models")
 	} else {
 		fmt.Printf("%s %v\n", ui.ErrorMsg("Error:"), err)
 	}

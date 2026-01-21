@@ -74,7 +74,7 @@ func TestBinaryPath(t *testing.T) {
 
 	os.Setenv("HOME", tmpDir)
 
-	expectedPath := filepath.Join(tmpDir, ".llemme", "bin", "llama-cli")
+	expectedPath := filepath.Join(tmpDir, ".lleme", "bin", "llama-current", "llama-cli")
 	actualPath := BinaryPath()
 
 	if actualPath != expectedPath {
@@ -89,7 +89,7 @@ func TestServerPath(t *testing.T) {
 
 	os.Setenv("HOME", tmpDir)
 
-	expectedPath := filepath.Join(tmpDir, ".llemme", "bin", "llama-server")
+	expectedPath := filepath.Join(tmpDir, ".lleme", "bin", "llama-current", "llama-server")
 	actualPath := ServerPath()
 
 	if actualPath != expectedPath {
@@ -104,7 +104,7 @@ func TestIsInstalled(t *testing.T) {
 
 	os.Setenv("HOME", tmpDir)
 
-	binDir := filepath.Join(tmpDir, ".llemme", "bin")
+	binDir := filepath.Join(tmpDir, ".lleme", "bin")
 	if err := os.MkdirAll(binDir, 0755); err != nil {
 		t.Fatalf("Failed to create bin dir: %v", err)
 	}
@@ -115,24 +115,24 @@ func TestIsInstalled(t *testing.T) {
 		}
 	})
 
-	t.Run("returns true when binary symlink exists", func(t *testing.T) {
+	t.Run("returns true when llama-current symlink exists with binary", func(t *testing.T) {
 		versionDir := filepath.Join(binDir, "llama-b7751")
 		if err := os.MkdirAll(versionDir, 0755); err != nil {
 			t.Fatalf("Failed to create version dir: %v", err)
 		}
 
-		cliBinary := filepath.Join(versionDir, "llama-cli-b7751")
+		cliBinary := filepath.Join(versionDir, "llama-cli")
 		if err := os.WriteFile(cliBinary, []byte("#!/bin/sh\necho test"), 0755); err != nil {
 			t.Fatalf("Failed to create binary: %v", err)
 		}
 
-		cliSymlink := filepath.Join(binDir, "llama-cli")
-		if err := os.Symlink(cliBinary, cliSymlink); err != nil {
-			t.Fatalf("Failed to create symlink: %v", err)
+		currentSymlink := filepath.Join(binDir, "llama-current")
+		if err := os.Symlink("llama-b7751", currentSymlink); err != nil {
+			t.Fatalf("Failed to create llama-current symlink: %v", err)
 		}
 
 		if !IsInstalled() {
-			t.Error("Expected IsInstalled to return true when symlink exists")
+			t.Error("Expected IsInstalled to return true when llama-current symlink exists")
 		}
 	})
 }
@@ -199,7 +199,7 @@ func TestVersionInfo(t *testing.T) {
 
 		os.Setenv("HOME", tmpDir)
 
-		binDir := filepath.Join(tmpDir, ".llemme", "bin")
+		binDir := filepath.Join(tmpDir, ".lleme", "bin")
 		if err := os.MkdirAll(binDir, 0755); err != nil {
 			t.Fatalf("Failed to create bin dir: %v", err)
 		}
@@ -276,7 +276,7 @@ func TestFindAssetForPlatform(t *testing.T) {
 	})
 }
 
-func TestExtractTarGz(t *testing.T) {
+func TestLlamaCurrentSymlinkStructure(t *testing.T) {
 	tmpDir := t.TempDir()
 	binDir := filepath.Join(tmpDir, "bin")
 	versionDir := filepath.Join(binDir, "llama-b7751")
@@ -285,9 +285,9 @@ func TestExtractTarGz(t *testing.T) {
 		t.Fatalf("Failed to create version dir: %v", err)
 	}
 
-	t.Run("creates symlinks for binaries", func(t *testing.T) {
-		cliBinary := filepath.Join(versionDir, "llama-cli-b7751")
-		serverBinary := filepath.Join(versionDir, "llama-server-b7751")
+	t.Run("creates llama-current symlink pointing to version directory", func(t *testing.T) {
+		cliBinary := filepath.Join(versionDir, "llama-cli")
+		serverBinary := filepath.Join(versionDir, "llama-server")
 
 		if err := os.WriteFile(cliBinary, []byte("#!/bin/sh\necho cli"), 0755); err != nil {
 			t.Fatalf("Failed to create CLI binary: %v", err)
@@ -296,94 +296,72 @@ func TestExtractTarGz(t *testing.T) {
 			t.Fatalf("Failed to create server binary: %v", err)
 		}
 
-		cliSymlink := filepath.Join(binDir, "llama-cli")
-		serverSymlink := filepath.Join(binDir, "llama-server")
-
-		if err := os.Symlink(cliBinary, cliSymlink); err != nil {
-			t.Fatalf("Failed to create CLI symlink: %v", err)
-		}
-		if err := os.Symlink(serverBinary, serverSymlink); err != nil {
-			t.Fatalf("Failed to create server symlink: %v", err)
+		currentSymlink := filepath.Join(binDir, "llama-current")
+		if err := os.Symlink("llama-b7751", currentSymlink); err != nil {
+			t.Fatalf("Failed to create llama-current symlink: %v", err)
 		}
 
-		if _, err := os.Lstat(cliSymlink); err != nil {
-			t.Errorf("Expected CLI symlink to exist: %v", err)
+		if _, err := os.Lstat(currentSymlink); err != nil {
+			t.Errorf("Expected llama-current symlink to exist: %v", err)
 		}
-		if _, err := os.Lstat(serverSymlink); err != nil {
-			t.Errorf("Expected server symlink to exist: %v", err)
+
+		// Verify symlink target
+		target, err := os.Readlink(currentSymlink)
+		if err != nil {
+			t.Fatalf("Failed to read symlink: %v", err)
+		}
+		if target != "llama-b7751" {
+			t.Errorf("Expected symlink target llama-b7751, got %s", target)
+		}
+
+		// Verify binaries are accessible through llama-current symlink
+		if _, err := os.Stat(filepath.Join(binDir, "llama-current", "llama-cli")); err != nil {
+			t.Errorf("Expected llama-cli to be accessible through llama-current symlink: %v", err)
+		}
+		if _, err := os.Stat(filepath.Join(binDir, "llama-current", "llama-server")); err != nil {
+			t.Errorf("Expected llama-server to be accessible through llama-current symlink: %v", err)
 		}
 	})
 }
 
-func TestVersionInfoJSON(t *testing.T) {
+func TestVersionFileJSON(t *testing.T) {
 	version := &VersionInfo{
 		TagName:     "b7751",
 		BinaryPath:  "/path/to/llama-cli",
 		InstalledAt: "2024-01-15T10:00:00Z",
 	}
+	file := VersionFile{Llama: version}
 
-	data, err := json.MarshalIndent(version, "", "  ")
+	data, err := json.MarshalIndent(file, "", "  ")
 	if err != nil {
-		t.Fatalf("Failed to marshal version: %v", err)
+		t.Fatalf("Failed to marshal version file: %v", err)
 	}
 
-	var decoded VersionInfo
+	// Verify JSON structure has "llama" key
+	var raw map[string]any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("Failed to unmarshal as map: %v", err)
+	}
+	if _, ok := raw["llama"]; !ok {
+		t.Error("Expected 'llama' key in JSON output")
+	}
+
+	var decoded VersionFile
 	if err := json.Unmarshal(data, &decoded); err != nil {
-		t.Fatalf("Failed to unmarshal version: %v", err)
+		t.Fatalf("Failed to unmarshal version file: %v", err)
 	}
 
-	if decoded.TagName != version.TagName {
-		t.Errorf("Expected TagName %s, got %s", version.TagName, decoded.TagName)
+	if decoded.Llama == nil {
+		t.Fatal("Expected Llama to be non-nil")
 	}
-	if decoded.BinaryPath != version.BinaryPath {
-		t.Errorf("Expected BinaryPath %s, got %s", version.BinaryPath, decoded.BinaryPath)
+	if decoded.Llama.TagName != version.TagName {
+		t.Errorf("Expected TagName %s, got %s", version.TagName, decoded.Llama.TagName)
 	}
-	if decoded.InstalledAt != version.InstalledAt {
-		t.Errorf("Expected InstalledAt %s, got %s", version.InstalledAt, decoded.InstalledAt)
+	if decoded.Llama.BinaryPath != version.BinaryPath {
+		t.Errorf("Expected BinaryPath %s, got %s", version.BinaryPath, decoded.Llama.BinaryPath)
 	}
-}
-
-func TestIsSharedLibrary(t *testing.T) {
-	tests := []struct {
-		name     string
-		expected bool
-	}{
-		// macOS libraries
-		{"libggml.dylib", true},
-		{"Metal.dylib", true},
-
-		// Linux libraries (plain .so)
-		{"libggml.so", true},
-		{"libllama.so", true},
-
-		// Linux libraries (versioned .so.X.Y.Z)
-		{"libggml.so.0", true},
-		{"libggml.so.0.9.5", true},
-		{"libllama.so.0.0.7769", true},
-		{"libggml-cpu-haswell.so", true},
-
-		// Not libraries
-		{"llama-cli", false},
-		{"llama-server", false},
-		{"LICENSE", false},
-		{"README.md", false},
-		{"libggml.a", false}, // Static library
-
-		// False positive prevention - contains ".so" but not a library
-		{"reason.txt", false},
-		{"person.log", false},
-		{"also_something", false},
-		{"my.socket", false},
-		{"something.socket", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := isSharedLibrary(tt.name)
-			if result != tt.expected {
-				t.Errorf("isSharedLibrary(%q) = %v, want %v", tt.name, result, tt.expected)
-			}
-		})
+	if decoded.Llama.InstalledAt != version.InstalledAt {
+		t.Errorf("Expected InstalledAt %s, got %s", version.InstalledAt, decoded.Llama.InstalledAt)
 	}
 }
 

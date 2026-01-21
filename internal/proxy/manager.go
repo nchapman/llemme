@@ -12,10 +12,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/nchapman/llemme/internal/config"
-	"github.com/nchapman/llemme/internal/hf"
-	"github.com/nchapman/llemme/internal/llama"
-	"github.com/nchapman/llemme/internal/logs"
+	"github.com/nchapman/lleme/internal/config"
+	"github.com/nchapman/lleme/internal/hf"
+	"github.com/nchapman/lleme/internal/llama"
+	"github.com/nchapman/lleme/internal/logs"
 )
 
 // ModelManager manages the lifecycle of llama-server backend instances
@@ -27,6 +27,7 @@ type ModelManager struct {
 	resolver      *ModelResolver
 	config        *Config
 	appConfig     *config.Config
+	onStateChange func() // called after backend start/stop to persist state
 }
 
 // NewModelManager creates a new model manager
@@ -39,6 +40,14 @@ func NewModelManager(cfg *Config, appCfg *config.Config) *ModelManager {
 		config:        cfg,
 		appConfig:     appCfg,
 	}
+}
+
+// SetStateChangeCallback sets a callback that is invoked after backends start or stop.
+// This is used to persist backend state for crash recovery.
+func (m *ModelManager) SetStateChangeCallback(fn func()) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.onStateChange = fn
 }
 
 // GetOrLoadBackend returns a backend for the given model, loading it if necessary.
@@ -135,6 +144,7 @@ func (m *ModelManager) GetOrLoadBackend(modelQuery string, options map[string]an
 			lruBackend.SetStatus(BackendStopping)
 		}
 		m.mu.Unlock()
+		logs.Info("Evicting model to free slot", "model", lruModel)
 		if err := m.StopBackend(lruModel); err != nil {
 			return nil, fmt.Errorf("failed to evict model: %w", err)
 		}
@@ -161,7 +171,13 @@ func (m *ModelManager) GetOrLoadBackend(modelQuery string, options map[string]an
 	}
 	m.backends[modelName] = backend
 	m.lruOrder = append([]string{modelName}, m.lruOrder...)
+	callback := m.onStateChange
 	m.mu.Unlock()
+
+	// Persist "starting" state so we can clean up orphans if we crash
+	if callback != nil {
+		callback()
+	}
 
 	// Start the backend in background
 	go m.startBackend(backend)
@@ -255,8 +271,6 @@ func (m *ModelManager) StopBackend(modelName string) error {
 
 	// Cleanup
 	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	backend.SetStatus(BackendStopped)
 	backend.CloseReadyChan()
 	if backend.LogWriter != nil {
@@ -265,6 +279,13 @@ func (m *ModelManager) StopBackend(modelName string) error {
 	m.portAllocator.Release(backend.Port)
 	delete(m.backends, modelName)
 	m.removeLRU(modelName)
+	callback := m.onStateChange
+	m.mu.Unlock()
+
+	// Notify state change for persistence
+	if callback != nil {
+		callback()
+	}
 
 	return nil
 }
@@ -359,6 +380,16 @@ func (m *ModelManager) startBackend(backend *Backend) {
 
 	backend.SetStatus(BackendReady)
 	backend.CloseReadyChan()
+
+	logs.Info("Model loaded", "model", backend.ModelName, "port", backend.Port)
+
+	// Notify state change for persistence
+	m.mu.RLock()
+	callback := m.onStateChange
+	m.mu.RUnlock()
+	if callback != nil {
+		callback()
+	}
 }
 
 func (m *ModelManager) buildArgs(backend *Backend) []string {
@@ -367,7 +398,7 @@ func (m *ModelManager) buildArgs(backend *Backend) []string {
 		"--host", m.config.Host,
 		"--port", fmt.Sprintf("%d", backend.Port),
 		"--embeddings", // Enable /v1/embeddings endpoint
-		"--no-webui",   // Disable built-in web UI (llemme is a proxy)
+		"--no-webui",   // Disable built-in web UI (lleme is a proxy)
 	}
 
 	// Check for mmproj file (vision model support)

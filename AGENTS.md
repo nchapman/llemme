@@ -5,7 +5,7 @@ This file provides guidance to AI coding agents working with this repository.
 ## Build & Test Commands
 
 ```bash
-make build                    # Build binary to ./llemme
+make build                    # Build binary to ./lleme
 make test                     # Run all tests
 make check                    # Format + vet + test (run before committing)
 go test ./cmd -run TestName   # Run single test (add -v for verbose)
@@ -16,7 +16,7 @@ Linting uses golangci-lint with `errcheck` and `unused` disabled.
 
 ## Architecture Overview
 
-**llemme** is a Go CLI for running local LLMs via llama.cpp with Hugging Face model management. Built on Charmbracelet (bubbletea, lipgloss, glamour) for TUI and Cobra for CLI.
+**lleme** is a Go CLI for running local LLMs via llama.cpp with Hugging Face model management. Built on Charmbracelet (bubbletea, lipgloss, glamour) for TUI and Cobra for CLI.
 
 ### Multi-Model Proxy (Core Architecture)
 
@@ -45,7 +45,7 @@ Key packages in `internal/proxy/`:
 
 ### Data Storage
 
-All data lives in `~/.llemme/`:
+All data lives in `~/.lleme/`:
 - `config.yaml` - User configuration
 - `models/` - Downloaded GGUF files (`user/repo/quant.gguf`)
 - `bin/` - llama.cpp binaries

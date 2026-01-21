@@ -10,13 +10,14 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/nchapman/llemme/internal/config"
-	"github.com/nchapman/llemme/internal/hf"
-	"github.com/nchapman/llemme/internal/llama"
-	"github.com/nchapman/llemme/internal/proxy"
-	"github.com/nchapman/llemme/internal/server"
-	"github.com/nchapman/llemme/internal/tui/chat"
-	"github.com/nchapman/llemme/internal/ui"
+	"github.com/nchapman/lleme/internal/config"
+	"github.com/nchapman/lleme/internal/hf"
+	"github.com/nchapman/lleme/internal/llama"
+	"github.com/nchapman/lleme/internal/logs"
+	"github.com/nchapman/lleme/internal/proxy"
+	"github.com/nchapman/lleme/internal/server"
+	"github.com/nchapman/lleme/internal/tui/chat"
+	"github.com/nchapman/lleme/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -47,7 +48,7 @@ Models:
   - Repo name: Llama-2-7B-GGUF
 
 Personas:
-  - Name of a saved persona (see 'llemme persona list')
+  - Name of a saved persona (see 'lleme persona list')
   - Personas provide saved system prompts and options
 
 The proxy server will be auto-started if not running.
@@ -56,15 +57,13 @@ Models are loaded on-demand and unloaded after idle timeout.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg, err := config.Load()
 		if err != nil {
-			fmt.Printf("%s Failed to load config: %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("Failed to load config: %v", err)
 		}
 
 		// Step 1: Ensure llama.cpp is installed
 		if !llama.IsInstalled() {
 			if err := ensureLlamaInstalled(); err != nil {
-				fmt.Printf("%s %v\n", ui.ErrorMsg("Error:"), err)
-				os.Exit(1)
+				ui.Fatal("%v", err)
 			}
 		}
 
@@ -78,8 +77,7 @@ Models are loaded on-demand and unloaded after idle timeout.`,
 			personaName = modelQuery // Save persona name before modelQuery changes
 			persona, err := config.LoadPersona(modelQuery)
 			if err != nil {
-				fmt.Printf("%s Failed to load persona: %v\n", ui.ErrorMsg("Error:"), err)
-				os.Exit(1)
+				ui.Fatal("Failed to load persona: %v", err)
 			}
 			activePersona = persona
 
@@ -90,8 +88,8 @@ Models are loaded on-demand and unloaded after idle timeout.`,
 				modelQuery = args[1]
 				promptStartIdx = 2 // Prompt starts after persona and model args
 			} else {
-				fmt.Printf("%s Persona '%s' has no model. Specify one:\n", ui.ErrorMsg("Error:"), args[0])
-				fmt.Printf("  llemme run %s <model> [prompt]\n", args[0])
+				ui.PrintError("Persona '%s' has no model. Specify one:", args[0])
+				fmt.Printf("  lleme run %s <model> [prompt]\n", args[0])
 				os.Exit(1)
 			}
 
@@ -104,15 +102,13 @@ Models are loaded on-demand and unloaded after idle timeout.`,
 		// Step 2: Validate model exists (or offer to pull)
 		resolvedModel, err := validateModel(modelQuery, cfg)
 		if err != nil {
-			fmt.Printf("%s %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("%v", err)
 		}
 
 		// Step 3: Ensure proxy is running
 		proxyURL, err := ensureProxyRunning(cfg)
 		if err != nil {
-			fmt.Printf("%s Failed to start proxy: %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("Failed to start proxy: %v", err)
 		}
 
 		// Create API client pointing to proxy
@@ -120,8 +116,7 @@ Models are loaded on-demand and unloaded after idle timeout.`,
 
 		// Check health
 		if err := api.Health(); err != nil {
-			fmt.Printf("%s Proxy health check failed: %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("Proxy health check failed: %v", err)
 		}
 
 		// Use the resolved full model name
@@ -155,8 +150,7 @@ Models are loaded on-demand and unloaded after idle timeout.`,
 				opts.Threads = server.IntPtr(threads)
 			}
 			if err := api.Run(modelName, opts); err != nil {
-				fmt.Printf("%s Failed to load model: %v\n", ui.ErrorMsg("Error:"), err)
-				os.Exit(1)
+				ui.Fatal("Failed to load model: %v", err)
 			}
 		}
 
@@ -203,8 +197,7 @@ Models are loaded on-demand and unloaded after idle timeout.`,
 		m.SetProgram(p)
 
 		if _, err := p.Run(); err != nil {
-			fmt.Printf("%s TUI error: %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("TUI error: %v", err)
 		}
 	},
 }
@@ -212,13 +205,7 @@ Models are loaded on-demand and unloaded after idle timeout.`,
 // ensureLlamaInstalled prompts the user to install llama.cpp if not present
 func ensureLlamaInstalled() error {
 	fmt.Println("llama.cpp is not installed.")
-	fmt.Print("Install now? [Y/n] ")
-
-	var response string
-	fmt.Scanln(&response)
-	response = strings.TrimSpace(strings.ToLower(response))
-
-	if response != "" && response != "y" && response != "yes" {
+	if !ui.PromptYesNo("Install now?", true) {
 		return fmt.Errorf("llama.cpp is required to run models")
 	}
 
@@ -282,7 +269,7 @@ func modelNotFoundError(query string, suggestions []proxy.DownloadedModel) error
 			b.WriteString(fmt.Sprintf("  %s\n", s.FullName))
 		}
 	} else {
-		b.WriteString("\n\n  Use 'llemme list' to see downloaded models\n  Use 'llemme search <query>' to find models")
+		b.WriteString("\n\n  Use 'lleme list' to see downloaded models\n  Use 'lleme search <query>' to find models")
 	}
 	return fmt.Errorf("%s", b.String())
 }
@@ -295,7 +282,7 @@ func offerToPull(cfg *config.Config, user, repo, quant string) (*proxy.Downloade
 	modelInfo, err := client.GetModel(user, repo)
 	if err != nil {
 		if strings.Contains(err.Error(), "404") {
-			return nil, fmt.Errorf("model '%s/%s' not found on Hugging Face\n\n  Use 'llemme search <query>' to find models", user, repo)
+			return nil, fmt.Errorf("model '%s/%s' not found on Hugging Face\n\n  Use 'lleme search <query>' to find models", user, repo)
 		}
 		return nil, fmt.Errorf("failed to check model: %w", err)
 	}
@@ -333,12 +320,8 @@ func offerToPull(cfg *config.Config, user, repo, quant string) (*proxy.Downloade
 	selectedQuant, _ := hf.FindQuantization(quants, quant)
 
 	// Prompt user to download
-	fmt.Printf("Model not downloaded. Pull %s/%s:%s (%s)? [Y/n] ", user, repo, quant, ui.FormatBytes(selectedQuant.Size))
-	var response string
-	fmt.Scanln(&response)
-	response = strings.TrimSpace(strings.ToLower(response))
-
-	if response != "" && response != "y" && response != "yes" {
+	prompt := fmt.Sprintf("Model not downloaded. Pull %s/%s:%s (%s)?", user, repo, quant, ui.FormatBytes(selectedQuant.Size))
+	if !ui.PromptYesNo(prompt, true) {
 		return nil, fmt.Errorf("model required to continue")
 	}
 
@@ -412,7 +395,7 @@ func ensureProxyRunning(cfg *config.Config) (string, error) {
 	cmd.Env = os.Environ()
 
 	// Redirect output to log file
-	logFile := config.BinPath() + "/proxy.log"
+	logFile := logs.ProxyLogPath()
 	log, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
 		return "", fmt.Errorf("failed to open log file: %w", err)

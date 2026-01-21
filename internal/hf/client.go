@@ -10,13 +10,13 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/nchapman/llemme/internal/config"
+	"github.com/nchapman/lleme/internal/config"
 )
 
 const (
 	baseURL    = "https://huggingface.co"
 	apiBase    = "https://huggingface.co/api"
-	userAgent  = "llemme/0.1.0"
+	userAgent  = "lleme/0.1.0"
 	maxRetries = 3
 	retryDelay = 1 * time.Second
 )
@@ -126,7 +126,7 @@ func getToken(cfg *config.Config) string {
 		return token
 	}
 
-	tokenPath := filepath.Join(config.GetHomeDir(), ".cache", "huggingface", "token")
+	tokenPath := filepath.Join(config.UserHomeDir(), ".cache", "huggingface", "token")
 	if data, err := os.ReadFile(tokenPath); err == nil {
 		return string(data)
 	}

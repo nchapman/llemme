@@ -2,7 +2,7 @@
 
 # Build binary in current directory
 build:
-	go build -o llemme .
+	go build -o lleme .
 
 # Install to GOBIN (or GOPATH/bin)
 install:
@@ -20,7 +20,7 @@ check:
 
 # Clean build artifacts
 clean:
-	rm -f llemme
+	rm -f lleme
 	go clean
 
 # Release (usage: make release-patch, make release-minor, make release-major)

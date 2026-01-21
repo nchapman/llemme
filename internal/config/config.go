@@ -38,19 +38,20 @@ type Server struct {
 	BackendPortMin  int      `yaml:"backend_port_min"`
 	BackendPortMax  int      `yaml:"backend_port_max"`
 	CORSOrigins     []string `yaml:"cors_origins,omitempty"`
-	ClaudeModel     string   `yaml:"claude_model,omitempty"`
 }
 
 const (
-	configDir  = ".llemme"
+	configDir  = ".lleme"
 	configFile = "config.yaml"
 	modelsDir  = "models"
 	binDir     = "bin"
-	blobsDir   = "blobs"
+	cacheDir   = "cache"
 	logsDir    = "logs"
+	pidsDir    = "pids"
 )
 
-func GetHomeDir() string {
+// UserHomeDir returns the user's home directory.
+func UserHomeDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "."
@@ -58,24 +59,37 @@ func GetHomeDir() string {
 	return home
 }
 
+// BaseDir returns the base directory for all lleme data.
+// Uses LLEME_HOME environment variable if set, otherwise ~/.lleme
+func BaseDir() string {
+	if dir := os.Getenv("LLEME_HOME"); dir != "" {
+		return dir
+	}
+	return filepath.Join(UserHomeDir(), configDir)
+}
+
 func ConfigPath() string {
-	return filepath.Join(GetHomeDir(), configDir, configFile)
+	return filepath.Join(BaseDir(), configFile)
 }
 
 func ModelsPath() string {
-	return filepath.Join(GetHomeDir(), configDir, modelsDir)
+	return filepath.Join(BaseDir(), modelsDir)
 }
 
 func BinPath() string {
-	return filepath.Join(GetHomeDir(), configDir, binDir)
+	return filepath.Join(BaseDir(), binDir)
 }
 
-func BlobsPath() string {
-	return filepath.Join(GetHomeDir(), configDir, blobsDir)
+func CachePath() string {
+	return filepath.Join(BaseDir(), cacheDir)
 }
 
 func LogsPath() string {
-	return filepath.Join(GetHomeDir(), configDir, logsDir)
+	return filepath.Join(BaseDir(), logsDir)
+}
+
+func PidsPath() string {
+	return filepath.Join(BaseDir(), pidsDir)
 }
 
 func DefaultConfig() *Config {
@@ -111,7 +125,7 @@ huggingface:
   # Default quantization when pulling models
   default_quant: Q4_K_M
 
-# llemme server settings
+# lleme server settings
 server:
   host: 127.0.0.1
   port: 11313
@@ -124,8 +138,6 @@ server:
     - http://localhost
     - http://127.0.0.1
     - http://[::1]
-  # Model to use for Claude API requests (e.g., from Claude Code)
-  # claude_model: "unsloth/GLM-4.7-Flash-GGUF"
 
 # llama.cpp server settings
 # All options here are passed directly to llama-server.
@@ -264,8 +276,9 @@ func EnsureDirectories() error {
 		ConfigPath(),
 		ModelsPath(),
 		BinPath(),
-		BlobsPath(),
+		CachePath(),
 		LogsPath(),
+		PidsPath(),
 		PersonasPath(),
 	}
 

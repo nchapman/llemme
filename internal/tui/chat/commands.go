@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/nchapman/llemme/internal/server"
-	"github.com/nchapman/llemme/internal/tui/components"
+	"github.com/nchapman/lleme/internal/server"
+	"github.com/nchapman/lleme/internal/tui/components"
 )
 
 // handleCommand processes a slash command and returns a command
@@ -218,18 +218,18 @@ func (m *Model) showSettings() string {
 
 	// Request-time options
 	sb.WriteString("  Sampling:\n")
-	sb.WriteString(m.formatOption("temp", m.options.Temp, m.getConfigFloat("temp")))
-	sb.WriteString(m.formatOption("top-p", m.options.TopP, m.getConfigFloat("top-p")))
-	sb.WriteString(m.formatOptionInt("top-k", m.options.TopK, m.getConfigInt("top-k")))
-	sb.WriteString(m.formatOption("repeat-penalty", m.options.RepeatPenalty, m.getConfigFloat("repeat-penalty")))
-	sb.WriteString(m.formatOption("min-p", m.options.MinP, m.getConfigFloat("min-p")))
+	sb.WriteString(m.formatOption("temp", m.options.Temp, m.resolver.GetConfigFloat("temp")))
+	sb.WriteString(m.formatOption("top-p", m.options.TopP, m.resolver.GetConfigFloat("top-p")))
+	sb.WriteString(m.formatOptionInt("top-k", m.options.TopK, m.resolver.GetConfigInt("top-k")))
+	sb.WriteString(m.formatOption("repeat-penalty", m.options.RepeatPenalty, m.resolver.GetConfigFloat("repeat-penalty")))
+	sb.WriteString(m.formatOption("min-p", m.options.MinP, m.resolver.GetConfigFloat("min-p")))
 	sb.WriteString("\n")
 
 	// Server options
 	sb.WriteString("  Server:\n")
-	sb.WriteString(m.formatServerOption("ctx-size", m.options.CtxSize, m.options.CtxSizeSet, m.getConfigInt("ctx-size")))
-	sb.WriteString(m.formatServerOption("gpu-layers", m.options.GpuLayers, m.options.GpuLayersSet, m.getConfigInt("gpu-layers")))
-	sb.WriteString(m.formatServerOption("threads", m.options.Threads, m.options.ThreadsSet, m.getConfigInt("threads")))
+	sb.WriteString(m.formatServerOption("ctx-size", m.options.CtxSize, m.options.CtxSizeSet, m.resolver.GetConfigInt("ctx-size")))
+	sb.WriteString(m.formatServerOption("gpu-layers", m.options.GpuLayers, m.options.GpuLayersSet, m.resolver.GetConfigInt("gpu-layers")))
+	sb.WriteString(m.formatServerOption("threads", m.options.Threads, m.options.ThreadsSet, m.resolver.GetConfigInt("threads")))
 
 	return sb.String()
 }
@@ -276,15 +276,6 @@ func (m *Model) formatServerOption(name string, sessionVal int, isSet bool, conf
 		config = fmt.Sprintf("%d", configVal)
 	}
 	return formatSetting(name, session, config)
-}
-
-func (m *Model) getConfigFloat(key string) float64 {
-	if m.persona != nil {
-		if v := m.persona.GetFloatOption(key, 0); v != 0 {
-			return v
-		}
-	}
-	return m.cfg.LlamaCpp.GetFloatOption(key, 0)
 }
 
 // ClearMessages clears the messages viewport (called from command handler)

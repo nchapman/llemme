@@ -9,9 +9,10 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/nchapman/llemme/internal/config"
-	"github.com/nchapman/llemme/internal/server"
-	"github.com/nchapman/llemme/internal/tui/components"
+	"github.com/nchapman/lleme/internal/config"
+	"github.com/nchapman/lleme/internal/options"
+	"github.com/nchapman/lleme/internal/server"
+	"github.com/nchapman/lleme/internal/tui/components"
 )
 
 // Message types for communication with the model
@@ -70,6 +71,7 @@ type Model struct {
 	cfg         *config.Config
 	persona     *config.Persona
 	personaName string
+	resolver    *options.Resolver
 
 	// Session state
 	chatMessages         []server.ChatMessage
@@ -126,6 +128,7 @@ func New(api *server.APIClient, modelName string, cfg *config.Config, persona *c
 		cfg:         cfg,
 		persona:     persona,
 		personaName: personaName,
+		resolver:    options.NewResolver(persona, cfg),
 
 		chatMessages: []server.ChatMessage{},
 		keys:         DefaultKeyMap(),
@@ -462,11 +465,11 @@ func (m *Model) sendMessage(content string) tea.Cmd {
 		MaxTokens:       m.options.MaxTokens,
 		ReasoningFormat: "auto",
 	}
-	req.Temperature = m.resolveFloat(m.options.Temp, "temp")
-	req.TopP = m.resolveFloat(m.options.TopP, "top-p")
-	req.TopK = m.resolveInt(m.options.TopK, "top-k")
-	req.MinP = m.resolveFloat(m.options.MinP, "min-p")
-	req.RepeatPenalty = m.resolveFloat(m.options.RepeatPenalty, "repeat-penalty")
+	req.Temperature = m.resolver.ResolveFloat(m.options.Temp, "temp")
+	req.TopP = m.resolver.ResolveFloat(m.options.TopP, "top-p")
+	req.TopK = m.resolver.ResolveInt(m.options.TopK, "top-k")
+	req.MinP = m.resolver.ResolveFloat(m.options.MinP, "min-p")
+	req.RepeatPenalty = m.resolver.ResolveFloat(m.options.RepeatPenalty, "repeat-penalty")
 
 	streamCmd := func() tea.Msg {
 		var fullContent strings.Builder
@@ -501,41 +504,6 @@ func (m *Model) sendMessage(content string) tea.Cmd {
 	}
 
 	return tea.Batch(spinnerCmd, streamCmd)
-}
-
-// resolveFloat returns the first non-zero value from: session, persona, config
-func (m *Model) resolveFloat(sessionVal float64, key string) float64 {
-	if sessionVal != 0 {
-		return sessionVal
-	}
-	if m.persona != nil {
-		if v := m.persona.GetFloatOption(key, 0); v != 0 {
-			return v
-		}
-	}
-	return m.cfg.LlamaCpp.GetFloatOption(key, 0)
-}
-
-// resolveInt returns the first non-zero value from: session, persona, config
-func (m *Model) resolveInt(sessionVal int, key string) int {
-	if sessionVal != 0 {
-		return sessionVal
-	}
-	return m.getConfigInt(key)
-}
-
-func (m *Model) getConfigInt(key string) int {
-	if m.persona != nil {
-		if val, ok := m.persona.Options[key]; ok {
-			switch v := val.(type) {
-			case int:
-				return v
-			case float64:
-				return int(v)
-			}
-		}
-	}
-	return m.cfg.LlamaCpp.GetIntOption(key, 0)
 }
 
 // startStreaming sets streaming state consistently and returns spinner tick command

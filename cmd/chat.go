@@ -8,9 +8,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/nchapman/llemme/internal/config"
-	"github.com/nchapman/llemme/internal/server"
-	"github.com/nchapman/llemme/internal/ui"
+	"github.com/nchapman/lleme/internal/config"
+	"github.com/nchapman/lleme/internal/options"
+	"github.com/nchapman/lleme/internal/server"
+	"github.com/nchapman/lleme/internal/ui"
 )
 
 // ChatSession manages an interactive chat session with a model.
@@ -19,6 +20,7 @@ type ChatSession struct {
 	model    string
 	cfg      *config.Config
 	persona  *config.Persona
+	resolver *options.Resolver
 	messages []server.ChatMessage
 	reader   *bufio.Reader
 
@@ -56,6 +58,7 @@ func NewChatSession(api *server.APIClient, model string, cfg *config.Config, per
 		model:    model,
 		cfg:      cfg,
 		persona:  persona,
+		resolver: options.NewResolver(persona, cfg),
 		messages: []server.ChatMessage{},
 		reader:   bufio.NewReader(os.Stdin),
 	}
@@ -366,18 +369,18 @@ func (s *ChatSession) showSettings() {
 
 	// Request-time options
 	fmt.Println(ui.Bold("  Sampling:"))
-	s.showOption("temp", s.options.temp, s.getConfigFloat("temp"))
-	s.showOption("top-p", s.options.topP, s.getConfigFloat("top-p"))
-	s.showOptionInt("top-k", s.options.topK, s.getConfigInt("top-k"))
-	s.showOption("repeat-penalty", s.options.repeatPenalty, s.getConfigFloat("repeat-penalty"))
-	s.showOption("min-p", s.options.minP, s.getConfigFloat("min-p"))
+	s.showOption("temp", s.options.temp, s.resolver.GetConfigFloat("temp"))
+	s.showOption("top-p", s.options.topP, s.resolver.GetConfigFloat("top-p"))
+	s.showOptionInt("top-k", s.options.topK, s.resolver.GetConfigInt("top-k"))
+	s.showOption("repeat-penalty", s.options.repeatPenalty, s.resolver.GetConfigFloat("repeat-penalty"))
+	s.showOption("min-p", s.options.minP, s.resolver.GetConfigFloat("min-p"))
 	fmt.Println()
 
 	// Server options (use Set flags to correctly show zero values)
 	fmt.Println(ui.Bold("  Server:"))
-	s.showServerOption("ctx-size", s.options.ctxSize, s.options.ctxSizeSet, s.getConfigInt("ctx-size"))
-	s.showServerOption("gpu-layers", s.options.gpuLayers, s.options.gpuLayersSet, s.getConfigInt("gpu-layers"))
-	s.showServerOption("threads", s.options.threads, s.options.threadsSet, s.getConfigInt("threads"))
+	s.showServerOption("ctx-size", s.options.ctxSize, s.options.ctxSizeSet, s.resolver.GetConfigInt("ctx-size"))
+	s.showServerOption("gpu-layers", s.options.gpuLayers, s.options.gpuLayersSet, s.resolver.GetConfigInt("gpu-layers"))
+	s.showServerOption("threads", s.options.threads, s.options.threadsSet, s.resolver.GetConfigInt("threads"))
 	fmt.Println()
 }
 
@@ -412,29 +415,6 @@ func (s *ChatSession) showServerOption(name string, sessionVal int, isSet bool, 
 	}
 }
 
-func (s *ChatSession) getConfigFloat(key string) float64 {
-	if s.persona != nil {
-		if v := s.persona.GetFloatOption(key, 0); v != 0 {
-			return v
-		}
-	}
-	return s.cfg.LlamaCpp.GetFloatOption(key, 0)
-}
-
-func (s *ChatSession) getConfigInt(key string) int {
-	if s.persona != nil {
-		if val, ok := s.persona.Options[key]; ok {
-			switch v := val.(type) {
-			case int:
-				return v
-			case float64:
-				return int(v)
-			}
-		}
-	}
-	return s.cfg.LlamaCpp.GetIntOption(key, 0)
-}
-
 // streamResponse sends a chat completion request and streams the response.
 func (s *ChatSession) streamResponse(showSpinner bool) string {
 	req := &server.ChatCompletionRequest{
@@ -446,11 +426,11 @@ func (s *ChatSession) streamResponse(showSpinner bool) string {
 	}
 
 	// Apply options: session > persona > config > default
-	req.Temperature = s.resolveFloat(s.options.temp, "temp")
-	req.TopP = s.resolveFloat(s.options.topP, "top-p")
-	req.TopK = s.resolveInt(s.options.topK, "top-k")
-	req.MinP = s.resolveFloat(s.options.minP, "min-p")
-	req.RepeatPenalty = s.resolveFloat(s.options.repeatPenalty, "repeat-penalty")
+	req.Temperature = s.resolver.ResolveFloat(s.options.temp, "temp")
+	req.TopP = s.resolver.ResolveFloat(s.options.topP, "top-p")
+	req.TopK = s.resolver.ResolveInt(s.options.topK, "top-k")
+	req.MinP = s.resolver.ResolveFloat(s.options.minP, "min-p")
+	req.RepeatPenalty = s.resolver.ResolveFloat(s.options.repeatPenalty, "repeat-penalty")
 
 	var spinner *ui.Spinner
 	spinnerRunning := false
@@ -506,25 +486,4 @@ func (s *ChatSession) streamResponse(showSpinner bool) string {
 
 	fmt.Println()
 	return fullResponse.String()
-}
-
-// resolveFloat returns the first non-zero value from: session, persona, config.
-func (s *ChatSession) resolveFloat(sessionVal float64, key string) float64 {
-	if sessionVal != 0 {
-		return sessionVal
-	}
-	if s.persona != nil {
-		if v := s.persona.GetFloatOption(key, 0); v != 0 {
-			return v
-		}
-	}
-	return s.cfg.LlamaCpp.GetFloatOption(key, 0)
-}
-
-// resolveInt returns the first non-zero value from: session, persona, config.
-func (s *ChatSession) resolveInt(sessionVal int, key string) int {
-	if sessionVal != 0 {
-		return sessionVal
-	}
-	return s.getConfigInt(key)
 }

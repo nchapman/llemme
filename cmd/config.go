@@ -5,8 +5,8 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/nchapman/llemme/internal/config"
-	"github.com/nchapman/llemme/internal/ui"
+	"github.com/nchapman/lleme/internal/config"
+	"github.com/nchapman/lleme/internal/ui"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -15,13 +15,13 @@ var configCmd = &cobra.Command{
 	Use:     "config",
 	Short:   "Manage configuration",
 	GroupID: "config",
-	Long: `Manage llemme configuration.
+	Long: `Manage lleme configuration.
 
 Examples:
-  llemme config edit    # Open config in $EDITOR
-  llemme config show    # Print current configuration
-  llemme config path    # Print config file path
-  llemme config reset   # Reset config to defaults`,
+  lleme config edit    # Open config in $EDITOR
+  lleme config show    # Print current configuration
+  lleme config path    # Print config file path
+  lleme config reset   # Reset config to defaults`,
 }
 
 var configEditCmd = &cobra.Command{
@@ -58,8 +58,7 @@ var configResetCmd = &cobra.Command{
 
 func resetToDefaults(path string) {
 	if err := config.SaveDefault(); err != nil {
-		fmt.Printf("%s Failed to reset config: %v\n", ui.ErrorMsg("Error:"), err)
-		os.Exit(1)
+		ui.Fatal("Failed to reset config: %v", err)
 	}
 	fmt.Printf("%s Config reset to defaults at %s\n", ui.Success("✓"), ui.Muted(path))
 }
@@ -67,14 +66,12 @@ func resetToDefaults(path string) {
 func printConfig() {
 	cfg, err := config.Load()
 	if err != nil {
-		fmt.Printf("%s Failed to load config: %v\n", ui.ErrorMsg("Error:"), err)
-		os.Exit(1)
+		ui.Fatal("Failed to load config: %v", err)
 	}
 
 	data, err := yaml.Marshal(cfg)
 	if err != nil {
-		fmt.Printf("%s Failed to format config: %v\n", ui.ErrorMsg("Error:"), err)
-		os.Exit(1)
+		ui.Fatal("Failed to format config: %v", err)
 	}
 
 	fmt.Print(string(data))
@@ -85,15 +82,14 @@ func openInEditor(path string) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		cfg := config.DefaultConfig()
 		if err := config.Save(cfg); err != nil {
-			fmt.Printf("%s Failed to create config file: %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("Failed to create config file: %v", err)
 		}
 		fmt.Printf("Created default config at %s\n\n", ui.Muted(path))
 	}
 
 	editor := getEditor()
 	if editor == "" {
-		fmt.Printf("%s No editor found. Set $EDITOR or $VISUAL environment variable.\n", ui.ErrorMsg("Error:"))
+		ui.PrintError("No editor found. Set $EDITOR or $VISUAL environment variable.")
 		fmt.Printf("\nConfig file location: %s\n", ui.Muted(path))
 		os.Exit(1)
 	}
@@ -104,8 +100,7 @@ func openInEditor(path string) {
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		fmt.Printf("%s Failed to open editor: %v\n", ui.ErrorMsg("Error:"), err)
-		os.Exit(1)
+		ui.Fatal("Failed to open editor: %v", err)
 	}
 }
 

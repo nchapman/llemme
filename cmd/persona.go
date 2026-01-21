@@ -5,8 +5,8 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/nchapman/llemme/internal/config"
-	"github.com/nchapman/llemme/internal/ui"
+	"github.com/nchapman/lleme/internal/config"
+	"github.com/nchapman/lleme/internal/ui"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -30,14 +30,14 @@ A persona is a YAML file that specifies:
   - options: llama.cpp options (temp, top-p, etc.)
 
 Examples:
-  llemme persona list                    # List all personas
-  llemme persona show coding-assistant   # Show persona details
-  llemme persona create my-assistant     # Create new persona
-  llemme persona edit my-assistant       # Edit in $EDITOR
-  llemme persona rm my-assistant         # Delete persona
+  lleme persona list                    # List all personas
+  lleme persona show coding-assistant   # Show persona details
+  lleme persona create my-assistant     # Create new persona
+  lleme persona edit my-assistant       # Edit in $EDITOR
+  lleme persona rm my-assistant         # Delete persona
 
 Run a persona:
-  llemme run coding-assistant "help me refactor this"`,
+  lleme run coding-assistant "help me refactor this"`,
 }
 
 var personaListCmd = &cobra.Command{
@@ -46,14 +46,13 @@ var personaListCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		personas, err := config.ListPersonas()
 		if err != nil {
-			fmt.Printf("%s %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("%v", err)
 		}
 
 		if len(personas) == 0 {
 			fmt.Println(ui.Muted("No personas configured yet"))
 			fmt.Println()
-			fmt.Println("Create one with: llemme persona create <name>")
+			fmt.Println("Create one with: lleme persona create <name>")
 			return
 		}
 
@@ -87,8 +86,7 @@ var personaShowCmd = &cobra.Command{
 
 		persona, err := config.LoadPersona(name)
 		if err != nil {
-			fmt.Printf("%s %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("%v", err)
 		}
 
 		fmt.Printf("%s\n\n", ui.Header("Persona: "+name))
@@ -119,21 +117,19 @@ var personaCreateCmd = &cobra.Command{
 	Long: `Create a new persona configuration.
 
 Examples:
-  llemme persona create my-assistant                           # Create and edit
-  llemme persona create coder -m bartowski/Qwen2.5-Coder-GGUF  # With model
-  llemme persona create writer --from coder                    # Copy existing`,
+  lleme persona create my-assistant                           # Create and edit
+  lleme persona create coder -m bartowski/Qwen2.5-Coder-GGUF  # With model
+  lleme persona create writer --from coder                    # Copy existing`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0]
 
 		if err := config.ValidatePersonaName(name); err != nil {
-			fmt.Printf("%s %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("%v", err)
 		}
 
 		if config.PersonaExists(name) && !personaForce {
-			fmt.Printf("%s Persona '%s' already exists. Use --force to overwrite.\n", ui.ErrorMsg("Error:"), name)
-			os.Exit(1)
+			ui.Fatal("Persona '%s' already exists. Use --force to overwrite.", name)
 		}
 
 		var persona *config.Persona
@@ -142,8 +138,7 @@ Examples:
 			// Copy from existing persona
 			existing, err := config.LoadPersona(personaFrom)
 			if err != nil {
-				fmt.Printf("%s %v\n", ui.ErrorMsg("Error:"), err)
-				os.Exit(1)
+				ui.Fatal("%v", err)
 			}
 			persona = existing
 		} else {
@@ -159,8 +154,7 @@ Examples:
 		}
 
 		if err := config.SavePersonaTemplate(name, persona); err != nil {
-			fmt.Printf("%s %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("%v", err)
 		}
 
 		fmt.Printf("%s Created persona '%s'\n", ui.Success("✓"), name)
@@ -179,8 +173,7 @@ var personaEditCmd = &cobra.Command{
 		name := args[0]
 
 		if !config.PersonaExists(name) {
-			fmt.Printf("%s Persona '%s' not found\n", ui.ErrorMsg("Error:"), name)
-			os.Exit(1)
+			ui.Fatal("Persona '%s' not found", name)
 		}
 
 		openPersonaInEditor(name)
@@ -195,23 +188,18 @@ var personaRmCmd = &cobra.Command{
 		name := args[0]
 
 		if !config.PersonaExists(name) {
-			fmt.Printf("%s Persona '%s' not found\n", ui.ErrorMsg("Error:"), name)
-			os.Exit(1)
+			ui.Fatal("Persona '%s' not found", name)
 		}
 
 		if !personaForce {
-			fmt.Printf("Remove persona '%s'? [y/N] ", name)
-
-			var response string
-			if _, err := fmt.Scanln(&response); err != nil || (response != "y" && response != "Y") {
+			if !ui.PromptYesNo(fmt.Sprintf("Remove persona '%s'?", name), false) {
 				fmt.Println(ui.Muted("Cancelled"))
 				return
 			}
 		}
 
 		if err := config.DeletePersona(name); err != nil {
-			fmt.Printf("%s %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("%v", err)
 		}
 
 		fmt.Printf("Removed persona '%s'\n", name)
@@ -223,7 +211,7 @@ func openPersonaInEditor(name string) {
 
 	editor := getEditor()
 	if editor == "" {
-		fmt.Printf("%s No editor found. Set $EDITOR or $VISUAL.\n", ui.ErrorMsg("Error:"))
+		ui.PrintError("No editor found. Set $EDITOR or $VISUAL.")
 		fmt.Printf("Edit manually: %s\n", ui.Muted(path))
 		return
 	}
@@ -234,8 +222,7 @@ func openPersonaInEditor(name string) {
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		fmt.Printf("%s Failed to open editor: %v\n", ui.ErrorMsg("Error:"), err)
-		os.Exit(1)
+		ui.Fatal("Failed to open editor: %v", err)
 	}
 }
 

@@ -2,10 +2,9 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
-	"github.com/nchapman/llemme/internal/llama"
-	"github.com/nchapman/llemme/internal/ui"
+	"github.com/nchapman/lleme/internal/llama"
+	"github.com/nchapman/lleme/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -19,14 +18,12 @@ var updateCmd = &cobra.Command{
 
 		installed, err := llama.GetInstalledVersion()
 		if err != nil {
-			fmt.Printf("%s Failed to check installed version: %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("Failed to check installed version: %v", err)
 		}
 
 		release, err := llama.GetLatestVersion()
 		if err != nil {
-			fmt.Printf("%s Failed to get latest release: %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("Failed to get latest release: %v", err)
 		}
 
 		currentVersion := "Not installed"
@@ -44,10 +41,7 @@ var updateCmd = &cobra.Command{
 		}
 
 		if !forceUpdate {
-			fmt.Printf("Update to %s? [y/N] ", release.TagName)
-			var response string
-			fmt.Scanln(&response)
-			if response != "y" && response != "Y" {
+			if !ui.PromptYesNo(fmt.Sprintf("Update to %s?", release.TagName), false) {
 				fmt.Println(ui.Muted("Cancelled"))
 				return
 			}
@@ -57,8 +51,7 @@ var updateCmd = &cobra.Command{
 
 		version, err := llama.InstallLatest()
 		if err != nil {
-			fmt.Printf("%s Failed to install llama.cpp: %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("Failed to install llama.cpp: %v", err)
 		}
 
 		fmt.Printf("Updated to llama.cpp %s\n", version.TagName)

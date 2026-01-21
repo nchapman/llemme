@@ -1,4 +1,4 @@
-module github.com/nchapman/llemme
+module github.com/nchapman/lleme
 
 go 1.25.3
 

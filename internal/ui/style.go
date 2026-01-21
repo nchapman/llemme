@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -66,4 +67,15 @@ func Box(text string) string {
 // LlamaCppCredit returns the llama.cpp attribution line.
 func LlamaCppCredit(version string) string {
 	return Muted(fmt.Sprintf("Powered by llama.cpp %s", version))
+}
+
+// Fatal prints an error message to stderr and exits with code 1.
+func Fatal(format string, args ...interface{}) {
+	fmt.Fprintf(os.Stderr, "%s %s\n", ErrorMsg("Error:"), fmt.Sprintf(format, args...))
+	os.Exit(1)
+}
+
+// PrintError prints an error message to stderr without exiting.
+func PrintError(format string, args ...interface{}) {
+	fmt.Fprintf(os.Stderr, "%s %s\n", ErrorMsg("Error:"), fmt.Sprintf(format, args...))
 }
