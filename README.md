@@ -132,34 +132,16 @@ lleme supports the Anthropic Messages API, so you can use it as a backend for [C
 lleme pull unsloth/GLM-4.7-Flash-GGUF
 ```
 
-**2. Configure lleme to map Claude model names to your local model:**
-
-```yaml
-# ~/.lleme/config.yaml
-server:
-  claude_model: "unsloth/GLM-4.7-Flash-GGUF"
-```
-
-**3. Start lleme and run Claude Code:**
+**2. Start lleme and run Claude Code:**
 
 ```bash
 lleme server start
-ANTHROPIC_BASE_URL=http://127.0.0.1:11313 claude
+ANTHROPIC_BASE_URL=http://127.0.0.1:11313 claude --model unsloth/GLM-4.7-Flash-GGUF
 ```
 
-That's it! Claude Code will send requests to lleme, which routes them to your local model.
+That's it! Claude Code sends requests to lleme, which loads the model on demand.
 
-**Alternative: Configure Claude Code directly**
-
-Instead of setting `claude_model` in lleme, you can tell Claude Code which model to request:
-
-```bash
-ANTHROPIC_BASE_URL=http://127.0.0.1:11313 \
-ANTHROPIC_DEFAULT_SONNET_MODEL="unsloth/GLM-4.7-Flash-GGUF" \
-claude
-```
-
-This lets you set different models per tier (Sonnet is the default). See also `ANTHROPIC_DEFAULT_OPUS_MODEL` and `ANTHROPIC_DEFAULT_HAIKU_MODEL`.
+See the [Ollama blog post](https://ollama.com/blog/claude) for more details on using Claude Code with local models.
 
 ## Configuration
 
@@ -174,7 +156,6 @@ server:
   port: 11313
   max_models: 3
   idle_timeout: 10m
-  # claude_model: "unsloth/GLM-4.7-Flash-GGUF"  # for Claude Code
 
 llamacpp:
   options:

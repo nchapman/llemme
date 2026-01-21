@@ -38,7 +38,6 @@ type Server struct {
 	BackendPortMin  int      `yaml:"backend_port_min"`
 	BackendPortMax  int      `yaml:"backend_port_max"`
 	CORSOrigins     []string `yaml:"cors_origins,omitempty"`
-	ClaudeModel     string   `yaml:"claude_model,omitempty"`
 }
 
 const (
@@ -124,8 +123,6 @@ server:
     - http://localhost
     - http://127.0.0.1
     - http://[::1]
-  # Model to use for Claude API requests (e.g., from Claude Code)
-  # claude_model: "unsloth/GLM-4.7-Flash-GGUF"
 
 # llama.cpp server settings
 # All options here are passed directly to llama-server.

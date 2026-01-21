@@ -102,7 +102,6 @@ type Config struct {
 	BackendPortMax int           // Maximum port for backends
 	StartupTimeout time.Duration // How long to wait for backend startup
 	CORSOrigins    []string      // Allowed CORS origins (empty = local only)
-	ClaudeModel    string        // Local model to use for claude-* API requests
 }
 
 // DefaultConfig returns the default proxy configuration
@@ -145,9 +144,6 @@ func ConfigFromAppConfig(s config.Server) *Config {
 	}
 	if len(s.CORSOrigins) > 0 {
 		cfg.CORSOrigins = s.CORSOrigins
-	}
-	if s.ClaudeModel != "" {
-		cfg.ClaudeModel = s.ClaudeModel
 	}
 
 	return cfg
