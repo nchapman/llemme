@@ -1,10 +1,10 @@
 # lleme
 
-Run local LLMs with [llama.cpp](https://github.com/ggerganov/llama.cpp) and [Hugging Face](https://huggingface.co).
+The easy way to find, run, and manage local LLMs.
 
 ## Features
 
-- 🚀 **Run Any GGUF Model**: Execute any model from Hugging Face with a single command.
+- 🚀 **Run Any GGUF Model**: Download and run any model from Hugging Face with a single command.
 - 🔄 **Dynamic Multi-Model Serving**: Serves multiple models, loading them on-demand and unloading them when idle to conserve resources.
 - 💬 **Interactive & One-Shot Chat**: Chat with models in an interactive TUI or get quick answers via single command-line prompts.
 - 🔎 **Discover & Manage Models**: Search Hugging Face, view trending models, and manage your local model library (`list`, `pull`, `rm`).
