@@ -216,7 +216,10 @@ func extractTarGz(archivePath, destDir string) error {
 	return nil
 }
 
-func InstallLatest() (*VersionInfo, error) {
+// StatusFunc is a callback for reporting installation progress messages.
+type StatusFunc func(message string)
+
+func InstallLatest(status StatusFunc) (*VersionInfo, error) {
 	release, err := GetLatestVersion()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get latest release: %w", err)
@@ -234,14 +237,17 @@ func InstallLatest() (*VersionInfo, error) {
 
 	archivePath := filepath.Join(binDir, binaryName)
 
-	message := fmt.Sprintf("Downloading llama.cpp %s", release.TagName)
-	fmt.Printf("%s\n", message)
+	if status != nil {
+		status(fmt.Sprintf("Downloading llama.cpp %s", release.TagName))
+	}
 
 	if err := DownloadBinary(downloadURL, archivePath, nil); err != nil {
 		return nil, fmt.Errorf("failed to download binary: %w", err)
 	}
 
-	fmt.Println("Extracting...")
+	if status != nil {
+		status("Extracting...")
+	}
 
 	if err := extractTarGz(archivePath, binDir); err != nil {
 		return nil, fmt.Errorf("failed to extract archive: %w", err)

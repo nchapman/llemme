@@ -54,7 +54,7 @@ var serverStartCmd = &cobra.Command{
 			}
 
 			fmt.Println()
-			if _, err := llama.InstallLatest(); err != nil {
+			if _, err := llama.InstallLatest(func(msg string) { fmt.Println(msg) }); err != nil {
 				ui.Fatal("Failed to install llama.cpp: %v", err)
 			}
 			fmt.Println()

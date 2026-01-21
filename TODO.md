@@ -36,15 +36,14 @@ Based on comprehensive code review. Completed items marked with ~~strikethrough~
 
 ## Low Priority
 
-### 8. Remove Direct fmt.Print from Library Code
-`internal/llama/binary.go` prints directly to stdout during downloads.
+### ~~8. Remove Direct fmt.Print from Library Code~~ Done
+- [x] Added `StatusFunc` callback parameter to `InstallLatest()` in `internal/llama/binary.go`
+- [x] Updated all callers to provide status callback
 
-- [ ] Accept callback or use logger interface
-
-### 9. Refactor ui.Fatal
-`internal/ui/style.go` calls `os.Exit(1)`, making it untestable.
-
-- [ ] Consider alternative patterns (return errors, use cobra's RunE)
+### ~~9. Refactor ui.Fatal~~ Done
+- [x] Added `ExitFunc` package variable to `internal/ui/style.go`
+- [x] `Fatal()` now uses `ExitFunc` instead of `os.Exit` directly
+- [x] Tests can override `ExitFunc` to prevent actual exit
 
 ### ~~10. Log Ignored Errors~~ Done
 - [x] `internal/proxy/manager.go` - TouchLastUsed logs at debug level

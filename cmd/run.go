@@ -210,7 +210,7 @@ func ensureLlamaInstalled() error {
 	}
 
 	fmt.Println()
-	_, err := llama.InstallLatest()
+	_, err := llama.InstallLatest(func(msg string) { fmt.Println(msg) })
 	if err != nil {
 		return fmt.Errorf("failed to install llama.cpp: %w", err)
 	}

@@ -49,7 +49,7 @@ var updateCmd = &cobra.Command{
 
 		fmt.Println()
 
-		version, err := llama.InstallLatest()
+		version, err := llama.InstallLatest(func(msg string) { fmt.Println(msg) })
 		if err != nil {
 			ui.Fatal("Failed to install llama.cpp: %v", err)
 		}

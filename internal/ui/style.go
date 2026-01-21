@@ -26,6 +26,10 @@ var (
 	valueStyle    = lipgloss.NewStyle().Foreground(styles.ColorValue)
 	borderStyle   = lipgloss.NewStyle().Border(lipgloss.RoundedBorder())
 	borderPadding = lipgloss.NewStyle().Padding(1, 2)
+
+	// ExitFunc is the function called by Fatal. Override in tests to prevent os.Exit.
+	// Tests that modify this must use t.Cleanup() to restore the original value.
+	ExitFunc = os.Exit
 )
 
 func Header(text string) string {
@@ -72,7 +76,7 @@ func LlamaCppCredit(version string) string {
 // Fatal prints an error message to stderr and exits with code 1.
 func Fatal(format string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, "%s %s\n", ErrorMsg("Error:"), fmt.Sprintf(format, args...))
-	os.Exit(1)
+	ExitFunc(1)
 }
 
 // PrintError prints an error message to stderr without exiting.
