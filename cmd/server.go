@@ -39,7 +39,7 @@ Examples:
   lleme server start          # Start in foreground
   lleme server start -d       # Start in background (detached)
   lleme server stop           # Stop the server
-  lleme server restart        # Restart the server`,
+  lleme server restart        # Restart the server (always in background)`,
 }
 
 var serverStartCmd = &cobra.Command{
@@ -108,11 +108,7 @@ var serverRestartCmd = &cobra.Command{
 
 		fmt.Println("Starting server...")
 
-		if serverDetach {
-			startServerDetached()
-		} else {
-			startServerForeground()
-		}
+		startServerDetached()
 	},
 }
 
@@ -318,7 +314,6 @@ func init() {
 	serverRestartCmd.Flags().StringVarP(&serverHost, "host", "H", "", "Server host (default from config)")
 	serverRestartCmd.Flags().IntVarP(&serverPort, "port", "p", 0, "Server port (default from config)")
 	serverRestartCmd.Flags().IntVar(&serverMaxModels, "max-models", 0, "Maximum concurrent models (default from config)")
-	serverRestartCmd.Flags().BoolVarP(&serverDetach, "detach", "d", false, "Run server in background")
 
 	internalServeCmd.Flags().StringVar(&serverHost, "host", "", "")
 	internalServeCmd.Flags().IntVar(&serverPort, "port", 0, "")
