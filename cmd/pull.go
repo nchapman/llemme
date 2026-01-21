@@ -57,9 +57,7 @@ var pullCmd = &cobra.Command{
 		quants := hf.ExtractQuantizations(files)
 		if len(quants) == 0 {
 			ui.PrintError("No GGUF files found")
-			fmt.Printf("\nThe repository '%s/%s' exists but contains no GGUF files.\n\n", user, repo)
-			fmt.Println("Try one of these GGUF versions:")
-			fmt.Printf("  • %s/%s\n", user+"GGUF", repo)
+			fmt.Printf("\nThe repository '%s/%s' exists but contains no GGUF files.\n", user, repo)
 			os.Exit(1)
 		}
 

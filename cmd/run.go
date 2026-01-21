@@ -304,7 +304,7 @@ func offerToPull(cfg *config.Config, user, repo, quant string) (*proxy.Downloade
 
 	quants := hf.ExtractQuantizations(files)
 	if len(quants) == 0 {
-		return nil, fmt.Errorf("'%s/%s' contains no GGUF files\n\n  Try: %s-GGUF/%s", user, repo, user, repo)
+		return nil, fmt.Errorf("'%s/%s' contains no GGUF files", user, repo)
 	}
 
 	// Select quantization
