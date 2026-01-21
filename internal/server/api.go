@@ -94,6 +94,15 @@ type HealthResponse struct {
 	Status string `json:"status"`
 }
 
+// checkResponse reads the response body and returns an error if status is not OK.
+func checkResponse(resp *http.Response, operation string) error {
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("%s: HTTP %d: %s", operation, resp.StatusCode, string(body))
+	}
+	return nil
+}
+
 func NewAPIClient(host string, port int) *APIClient {
 	return &APIClient{
 		baseURL: fmt.Sprintf("http://%s:%d", host, port),
@@ -113,15 +122,11 @@ func (api *APIClient) Health() error {
 
 	resp, err := api.client.Get(url)
 	if err != nil {
-		return err
+		return fmt.Errorf("health check request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("health check failed: HTTP %d", resp.StatusCode)
-	}
-
-	return nil
+	return checkResponse(resp, "health check")
 }
 
 func (api *APIClient) ChatCompletion(req *ChatCompletionRequest) (*ChatCompletionResponse, error) {
@@ -129,30 +134,29 @@ func (api *APIClient) ChatCompletion(req *ChatCompletionRequest) (*ChatCompletio
 
 	body, err := json.Marshal(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
 	httpReq, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create request: %w", err)
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	resp, err := api.client.Do(httpReq)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("send request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("chat completion failed: HTTP %d: %s", resp.StatusCode, string(body))
+	if err := checkResponse(resp, "chat completion"); err != nil {
+		return nil, err
 	}
 
 	var response ChatCompletionResponse
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("decode response: %w", err)
 	}
 
 	return &response, nil
@@ -173,25 +177,24 @@ func (api *APIClient) StreamChatCompletion(ctx context.Context, req *ChatComplet
 
 	body, err := json.Marshal(req)
 	if err != nil {
-		return err
+		return fmt.Errorf("marshal request: %w", err)
 	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(body))
 	if err != nil {
-		return err
+		return fmt.Errorf("create request: %w", err)
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	resp, err := api.client.Do(httpReq)
 	if err != nil {
-		return err
+		return fmt.Errorf("send request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("chat completion failed: HTTP %d: %s", resp.StatusCode, string(body))
+	if err := checkResponse(resp, "chat completion"); err != nil {
+		return err
 	}
 
 	scanner := bufio.NewScanner(resp.Body)
@@ -258,28 +261,23 @@ func (api *APIClient) StopModel(model string) error {
 	req := StopModelRequest{Model: model}
 	body, err := json.Marshal(req)
 	if err != nil {
-		return err
+		return fmt.Errorf("marshal request: %w", err)
 	}
 
 	httpReq, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
 	if err != nil {
-		return err
+		return fmt.Errorf("create request: %w", err)
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	resp, err := api.client.Do(httpReq)
 	if err != nil {
-		return err
+		return fmt.Errorf("send request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("stop model failed: HTTP %d: %s", resp.StatusCode, string(body))
-	}
-
-	return nil
+	return checkResponse(resp, "stop model")
 }
 
 func (api *APIClient) SetModel(modelPath string) error {
@@ -292,28 +290,23 @@ func (api *APIClient) SetModel(modelPath string) error {
 	req := LoadModelRequest{Model: modelPath}
 	body, err := json.Marshal(req)
 	if err != nil {
-		return err
+		return fmt.Errorf("marshal request: %w", err)
 	}
 
 	httpReq, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
 	if err != nil {
-		return err
+		return fmt.Errorf("create request: %w", err)
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	resp, err := api.client.Do(httpReq)
 	if err != nil {
-		return err
+		return fmt.Errorf("send request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("load model failed: HTTP %d: %s", resp.StatusCode, string(body))
-	}
-
-	return nil
+	return checkResponse(resp, "load model")
 }
 
 // RunOptions contains server options for loading a model.
@@ -355,26 +348,21 @@ func (api *APIClient) Run(model string, opts *RunOptions) error {
 
 	body, err := json.Marshal(req)
 	if err != nil {
-		return err
+		return fmt.Errorf("marshal request: %w", err)
 	}
 
 	httpReq, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
 	if err != nil {
-		return err
+		return fmt.Errorf("create request: %w", err)
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	resp, err := api.client.Do(httpReq)
 	if err != nil {
-		return err
+		return fmt.Errorf("send request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("run model failed: HTTP %d: %s", resp.StatusCode, string(body))
-	}
-
-	return nil
+	return checkResponse(resp, "run model")
 }

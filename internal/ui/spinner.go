@@ -69,8 +69,7 @@ func (m spinModel) View() string {
 }
 
 type Spinner struct {
-	model *spinModel
-	prog  *tea.Program
+	prog *tea.Program
 }
 
 func NewSpinner() *Spinner {
@@ -78,7 +77,6 @@ func NewSpinner() *Spinner {
 }
 
 func (s *Spinner) Start(message string) {
-	s.model = &spinModel{}
 	m := initialSpinModel(message)
 	s.prog = tea.NewProgram(m)
 	go func() {

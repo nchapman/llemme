@@ -15,7 +15,6 @@ const (
 )
 
 var (
-	normalStyle   = lipgloss.NewStyle()
 	headerStyle   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12"))
 	successStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
 	errorStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))

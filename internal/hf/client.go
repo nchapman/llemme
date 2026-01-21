@@ -11,12 +11,12 @@ import (
 	"time"
 
 	"github.com/nchapman/lleme/internal/config"
+	"github.com/nchapman/lleme/internal/version"
 )
 
 const (
 	baseURL    = "https://huggingface.co"
 	apiBase    = "https://huggingface.co/api"
-	userAgent  = "lleme/0.1.0"
 	maxRetries = 3
 	retryDelay = 1 * time.Second
 )
@@ -137,7 +137,7 @@ func getToken(cfg *config.Config) string {
 func (c *Client) doRequest(req *http.Request) (*http.Response, error) {
 	// Only set User-Agent if not already set (allows callers to override)
 	if req.Header.Get("User-Agent") == "" {
-		req.Header.Set("User-Agent", userAgent)
+		req.Header.Set("User-Agent", version.UserAgent())
 	}
 	if c.token != "" {
 		req.Header.Set("Authorization", "Bearer "+c.token)
@@ -317,7 +317,7 @@ func (c *Client) GetManifest(user, repo, tag string) (*Manifest, []byte, error) 
 	}
 
 	// Must include "llama-cpp" in user-agent to get ggufFile/mmprojFile fields
-	req.Header.Set("User-Agent", userAgent+" (llama-cpp compatible)")
+	req.Header.Set("User-Agent", version.UserAgent()+" (llama-cpp compatible)")
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := c.doRequest(req)

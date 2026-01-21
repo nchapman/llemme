@@ -28,7 +28,7 @@ var configEditCmd = &cobra.Command{
 	Use:   "edit",
 	Short: "Open config in $EDITOR",
 	Run: func(cmd *cobra.Command, args []string) {
-		openInEditor(config.ConfigPath())
+		openConfigInEditor(config.ConfigPath())
 	},
 }
 
@@ -77,7 +77,7 @@ func printConfig() {
 	fmt.Print(string(data))
 }
 
-func openInEditor(path string) {
+func openConfigInEditor(path string) {
 	// Ensure config file exists with defaults if it doesn't
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		cfg := config.DefaultConfig()
@@ -87,11 +87,18 @@ func openInEditor(path string) {
 		fmt.Printf("Created default config at %s\n\n", ui.Muted(path))
 	}
 
+	if err := openInEditor(path); err != nil {
+		ui.Fatal("%v", err)
+	}
+}
+
+// openInEditor opens a file in the user's preferred editor.
+// Returns an error if no editor is found or the editor fails.
+func openInEditor(path string) error {
 	editor := getEditor()
 	if editor == "" {
-		ui.PrintError("No editor found. Set $EDITOR or $VISUAL environment variable.")
-		fmt.Printf("\nConfig file location: %s\n", ui.Muted(path))
-		os.Exit(1)
+		fmt.Printf("File location: %s\n", ui.Muted(path))
+		return fmt.Errorf("no editor found - set $EDITOR or $VISUAL environment variable")
 	}
 
 	cmd := exec.Command(editor, path)
@@ -100,8 +107,9 @@ func openInEditor(path string) {
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		ui.Fatal("Failed to open editor: %v", err)
+		return fmt.Errorf("failed to open editor: %w", err)
 	}
+	return nil
 }
 
 func getEditor() string {
