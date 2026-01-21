@@ -216,9 +216,12 @@ func TestCleanupPartialFiles(t *testing.T) {
 	}
 
 	// Run cleanup
-	err := CleanupPartialFiles()
+	count, err := CleanupPartialFiles()
 	if err != nil {
 		t.Fatalf("CleanupPartialFiles() error = %v", err)
+	}
+	if count != 3 {
+		t.Errorf("CleanupPartialFiles() count = %d, want 3", count)
 	}
 
 	// Check partial files were deleted
@@ -254,8 +257,11 @@ func TestCleanupPartialFilesEmptyDirs(t *testing.T) {
 		t.Fatalf("Failed to create models dir: %v", err)
 	}
 
-	err := CleanupPartialFiles()
+	count, err := CleanupPartialFiles()
 	if err != nil {
 		t.Errorf("CleanupPartialFiles() error = %v", err)
+	}
+	if count != 0 {
+		t.Errorf("CleanupPartialFiles() count = %d, want 0", count)
 	}
 }

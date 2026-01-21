@@ -315,11 +315,12 @@ func FindMMProjFile(user, repo, quant string) string {
 	return ""
 }
 
-func CleanupPartialFiles() error {
+func CleanupPartialFiles() (int, error) {
 	binDir := config.BinPath()
 	modelsDir := config.ModelsPath()
 
 	dirs := []string{binDir, modelsDir}
+	count := 0
 
 	for _, dir := range dirs {
 		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
@@ -327,14 +328,16 @@ func CleanupPartialFiles() error {
 				return err
 			}
 			if !info.IsDir() && strings.HasSuffix(path, ".partial") {
-				os.Remove(path)
+				if os.Remove(path) == nil {
+					count++
+				}
 			}
 			return nil
 		})
 		if err != nil {
-			return err
+			return count, err
 		}
 	}
 
-	return nil
+	return count, nil
 }
