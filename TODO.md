@@ -7,9 +7,9 @@ Building blocks from foundation to features. Each phase builds on the previous.
 ## Phase 1: Foundation
 
 ### 1.1 Project Setup
-- [x] Initialize Go module (`go mod init github.com/nchapman/llemme`)
+- [x] Initialize Go module (`go mod init github.com/nchapman/lleme`)
 - [x] Set up Cobra CLI skeleton with root command
-- [x] Add `version` command (just llemme version for now)
+- [x] Add `version` command (just lleme version for now)
 - [x] Set up basic project structure:
   ```
   cmd/
@@ -24,7 +24,7 @@ Building blocks from foundation to features. Each phase builds on the previous.
   ```
 
 ### 1.2 Configuration & Paths
-- [x] Define paths: `~/.llemme/`, `models/`, `bin/`
+- [x] Define paths: `~/.lleme/`, `models/`, `bin/`
 - [x] Create config struct and YAML parsing
 - [x] Auto-create directories on first run
 - [x] Load config with defaults → file → env var precedence
@@ -34,7 +34,7 @@ Building blocks from foundation to features. Each phase builds on the previous.
 - [x] Add Log for debug/verbose output
 - [x] Create reusable UI components (spinner, progress bar wrappers)
 
-**Checkpoint:** `llemme version` works with styled output
+**Checkpoint:** `lleme version` works with styled output
 
 ---
 
@@ -121,8 +121,8 @@ Building blocks from foundation to features. Each phase builds on the previous.
 
 ### 5.1 Server Process Management
 - [x] Start llama-server subprocess with model flag
-- [x] Store PID in `~/.llemme/server-state.json`
-- [x] Store current model in `~/.llemme/server-state.json`
+- [x] Store PID in `~/.lleme/server-state.json`
+- [x] Store current model in `~/.lleme/server-state.json`
 - [x] Check PID before starting (avoid duplicate servers)
 - [x] Send SIGTERM for graceful shutdown
 - [x] Clean up PID file on exit
@@ -200,7 +200,7 @@ Building blocks from foundation to features. Each phase builds on the previous.
   - `--system` prompt
 - [x] Merge with config.yaml defaults
 
-**Checkpoint:** `llemme run user/repo` works via HTTP API
+**Checkpoint:** `lleme run user/repo` works via HTTP API
 
 ---
 
@@ -237,7 +237,7 @@ Building blocks from foundation to features. Each phase builds on the previous.
 - [ ] "Multiple matches" with list
 - [ ] Apply to: `run`, `stop`, `rm`, `info`
 
-**Checkpoint:** `llemme run llama` finds the right model
+**Checkpoint:** `lleme run llama` finds the right model
 
 ---
 
@@ -276,7 +276,7 @@ Building blocks from foundation to features. Each phase builds on the previous.
 - [ ] Split GGUF files (multi-part models)
 - [ ] Disk space check before download
 - [ ] Handle missing/corrupted metadata
-- [ ] Concurrent access (multiple llemme processes)
+- [ ] Concurrent access (multiple lleme processes)
 
 ### 10.4 Testing
 - [x] Unit tests for HF client, matcher, config

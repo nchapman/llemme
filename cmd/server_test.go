@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/nchapman/llemme/internal/proxy"
+	"github.com/nchapman/lleme/internal/proxy"
 )
 
 func TestStopServerNotRunning(t *testing.T) {

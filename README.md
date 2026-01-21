@@ -1,4 +1,4 @@
-# llemme
+# lleme
 
 Run local LLMs with [llama.cpp](https://github.com/ggerganov/llama.cpp) and [Hugging Face](https://huggingface.co).
 
@@ -16,45 +16,45 @@ Run local LLMs with [llama.cpp](https://github.com/ggerganov/llama.cpp) and [Hug
 
 **Homebrew (macOS/Linux):**
 ```bash
-brew install nchapman/tap/llemme
+brew install nchapman/tap/lleme
 ```
 
 **Go:**
 ```bash
-go install github.com/nchapman/llemme@latest
+go install github.com/nchapman/lleme@latest
 ```
 
 **Build from source:**
 
 ```bash
-git clone https://github.com/nchapman/llemme
-cd llemme
-go build -o llemme .
+git clone https://github.com/nchapman/lleme
+cd lleme
+go build -o lleme .
 ```
 
 ## Usage
 
 ```bash
 # Run a model (downloads automatically)
-llemme run unsloth/gpt-oss-20b-GGUF
+lleme run unsloth/gpt-oss-20b-GGUF
 
 # One-shot prompt
-llemme run unsloth/gpt-oss-20b-GGUF "Explain quantum computing in one sentence"
+lleme run unsloth/gpt-oss-20b-GGUF "Explain quantum computing in one sentence"
 
 # Search for models
-llemme search mistral
+lleme search mistral
 
 # List downloaded models
-llemme list    # or: llemme ls
+lleme list    # or: lleme ls
 
 # Show running models
-llemme status  # or: llemme ps
+lleme status  # or: lleme ps
 ```
 
-**Note on Model Names:** `llemme` is smart about resolving downloaded model names via a case-insensitive substring search. For example, a partial query like `gpt-oss-20b` would match `unsloth/gpt-oss-20b-GGUF:Q4_K_M`. Punctuation is significant and not removed before matching. If a partial name matches uniquely, it runs. If it matches multiple quantizations of the same model, `llemme` picks the best one. If ambiguous, it will ask for more specifics.
+**Note on Model Names:** `lleme` is smart about resolving downloaded model names via a case-insensitive substring search. For example, a partial query like `gpt-oss-20b` would match `unsloth/gpt-oss-20b-GGUF:Q4_K_M`. Punctuation is significant and not removed before matching. If a partial name matches uniquely, it runs. If it matches multiple quantizations of the same model, `lleme` picks the best one. If ambiguous, it will ask for more specifics.
 
-_An animated demonstration of `llemme run` will go here._
-_To record one, you can use `asciinema rec llemme-demo.cast` then convert with `svg-term --in llemme-demo.cast --out llemme-demo.svg`._
+_An animated demonstration of `lleme run` will go here._
+_To record one, you can use `asciinema rec lleme-demo.cast` then convert with `svg-term --in lleme-demo.cast --out lleme-demo.svg`._
 
 ## Commands
 
@@ -90,24 +90,24 @@ The `remove` command offers powerful filtering options to manage your downloaded
 
 -   **By specific name/pattern:**
     ```bash
-    llemme remove user/repo:quant       # Remove a specific model quantization
-    llemme remove user/repo             # Remove all quantizations of a model
-    llemme remove user/*                # Remove all models from a specific user
-    llemme remove *                     # Remove all downloaded models
+    lleme remove user/repo:quant       # Remove a specific model quantization
+    lleme remove user/repo             # Remove all quantizations of a model
+    lleme remove user/*                # Remove all models from a specific user
+    lleme remove *                     # Remove all downloaded models
     ```
 -   **By age:**
     ```bash
-    llemme remove --older-than 30d      # Remove models not used in 30 days
-    llemme remove --older-than 4w       # Remove models not used in 4 weeks
+    lleme remove --older-than 30d      # Remove models not used in 30 days
+    lleme remove --older-than 4w       # Remove models not used in 4 weeks
     ```
 -   **By size:**
     ```bash
-    llemme remove --larger-than 10GB    # Remove models larger than 10GB
-    llemme remove --larger-than 500MB   # Remove models larger than 500MB
+    lleme remove --larger-than 10GB    # Remove models larger than 10GB
+    lleme remove --larger-than 500MB   # Remove models larger than 500MB
     ```
 -   **Combine patterns and filters:**
     ```bash
-    llemme remove user/* --older-than 7d  # Remove models from 'user' not used in 7 days
+    lleme remove user/* --older-than 7d  # Remove models from 'user' not used in 7 days
     ```
     Use the `--force` (`-f`) flag to skip the confirmation prompt.
 
@@ -124,34 +124,34 @@ curl http://localhost:11313/v1/chat/completions \
 
 ## Using with Claude Code
 
-llemme supports the Anthropic Messages API, so you can use it as a backend for [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
+lleme supports the Anthropic Messages API, so you can use it as a backend for [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
 **1. Pull a model with good instruction-following and tool-use capabilities:**
 
 ```bash
-llemme pull unsloth/GLM-4.7-Flash-GGUF
+lleme pull unsloth/GLM-4.7-Flash-GGUF
 ```
 
-**2. Configure llemme to map Claude model names to your local model:**
+**2. Configure lleme to map Claude model names to your local model:**
 
 ```yaml
-# ~/.llemme/config.yaml
+# ~/.lleme/config.yaml
 server:
   claude_model: "unsloth/GLM-4.7-Flash-GGUF"
 ```
 
-**3. Start llemme and run Claude Code:**
+**3. Start lleme and run Claude Code:**
 
 ```bash
-llemme server start
+lleme server start
 ANTHROPIC_BASE_URL=http://127.0.0.1:11313 claude
 ```
 
-That's it! Claude Code will send requests to llemme, which routes them to your local model.
+That's it! Claude Code will send requests to lleme, which routes them to your local model.
 
 **Alternative: Configure Claude Code directly**
 
-Instead of setting `claude_model` in llemme, you can tell Claude Code which model to request:
+Instead of setting `claude_model` in lleme, you can tell Claude Code which model to request:
 
 ```bash
 ANTHROPIC_BASE_URL=http://127.0.0.1:11313 \
@@ -163,7 +163,7 @@ This lets you set different models per tier (Sonnet is the default). See also `A
 
 ## Configuration
 
-Config lives at `~/.llemme/config.yaml`. Edit with `llemme config edit` or view with `llemme config show`.
+Config lives at `~/.lleme/config.yaml`. Edit with `lleme config edit` or view with `lleme config show`.
 
 ```yaml
 huggingface:
@@ -188,7 +188,7 @@ See [llama-server docs](https://github.com/ggerganov/llama.cpp/tree/master/examp
 
 ## Logs
 
-Logs are stored in `~/.llemme/logs/`:
+Logs are stored in `~/.lleme/logs/`:
 - `proxy.log` - Proxy server logs
 - `<model-name>.log` - Per-model backend logs (e.g., `llama-3.2-3b-instruct-q4_k_m.log`)
 

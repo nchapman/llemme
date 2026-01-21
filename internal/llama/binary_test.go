@@ -74,7 +74,7 @@ func TestBinaryPath(t *testing.T) {
 
 	os.Setenv("HOME", tmpDir)
 
-	expectedPath := filepath.Join(tmpDir, ".llemme", "bin", "llama-cli")
+	expectedPath := filepath.Join(tmpDir, ".lleme", "bin", "llama-cli")
 	actualPath := BinaryPath()
 
 	if actualPath != expectedPath {
@@ -89,7 +89,7 @@ func TestServerPath(t *testing.T) {
 
 	os.Setenv("HOME", tmpDir)
 
-	expectedPath := filepath.Join(tmpDir, ".llemme", "bin", "llama-server")
+	expectedPath := filepath.Join(tmpDir, ".lleme", "bin", "llama-server")
 	actualPath := ServerPath()
 
 	if actualPath != expectedPath {
@@ -104,7 +104,7 @@ func TestIsInstalled(t *testing.T) {
 
 	os.Setenv("HOME", tmpDir)
 
-	binDir := filepath.Join(tmpDir, ".llemme", "bin")
+	binDir := filepath.Join(tmpDir, ".lleme", "bin")
 	if err := os.MkdirAll(binDir, 0755); err != nil {
 		t.Fatalf("Failed to create bin dir: %v", err)
 	}
@@ -199,7 +199,7 @@ func TestVersionInfo(t *testing.T) {
 
 		os.Setenv("HOME", tmpDir)
 
-		binDir := filepath.Join(tmpDir, ".llemme", "bin")
+		binDir := filepath.Join(tmpDir, ".lleme", "bin")
 		if err := os.MkdirAll(binDir, 0755); err != nil {
 			t.Fatalf("Failed to create bin dir: %v", err)
 		}

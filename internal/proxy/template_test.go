@@ -190,9 +190,9 @@ func TestWriteTemplateCache(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Override config.BinPath for testing
-	originalBinPath := os.Getenv("LLEMME_BIN_PATH")
-	os.Setenv("LLEMME_BIN_PATH", tmpDir)
-	defer os.Setenv("LLEMME_BIN_PATH", originalBinPath)
+	originalBinPath := os.Getenv("LLEME_BIN_PATH")
+	os.Setenv("LLEME_BIN_PATH", tmpDir)
+	defer os.Setenv("LLEME_BIN_PATH", originalBinPath)
 
 	// Create a fake model file (needed for mtime-based cache key)
 	modelPath := filepath.Join(tmpDir, "model.gguf")
@@ -230,9 +230,9 @@ func TestWriteTemplateCache(t *testing.T) {
 func TestWriteTemplateCacheConsistentHash(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	originalBinPath := os.Getenv("LLEMME_BIN_PATH")
-	os.Setenv("LLEMME_BIN_PATH", tmpDir)
-	defer os.Setenv("LLEMME_BIN_PATH", originalBinPath)
+	originalBinPath := os.Getenv("LLEME_BIN_PATH")
+	os.Setenv("LLEME_BIN_PATH", tmpDir)
+	defer os.Setenv("LLEME_BIN_PATH", originalBinPath)
 
 	// Create a fake model file
 	modelPath := filepath.Join(tmpDir, "model.gguf")
@@ -262,9 +262,9 @@ func TestWriteTemplateCacheConsistentHash(t *testing.T) {
 func TestWriteTemplateCacheDifferentModels(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	originalBinPath := os.Getenv("LLEMME_BIN_PATH")
-	os.Setenv("LLEMME_BIN_PATH", tmpDir)
-	defer os.Setenv("LLEMME_BIN_PATH", originalBinPath)
+	originalBinPath := os.Getenv("LLEME_BIN_PATH")
+	os.Setenv("LLEME_BIN_PATH", tmpDir)
+	defer os.Setenv("LLEME_BIN_PATH", originalBinPath)
 
 	// Create two fake model files
 	modelPath1 := filepath.Join(tmpDir, "model1.gguf")
@@ -297,9 +297,9 @@ func TestWriteTemplateCacheDifferentModels(t *testing.T) {
 func TestWriteTemplateCacheInvalidatesOnMtimeChange(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	originalBinPath := os.Getenv("LLEMME_BIN_PATH")
-	os.Setenv("LLEMME_BIN_PATH", tmpDir)
-	defer os.Setenv("LLEMME_BIN_PATH", originalBinPath)
+	originalBinPath := os.Getenv("LLEME_BIN_PATH")
+	os.Setenv("LLEME_BIN_PATH", tmpDir)
+	defer os.Setenv("LLEME_BIN_PATH", originalBinPath)
 
 	modelPath := filepath.Join(tmpDir, "model.gguf")
 	if err := os.WriteFile(modelPath, []byte("version1"), 0644); err != nil {
@@ -454,9 +454,9 @@ func TestExtractChatTemplateNonexistent(t *testing.T) {
 func TestExtractAndPatchTemplate(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	originalBinPath := os.Getenv("LLEMME_BIN_PATH")
-	os.Setenv("LLEMME_BIN_PATH", tmpDir)
-	defer os.Setenv("LLEMME_BIN_PATH", originalBinPath)
+	originalBinPath := os.Getenv("LLEME_BIN_PATH")
+	os.Setenv("LLEME_BIN_PATH", tmpDir)
+	defer os.Setenv("LLEME_BIN_PATH", originalBinPath)
 
 	// Template that needs patching
 	template := `{% if tools is not none %}Use tools{% endif %}`
@@ -487,9 +487,9 @@ func TestExtractAndPatchTemplate(t *testing.T) {
 func TestExtractAndPatchTemplateNoChangesNeeded(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	originalBinPath := os.Getenv("LLEMME_BIN_PATH")
-	os.Setenv("LLEMME_BIN_PATH", tmpDir)
-	defer os.Setenv("LLEMME_BIN_PATH", originalBinPath)
+	originalBinPath := os.Getenv("LLEME_BIN_PATH")
+	os.Setenv("LLEME_BIN_PATH", tmpDir)
+	defer os.Setenv("LLEME_BIN_PATH", originalBinPath)
 
 	// Template that doesn't need patching
 	template := `{% if messages %}{{ messages }}{% endif %}`
@@ -511,9 +511,9 @@ func TestExtractAndPatchTemplateNoChangesNeeded(t *testing.T) {
 func TestExtractAndPatchTemplateNoTemplate(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	originalBinPath := os.Getenv("LLEMME_BIN_PATH")
-	os.Setenv("LLEMME_BIN_PATH", tmpDir)
-	defer os.Setenv("LLEMME_BIN_PATH", originalBinPath)
+	originalBinPath := os.Getenv("LLEME_BIN_PATH")
+	os.Setenv("LLEME_BIN_PATH", tmpDir)
+	defer os.Setenv("LLEME_BIN_PATH", originalBinPath)
 
 	// GGUF without chat_template
 	ggufPath := createTestGGUF(t, map[string]string{

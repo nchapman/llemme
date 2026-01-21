@@ -9,11 +9,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/nchapman/llemme/internal/config"
-	"github.com/nchapman/llemme/internal/llama"
-	"github.com/nchapman/llemme/internal/logs"
-	"github.com/nchapman/llemme/internal/proxy"
-	"github.com/nchapman/llemme/internal/ui"
+	"github.com/nchapman/lleme/internal/config"
+	"github.com/nchapman/lleme/internal/llama"
+	"github.com/nchapman/lleme/internal/logs"
+	"github.com/nchapman/lleme/internal/proxy"
+	"github.com/nchapman/lleme/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -28,7 +28,7 @@ var serverCmd = &cobra.Command{
 	Use:     "server",
 	Short:   "Manage the proxy server",
 	GroupID: "server",
-	Long: `Manage the llemme proxy server that routes requests to llama.cpp backends.
+	Long: `Manage the lleme proxy server that routes requests to llama.cpp backends.
 
 The proxy server:
   - Routes requests to the appropriate model backend
@@ -37,10 +37,10 @@ The proxy server:
   - Unloads idle models after the configured timeout
 
 Examples:
-  llemme server start          # Start in foreground
-  llemme server start -d       # Start in background (detached)
-  llemme server stop           # Stop the server
-  llemme server restart        # Restart the server`,
+  lleme server start          # Start in foreground
+  lleme server start -d       # Start in background (detached)
+  lleme server stop           # Stop the server
+  lleme server restart        # Restart the server`,
 }
 
 var serverStartCmd = &cobra.Command{
@@ -78,7 +78,7 @@ var serverStartCmd = &cobra.Command{
 		if existingState := proxy.GetRunningProxyState(); existingState != nil {
 			fmt.Printf("%s Server already running on http://%s:%d (PID %d)\n",
 				ui.ErrorMsg("Error:"), existingState.Host, existingState.Port, existingState.PID)
-			fmt.Println("Use 'llemme server stop' to stop the existing server first")
+			fmt.Println("Use 'lleme server stop' to stop the existing server first")
 			os.Exit(1)
 		}
 

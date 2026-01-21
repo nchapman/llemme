@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nchapman/llemme/internal/config"
+	"github.com/nchapman/lleme/internal/config"
 	"gopkg.in/yaml.v3"
 )
 
@@ -120,8 +120,8 @@ func TestConfigPath(t *testing.T) {
 		t.Errorf("Expected path to end with 'config.yaml', got '%s'", path)
 	}
 
-	if !strings.Contains(path, ".llemme") {
-		t.Errorf("Expected path to contain '.llemme', got '%s'", path)
+	if !strings.Contains(path, ".lleme") {
+		t.Errorf("Expected path to contain '.lleme', got '%s'", path)
 	}
 }
 
@@ -132,7 +132,7 @@ func TestOpenInEditorCreatesDefaultConfig(t *testing.T) {
 	defer os.Setenv("HOME", oldHome)
 	os.Setenv("HOME", tmpDir)
 
-	configPath := filepath.Join(tmpDir, ".llemme", "config.yaml")
+	configPath := filepath.Join(tmpDir, ".lleme", "config.yaml")
 
 	// Verify config doesn't exist
 	if _, err := os.Stat(configPath); !os.IsNotExist(err) {
@@ -247,7 +247,7 @@ func TestResetToDefaults(t *testing.T) {
 	defer os.Setenv("HOME", oldHome)
 	os.Setenv("HOME", tmpDir)
 
-	configPath := filepath.Join(tmpDir, ".llemme", "config.yaml")
+	configPath := filepath.Join(tmpDir, ".lleme", "config.yaml")
 
 	// Create a modified config
 	cfg := config.DefaultConfig()

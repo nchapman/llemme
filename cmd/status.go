@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/nchapman/llemme/internal/llama"
-	"github.com/nchapman/llemme/internal/proxy"
-	"github.com/nchapman/llemme/internal/ui"
+	"github.com/nchapman/lleme/internal/llama"
+	"github.com/nchapman/lleme/internal/proxy"
+	"github.com/nchapman/lleme/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -22,8 +22,8 @@ var statusCmd = &cobra.Command{
 		if state == nil {
 			fmt.Println(ui.Muted("Server is not running"))
 			fmt.Println()
-			fmt.Println("Start it with: llemme server start")
-			fmt.Println("Or use: llemme run <model> (will auto-start server)")
+			fmt.Println("Start it with: lleme server start")
+			fmt.Println("Or use: lleme run <model> (will auto-start server)")
 			return
 		}
 
@@ -52,7 +52,7 @@ var statusCmd = &cobra.Command{
 		if len(status.Models) == 0 {
 			fmt.Println(ui.Muted("No models loaded"))
 			fmt.Println()
-			fmt.Println("Use 'llemme run <model>' to load a model")
+			fmt.Println("Use 'lleme run <model>' to load a model")
 			return
 		}
 

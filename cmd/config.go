@@ -5,8 +5,8 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/nchapman/llemme/internal/config"
-	"github.com/nchapman/llemme/internal/ui"
+	"github.com/nchapman/lleme/internal/config"
+	"github.com/nchapman/lleme/internal/ui"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -15,13 +15,13 @@ var configCmd = &cobra.Command{
 	Use:     "config",
 	Short:   "Manage configuration",
 	GroupID: "config",
-	Long: `Manage llemme configuration.
+	Long: `Manage lleme configuration.
 
 Examples:
-  llemme config edit    # Open config in $EDITOR
-  llemme config show    # Print current configuration
-  llemme config path    # Print config file path
-  llemme config reset   # Reset config to defaults`,
+  lleme config edit    # Open config in $EDITOR
+  lleme config show    # Print current configuration
+  lleme config path    # Print config file path
+  lleme config reset   # Reset config to defaults`,
 }
 
 var configEditCmd = &cobra.Command{

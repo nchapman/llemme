@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/nchapman/llemme/internal/config"
-	"github.com/nchapman/llemme/internal/llama"
-	"github.com/nchapman/llemme/internal/ui"
+	"github.com/nchapman/lleme/internal/config"
+	"github.com/nchapman/lleme/internal/llama"
+	"github.com/nchapman/lleme/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -15,7 +15,7 @@ var versionCmd = &cobra.Command{
 	Short:   "Show version information",
 	GroupID: "config",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("llemme %s (%s/%s)\n", Version, runtime.GOOS, runtime.GOARCH)
+		fmt.Printf("lleme %s (%s/%s)\n", Version, runtime.GOOS, runtime.GOARCH)
 
 		installed, _ := llama.GetInstalledVersion()
 		if installed != nil {

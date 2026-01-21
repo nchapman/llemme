@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/nchapman/llemme/internal/config"
-	"github.com/nchapman/llemme/internal/ui"
+	"github.com/nchapman/lleme/internal/config"
+	"github.com/nchapman/lleme/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -16,7 +16,7 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:     "llemme",
+	Use:     "lleme",
 	Short:   "Run local LLMs with llama.cpp and Hugging Face",
 	Version: Version,
 	Long: `Run local LLMs with llama.cpp and Hugging Face.

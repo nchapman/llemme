@@ -10,13 +10,13 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/nchapman/llemme/internal/config"
-	"github.com/nchapman/llemme/internal/hf"
-	"github.com/nchapman/llemme/internal/llama"
-	"github.com/nchapman/llemme/internal/proxy"
-	"github.com/nchapman/llemme/internal/server"
-	"github.com/nchapman/llemme/internal/tui/chat"
-	"github.com/nchapman/llemme/internal/ui"
+	"github.com/nchapman/lleme/internal/config"
+	"github.com/nchapman/lleme/internal/hf"
+	"github.com/nchapman/lleme/internal/llama"
+	"github.com/nchapman/lleme/internal/proxy"
+	"github.com/nchapman/lleme/internal/server"
+	"github.com/nchapman/lleme/internal/tui/chat"
+	"github.com/nchapman/lleme/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -47,7 +47,7 @@ Models:
   - Repo name: Llama-2-7B-GGUF
 
 Personas:
-  - Name of a saved persona (see 'llemme persona list')
+  - Name of a saved persona (see 'lleme persona list')
   - Personas provide saved system prompts and options
 
 The proxy server will be auto-started if not running.
@@ -91,7 +91,7 @@ Models are loaded on-demand and unloaded after idle timeout.`,
 				promptStartIdx = 2 // Prompt starts after persona and model args
 			} else {
 				fmt.Printf("%s Persona '%s' has no model. Specify one:\n", ui.ErrorMsg("Error:"), args[0])
-				fmt.Printf("  llemme run %s <model> [prompt]\n", args[0])
+				fmt.Printf("  lleme run %s <model> [prompt]\n", args[0])
 				os.Exit(1)
 			}
 
@@ -282,7 +282,7 @@ func modelNotFoundError(query string, suggestions []proxy.DownloadedModel) error
 			b.WriteString(fmt.Sprintf("  %s\n", s.FullName))
 		}
 	} else {
-		b.WriteString("\n\n  Use 'llemme list' to see downloaded models\n  Use 'llemme search <query>' to find models")
+		b.WriteString("\n\n  Use 'lleme list' to see downloaded models\n  Use 'lleme search <query>' to find models")
 	}
 	return fmt.Errorf("%s", b.String())
 }
@@ -295,7 +295,7 @@ func offerToPull(cfg *config.Config, user, repo, quant string) (*proxy.Downloade
 	modelInfo, err := client.GetModel(user, repo)
 	if err != nil {
 		if strings.Contains(err.Error(), "404") {
-			return nil, fmt.Errorf("model '%s/%s' not found on Hugging Face\n\n  Use 'llemme search <query>' to find models", user, repo)
+			return nil, fmt.Errorf("model '%s/%s' not found on Hugging Face\n\n  Use 'lleme search <query>' to find models", user, repo)
 		}
 		return nil, fmt.Errorf("failed to check model: %w", err)
 	}

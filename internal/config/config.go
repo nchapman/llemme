@@ -42,7 +42,7 @@ type Server struct {
 }
 
 const (
-	configDir  = ".llemme"
+	configDir  = ".lleme"
 	configFile = "config.yaml"
 	modelsDir  = "models"
 	binDir     = "bin"
@@ -111,7 +111,7 @@ huggingface:
   # Default quantization when pulling models
   default_quant: Q4_K_M
 
-# llemme server settings
+# lleme server settings
 server:
   host: 127.0.0.1
   port: 11313

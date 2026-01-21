@@ -8,7 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/nchapman/llemme/internal/tui/styles"
+	"github.com/nchapman/lleme/internal/tui/styles"
 )
 
 // MessageRole represents who sent the message

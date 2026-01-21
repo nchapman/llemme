@@ -180,8 +180,8 @@ func TestCleanupPartialFiles(t *testing.T) {
 
 	os.Setenv("HOME", tmpDir)
 
-	binDir := filepath.Join(tmpDir, ".llemme", "bin")
-	modelsDir := filepath.Join(tmpDir, ".llemme", "models", "user", "repo")
+	binDir := filepath.Join(tmpDir, ".lleme", "bin")
+	modelsDir := filepath.Join(tmpDir, ".lleme", "models", "user", "repo")
 
 	if err := os.MkdirAll(binDir, 0755); err != nil {
 		t.Fatalf("Failed to create bin dir: %v", err)
@@ -244,8 +244,8 @@ func TestCleanupPartialFilesEmptyDirs(t *testing.T) {
 	os.Setenv("HOME", tmpDir)
 
 	// Create the directories but don't put any partial files in them
-	binDir := filepath.Join(tmpDir, ".llemme", "bin")
-	modelsDir := filepath.Join(tmpDir, ".llemme", "models")
+	binDir := filepath.Join(tmpDir, ".lleme", "bin")
+	modelsDir := filepath.Join(tmpDir, ".lleme", "models")
 
 	if err := os.MkdirAll(binDir, 0755); err != nil {
 		t.Fatalf("Failed to create bin dir: %v", err)

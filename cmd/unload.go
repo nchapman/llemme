@@ -8,8 +8,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/nchapman/llemme/internal/proxy"
-	"github.com/nchapman/llemme/internal/ui"
+	"github.com/nchapman/lleme/internal/proxy"
+	"github.com/nchapman/lleme/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -22,9 +22,9 @@ var unloadCmd = &cobra.Command{
 	Long: `Unload a model from the proxy server.
 
 Examples:
-  llemme unload llama                                    # Unload by name
-  llemme unload bartowski/Llama-3.2-3B-Instruct-GGUF     # Unload by full name
-  llemme unload --all                                    # Unload all models`,
+  lleme unload llama                                    # Unload by name
+  lleme unload bartowski/Llama-3.2-3B-Instruct-GGUF     # Unload by full name
+  lleme unload --all                                    # Unload all models`,
 	Run: func(cmd *cobra.Command, args []string) {
 		state := proxy.GetRunningProxyState()
 		if state == nil {
@@ -40,14 +40,14 @@ Examples:
 		}
 
 		if len(args) == 0 {
-			fmt.Println("Usage: llemme unload [model] [flags]")
+			fmt.Println("Usage: lleme unload [model] [flags]")
 			fmt.Println()
 			fmt.Println("Unload a specific model:")
-			fmt.Println("  llemme unload llama")
-			fmt.Println("  llemme unload bartowski/Llama-3.2-3B-Instruct-GGUF:Q4_K_M")
+			fmt.Println("  lleme unload llama")
+			fmt.Println("  lleme unload bartowski/Llama-3.2-3B-Instruct-GGUF:Q4_K_M")
 			fmt.Println()
 			fmt.Println("Unload all models:")
-			fmt.Println("  llemme unload --all")
+			fmt.Println("  lleme unload --all")
 			return
 		}
 

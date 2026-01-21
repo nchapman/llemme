@@ -3,7 +3,7 @@ package proxy
 import (
 	"time"
 
-	"github.com/nchapman/llemme/internal/ui"
+	"github.com/nchapman/lleme/internal/ui"
 )
 
 // IdleMonitor periodically checks for and shuts down idle backends

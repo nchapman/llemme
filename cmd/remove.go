@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nchapman/llemme/internal/config"
-	"github.com/nchapman/llemme/internal/hf"
-	"github.com/nchapman/llemme/internal/ui"
+	"github.com/nchapman/lleme/internal/config"
+	"github.com/nchapman/lleme/internal/hf"
+	"github.com/nchapman/lleme/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -30,13 +30,13 @@ var removeCmd = &cobra.Command{
 	Long: `Remove downloaded models by name, pattern, or filter.
 
 Examples:
-  llemme remove user/repo:quant       Remove specific model
-  llemme remove user/repo             Remove all quants of a model
-  llemme remove user/*                Remove all models from user
-  llemme remove *                     Remove all models
-  llemme remove --older-than 30d      Remove models unused for 30 days
-  llemme remove --larger-than 10GB    Remove models larger than 10GB
-  llemme remove user/* --older-than 7d  Combine pattern with filter`,
+  lleme remove user/repo:quant       Remove specific model
+  lleme remove user/repo             Remove all quants of a model
+  lleme remove user/*                Remove all models from user
+  lleme remove *                     Remove all models
+  lleme remove --older-than 30d      Remove models unused for 30 days
+  lleme remove --larger-than 10GB    Remove models larger than 10GB
+  lleme remove user/* --older-than 7d  Combine pattern with filter`,
 	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		pattern := ""
@@ -49,9 +49,9 @@ Examples:
 			fmt.Printf("%s Specify a model pattern or use --older-than/--larger-than\n", ui.ErrorMsg("Error:"))
 			fmt.Println()
 			fmt.Println("Examples:")
-			fmt.Println("  llemme remove user/repo:quant")
-			fmt.Println("  llemme remove --older-than 30d")
-			fmt.Println("  llemme remove --larger-than 10GB")
+			fmt.Println("  lleme remove user/repo:quant")
+			fmt.Println("  lleme remove --older-than 30d")
+			fmt.Println("  lleme remove --larger-than 10GB")
 			os.Exit(1)
 		}
 

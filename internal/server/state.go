@@ -8,8 +8,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/nchapman/llemme/internal/config"
-	"github.com/nchapman/llemme/internal/fileutil"
+	"github.com/nchapman/lleme/internal/config"
+	"github.com/nchapman/lleme/internal/fileutil"
 )
 
 type ServerState struct {

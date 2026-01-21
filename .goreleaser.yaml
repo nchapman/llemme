@@ -14,8 +14,8 @@ builds:
       - amd64
       - arm64
     ldflags:
-      - -s -w -X github.com/nchapman/llemme/cmd.Version={{.Version}}
-    binary: llemme
+      - -s -w -X github.com/nchapman/lleme/cmd.Version={{.Version}}
+    binary: lleme
 
 archives:
   - formats: [tar.gz]
@@ -33,19 +33,19 @@ changelog:
       - "^chore:"
 
 brews:
-  - name: llemme
+  - name: lleme
     repository:
       owner: nchapman
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     directory: Formula
-    homepage: "https://github.com/nchapman/llemme"
+    homepage: "https://github.com/nchapman/lleme"
     description: "Run local LLMs with llama.cpp and Hugging Face"
     license: "MIT"
     install: |
-      bin.install "llemme"
+      bin.install "lleme"
     service: |
-      run [opt_bin/"llemme", "server", "start"]
+      run [opt_bin/"lleme", "server", "start"]
       keep_alive crashed: true
-      log_path var/"log/llemme.log"
-      error_log_path var/"log/llemme.log"
+      log_path var/"log/lleme.log"
+      error_log_path var/"log/lleme.log"

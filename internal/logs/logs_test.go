@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nchapman/llemme/internal/config"
+	"github.com/nchapman/lleme/internal/config"
 )
 
 func TestSanitizeModelName(t *testing.T) {
@@ -60,7 +60,7 @@ func TestSanitizeModelName(t *testing.T) {
 
 func TestRotateLogs(t *testing.T) {
 	// Create temp directory
-	tmpDir, err := os.MkdirTemp("", "llemme-logs-test")
+	tmpDir, err := os.MkdirTemp("", "lleme-logs-test")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -94,7 +94,7 @@ func TestRotateLogs(t *testing.T) {
 }
 
 func TestRotateLogsMultiple(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "llemme-logs-test")
+	tmpDir, err := os.MkdirTemp("", "lleme-logs-test")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -133,7 +133,7 @@ func TestRotateLogsMultiple(t *testing.T) {
 }
 
 func TestRotatingWriter(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "llemme-logs-test")
+	tmpDir, err := os.MkdirTemp("", "lleme-logs-test")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -169,7 +169,7 @@ func TestRotatingWriter(t *testing.T) {
 }
 
 func TestRotatingWriterSizeRotation(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "llemme-logs-test")
+	tmpDir, err := os.MkdirTemp("", "lleme-logs-test")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -206,7 +206,7 @@ func TestRotatingWriterSizeRotation(t *testing.T) {
 }
 
 func TestRotatingWriterPath(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "llemme-logs-test")
+	tmpDir, err := os.MkdirTemp("", "lleme-logs-test")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -226,7 +226,7 @@ func TestRotatingWriterPath(t *testing.T) {
 }
 
 func TestNewRotatingWriterRotatesExisting(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "llemme-logs-test")
+	tmpDir, err := os.MkdirTemp("", "lleme-logs-test")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}

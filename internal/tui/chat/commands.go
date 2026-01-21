@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/nchapman/llemme/internal/server"
-	"github.com/nchapman/llemme/internal/tui/components"
+	"github.com/nchapman/lleme/internal/server"
+	"github.com/nchapman/lleme/internal/tui/components"
 )
 
 // handleCommand processes a slash command and returns a command

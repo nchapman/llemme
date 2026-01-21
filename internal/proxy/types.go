@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nchapman/llemme/internal/config"
+	"github.com/nchapman/lleme/internal/config"
 )
 
 // BackendStatus represents the current state of a backend server
@@ -196,15 +196,15 @@ type OpenAIModelsResponse struct {
 
 // OpenAIModelInfo represents a single model in the models list
 type OpenAIModelInfo struct {
-	ID      string        `json:"id"`
-	Object  string        `json:"object"`
-	Created int64         `json:"created"`
-	OwnedBy string        `json:"owned_by"`
-	Llemme  *LlemmeStatus `json:"llemme,omitempty"`
+	ID      string       `json:"id"`
+	Object  string       `json:"object"`
+	Created int64        `json:"created"`
+	OwnedBy string       `json:"owned_by"`
+	Lleme   *LlemeStatus `json:"lleme,omitempty"`
 }
 
-// LlemmeStatus contains llemme-specific model status
-type LlemmeStatus struct {
+// LlemeStatus contains lleme-specific model status
+type LlemeStatus struct {
 	Status       string    `json:"status"`
 	Port         int       `json:"port"`
 	LastActivity time.Time `json:"last_activity"`

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nchapman/llemme/internal/config"
+	"github.com/nchapman/lleme/internal/config"
 	"gopkg.in/yaml.v3"
 )
 

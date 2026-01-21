@@ -5,8 +5,8 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/nchapman/llemme/internal/config"
-	"github.com/nchapman/llemme/internal/ui"
+	"github.com/nchapman/lleme/internal/config"
+	"github.com/nchapman/lleme/internal/ui"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -30,14 +30,14 @@ A persona is a YAML file that specifies:
   - options: llama.cpp options (temp, top-p, etc.)
 
 Examples:
-  llemme persona list                    # List all personas
-  llemme persona show coding-assistant   # Show persona details
-  llemme persona create my-assistant     # Create new persona
-  llemme persona edit my-assistant       # Edit in $EDITOR
-  llemme persona rm my-assistant         # Delete persona
+  lleme persona list                    # List all personas
+  lleme persona show coding-assistant   # Show persona details
+  lleme persona create my-assistant     # Create new persona
+  lleme persona edit my-assistant       # Edit in $EDITOR
+  lleme persona rm my-assistant         # Delete persona
 
 Run a persona:
-  llemme run coding-assistant "help me refactor this"`,
+  lleme run coding-assistant "help me refactor this"`,
 }
 
 var personaListCmd = &cobra.Command{
@@ -53,7 +53,7 @@ var personaListCmd = &cobra.Command{
 		if len(personas) == 0 {
 			fmt.Println(ui.Muted("No personas configured yet"))
 			fmt.Println()
-			fmt.Println("Create one with: llemme persona create <name>")
+			fmt.Println("Create one with: lleme persona create <name>")
 			return
 		}
 
@@ -119,9 +119,9 @@ var personaCreateCmd = &cobra.Command{
 	Long: `Create a new persona configuration.
 
 Examples:
-  llemme persona create my-assistant                           # Create and edit
-  llemme persona create coder -m bartowski/Qwen2.5-Coder-GGUF  # With model
-  llemme persona create writer --from coder                    # Copy existing`,
+  lleme persona create my-assistant                           # Create and edit
+  lleme persona create coder -m bartowski/Qwen2.5-Coder-GGUF  # With model
+  lleme persona create writer --from coder                    # Copy existing`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0]

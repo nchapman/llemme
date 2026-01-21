@@ -1,4 +1,4 @@
-// Package logs provides log file management with rotation for llemme.
+// Package logs provides log file management with rotation for lleme.
 package logs
 
 import (
@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/nchapman/llemme/internal/config"
+	"github.com/nchapman/lleme/internal/config"
 )
 
 const (

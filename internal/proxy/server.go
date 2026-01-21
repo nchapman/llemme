@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nchapman/llemme/internal/config"
+	"github.com/nchapman/lleme/internal/config"
 )
 
 const Version = "0.2.0"
@@ -362,7 +362,7 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 			Object:  "model",
 			Created: b.StartedAt.Unix(),
 			OwnedBy: "local",
-			Llemme: &LlemmeStatus{
+			Lleme: &LlemeStatus{
 				Status:       b.Status,
 				Port:         b.Port,
 				LastActivity: b.LastActivity,

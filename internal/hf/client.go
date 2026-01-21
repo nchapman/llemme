@@ -10,13 +10,13 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/nchapman/llemme/internal/config"
+	"github.com/nchapman/lleme/internal/config"
 )
 
 const (
 	baseURL    = "https://huggingface.co"
 	apiBase    = "https://huggingface.co/api"
-	userAgent  = "llemme/0.1.0"
+	userAgent  = "lleme/0.1.0"
 	maxRetries = 3
 	retryDelay = 1 * time.Second
 )

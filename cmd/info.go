@@ -5,9 +5,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/nchapman/llemme/internal/config"
-	"github.com/nchapman/llemme/internal/hf"
-	"github.com/nchapman/llemme/internal/ui"
+	"github.com/nchapman/lleme/internal/config"
+	"github.com/nchapman/lleme/internal/hf"
+	"github.com/nchapman/lleme/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -87,8 +87,8 @@ var infoCmd = &cobra.Command{
 		}
 
 		fmt.Println()
-		fmt.Printf("  llemme pull %s\n", modelRef)
-		fmt.Printf("  llemme run %s\n", modelRef)
+		fmt.Printf("  lleme pull %s\n", modelRef)
+		fmt.Printf("  lleme run %s\n", modelRef)
 	},
 }
 

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nchapman/llemme/internal/config"
+	"github.com/nchapman/lleme/internal/config"
 )
 
 func TestNewManager(t *testing.T) {
@@ -110,7 +110,7 @@ func TestServerState(t *testing.T) {
 
 		os.Setenv("HOME", tmpDir)
 
-		binDir := filepath.Join(tmpDir, ".llemme", "bin")
+		binDir := filepath.Join(tmpDir, ".lleme", "bin")
 		if err := os.MkdirAll(binDir, 0755); err != nil {
 			t.Fatalf("Failed to create bin dir: %v", err)
 		}
@@ -174,7 +174,7 @@ func TestPIDFile(t *testing.T) {
 
 		os.Setenv("HOME", tmpDir)
 
-		binDir := filepath.Join(tmpDir, ".llemme", "bin")
+		binDir := filepath.Join(tmpDir, ".lleme", "bin")
 		if err := os.MkdirAll(binDir, 0755); err != nil {
 			t.Fatalf("Failed to create bin dir: %v", err)
 		}
@@ -198,7 +198,7 @@ func TestClearState(t *testing.T) {
 
 	os.Setenv("HOME", tmpDir)
 
-	binDir := filepath.Join(tmpDir, ".llemme", "bin")
+	binDir := filepath.Join(tmpDir, ".lleme", "bin")
 	if err := os.MkdirAll(binDir, 0755); err != nil {
 		t.Fatalf("Failed to create bin dir: %v", err)
 	}
@@ -574,7 +574,7 @@ func TestStatus(t *testing.T) {
 		os.Setenv("HOME", tmpDir)
 
 		// Create invalid state file
-		binDir := filepath.Join(tmpDir, ".llemme", "bin")
+		binDir := filepath.Join(tmpDir, ".lleme", "bin")
 		if err := os.MkdirAll(binDir, 0755); err != nil {
 			t.Fatalf("Failed to create bin dir: %v", err)
 		}
@@ -597,13 +597,13 @@ func TestPathHelpers(t *testing.T) {
 
 	os.Setenv("HOME", tmpDir)
 
-	expectedStatePath := filepath.Join(tmpDir, ".llemme", "bin", "server-state.json")
+	expectedStatePath := filepath.Join(tmpDir, ".lleme", "bin", "server-state.json")
 	actualStatePath := StateFilePath()
 	if actualStatePath != expectedStatePath {
 		t.Errorf("Expected StatePath %s, got %s", expectedStatePath, actualStatePath)
 	}
 
-	expectedPIDPath := filepath.Join(tmpDir, ".llemme", "bin", "server.pid")
+	expectedPIDPath := filepath.Join(tmpDir, ".lleme", "bin", "server.pid")
 	actualPIDPath := PIDFilePath()
 	if actualPIDPath != expectedPIDPath {
 		t.Errorf("Expected PIDPath %s, got %s", expectedPIDPath, actualPIDPath)

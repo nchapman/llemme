@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nchapman/llemme/internal/config"
-	"github.com/nchapman/llemme/internal/hf"
-	"github.com/nchapman/llemme/internal/ui"
+	"github.com/nchapman/lleme/internal/config"
+	"github.com/nchapman/lleme/internal/hf"
+	"github.com/nchapman/lleme/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -313,7 +313,7 @@ func handleModelError(err error, user, repo string) {
 		fmt.Printf("\nCould not find '%s/%s' on Hugging Face.\n\n", user, repo)
 		fmt.Println("Tips:")
 		fmt.Println("  • Check the spelling of the repository name")
-		fmt.Println("  • Use 'llemme search <query>' to find models")
+		fmt.Println("  • Use 'lleme search <query>' to find models")
 	} else {
 		fmt.Printf("%s %v\n", ui.ErrorMsg("Error:"), err)
 	}

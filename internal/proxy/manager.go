@@ -12,10 +12,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/nchapman/llemme/internal/config"
-	"github.com/nchapman/llemme/internal/hf"
-	"github.com/nchapman/llemme/internal/llama"
-	"github.com/nchapman/llemme/internal/logs"
+	"github.com/nchapman/lleme/internal/config"
+	"github.com/nchapman/lleme/internal/hf"
+	"github.com/nchapman/lleme/internal/llama"
+	"github.com/nchapman/lleme/internal/logs"
 )
 
 // ModelManager manages the lifecycle of llama-server backend instances
@@ -367,7 +367,7 @@ func (m *ModelManager) buildArgs(backend *Backend) []string {
 		"--host", m.config.Host,
 		"--port", fmt.Sprintf("%d", backend.Port),
 		"--embeddings", // Enable /v1/embeddings endpoint
-		"--no-webui",   // Disable built-in web UI (llemme is a proxy)
+		"--no-webui",   // Disable built-in web UI (lleme is a proxy)
 	}
 
 	// Check for mmproj file (vision model support)

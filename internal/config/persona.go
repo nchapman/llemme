@@ -160,7 +160,7 @@ func SavePersonaTemplate(name string, persona *Persona) error {
 	var b strings.Builder
 	b.WriteString("# Persona: " + name + "\n")
 	b.WriteString("#\n")
-	b.WriteString("# Run with: llemme run " + name + "\n\n")
+	b.WriteString("# Run with: lleme run " + name + "\n\n")
 
 	if persona.Model != "" {
 		b.WriteString("model: " + persona.Model + "\n\n")

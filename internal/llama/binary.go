@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nchapman/llemme/internal/config"
+	"github.com/nchapman/lleme/internal/config"
 )
 
 const (
@@ -103,7 +103,7 @@ func GetLatestVersion() (*Release, error) {
 	}
 
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
-	req.Header.Set("User-Agent", "llemme/0.1.0")
+	req.Header.Set("User-Agent", "lleme/0.1.0")
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
@@ -146,7 +146,7 @@ func DownloadBinary(downloadURL, destPath string, progress func(int64, int64)) e
 		return err
 	}
 
-	req.Header.Set("User-Agent", "llemme/0.1.0")
+	req.Header.Set("User-Agent", "lleme/0.1.0")
 
 	// Use transport timeouts for connection setup, but no overall timeout for large downloads
 	transport := &http.Transport{

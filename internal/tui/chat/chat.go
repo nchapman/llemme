@@ -9,9 +9,9 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/nchapman/llemme/internal/config"
-	"github.com/nchapman/llemme/internal/server"
-	"github.com/nchapman/llemme/internal/tui/components"
+	"github.com/nchapman/lleme/internal/config"
+	"github.com/nchapman/lleme/internal/server"
+	"github.com/nchapman/lleme/internal/tui/components"
 )
 
 // Message types for communication with the model
