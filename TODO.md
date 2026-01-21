@@ -11,13 +11,11 @@ Based on comprehensive code review. Completed items marked with ~~strikethrough~
 
 ## Medium Priority
 
-### 2. Consolidate Style Definitions
-`internal/ui/style.go` and `internal/tui/styles/theme.go` define similar colors/styles.
-
-- [ ] Create shared `internal/styles/` package
-- [ ] Migrate CLI styles to use shared package
-- [ ] Migrate TUI styles to use shared package
-- [ ] Remove duplicate definitions
+### ~~2. Consolidate Style Definitions~~ Done
+- [x] Created shared `internal/styles/colors.go` with color palette
+- [x] Updated `internal/ui/style.go` to use shared colors
+- [x] Updated `internal/tui/styles/theme.go` to use shared colors
+- [x] Added AdaptiveColor support for light/dark terminal themes
 
 ### ~~3. Extract HTTP Error Helper~~ Done
 - [x] Created `checkResponse(resp, operation)` helper in `internal/server/api.go`
