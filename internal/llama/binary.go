@@ -38,6 +38,10 @@ type VersionInfo struct {
 	InstalledAt string `json:"installed_at"`
 }
 
+type VersionFile struct {
+	Llama *VersionInfo `json:"llama,omitempty"`
+}
+
 func getPlatform() string {
 	osName := runtime.GOOS
 	arch := runtime.GOARCH
@@ -66,32 +70,6 @@ func getBinaryPattern(release *Release) string {
 	}
 
 	return "llama-" + release.TagName + "-bin-" + platform + ".tar.gz"
-}
-
-// isSharedLibrary returns true for .dylib (macOS) and .so/.so.X (Linux) files
-func isSharedLibrary(name string) bool {
-	if strings.HasSuffix(name, ".dylib") {
-		return true
-	}
-	// Match .so at end (e.g., libfoo.so)
-	if strings.HasSuffix(name, ".so") {
-		return true
-	}
-	// Match versioned .so (e.g., libfoo.so.1.2.3)
-	// Check for .so. followed by only digits and dots
-	if idx := strings.Index(name, ".so."); idx != -1 {
-		suffix := name[idx+4:]
-		if len(suffix) == 0 {
-			return false
-		}
-		for _, c := range suffix {
-			if c != '.' && (c < '0' || c > '9') {
-				return false
-			}
-		}
-		return true
-	}
-	return false
 }
 
 func GetLatestVersion() (*Release, error) {
@@ -213,50 +191,25 @@ func extractTarGz(archivePath, destDir string) error {
 		return err
 	}
 
-	var llamaDir string
+	var llamaDirName string
 	for _, entry := range entries {
 		if entry.IsDir() && strings.HasPrefix(entry.Name(), "llama-") {
-			llamaDir = filepath.Join(destDir, entry.Name())
+			llamaDirName = entry.Name()
 			break
 		}
 	}
 
-	if llamaDir == "" {
+	if llamaDirName == "" {
 		return fmt.Errorf("could not find llama directory in archive")
 	}
 
-	fileEntries, err := os.ReadDir(llamaDir)
-	if err != nil {
-		return err
+	// Create/update 'llama-current' symlink pointing to the versioned directory
+	currentLink := filepath.Join(destDir, "llama-current")
+	if err := os.RemoveAll(currentLink); err != nil {
+		return fmt.Errorf("failed to remove existing llama-current: %w", err)
 	}
-
-	for _, entry := range fileEntries {
-		if entry.IsDir() {
-			continue
-		}
-
-		srcPath := filepath.Join(llamaDir, entry.Name())
-
-		destName := entry.Name()
-		if strings.Contains(entry.Name(), "llama-cli") {
-			destName = "llama-cli"
-		} else if strings.Contains(entry.Name(), "llama-server") {
-			destName = "llama-server"
-		} else if !isSharedLibrary(entry.Name()) {
-			// Skip non-library files (keep .dylib on macOS, .so on Linux)
-			continue
-		}
-
-		destPath := filepath.Join(destDir, destName)
-		symlinkPath := destPath
-
-		if _, err := os.Lstat(symlinkPath); err == nil {
-			continue
-		}
-
-		if err := os.Symlink(srcPath, symlinkPath); err != nil {
-			continue
-		}
+	if err := os.Symlink(llamaDirName, currentLink); err != nil {
+		return fmt.Errorf("failed to create llama-current symlink: %w", err)
 	}
 
 	return nil
@@ -293,7 +246,10 @@ func InstallLatest() (*VersionInfo, error) {
 		return nil, fmt.Errorf("failed to extract archive: %w", err)
 	}
 
-	cliPath := filepath.Join(binDir, "llama-cli")
+	// Clean up tarball after successful extraction
+	os.Remove(archivePath)
+
+	cliPath := filepath.Join(binDir, "llama-current", "llama-cli")
 	versionInfo := &VersionInfo{
 		TagName:     release.TagName,
 		BinaryPath:  cliPath,
@@ -318,12 +274,12 @@ func GetInstalledVersion() (*VersionInfo, error) {
 		return nil, err
 	}
 
-	var version VersionInfo
-	if err := json.Unmarshal(data, &version); err != nil {
+	var file VersionFile
+	if err := json.Unmarshal(data, &file); err != nil {
 		return nil, err
 	}
 
-	return &version, nil
+	return file.Llama, nil
 }
 
 func SaveVersionInfo(version *VersionInfo) error {
@@ -333,7 +289,8 @@ func SaveVersionInfo(version *VersionInfo) error {
 		return fmt.Errorf("failed to create version directory: %w", err)
 	}
 
-	data, err := json.MarshalIndent(version, "", "  ")
+	file := VersionFile{Llama: version}
+	data, err := json.MarshalIndent(file, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal version: %w", err)
 	}
@@ -342,16 +299,16 @@ func SaveVersionInfo(version *VersionInfo) error {
 }
 
 func BinaryPath() string {
-	return filepath.Join(config.BinPath(), "llama-cli")
+	return filepath.Join(config.BinPath(), "llama-current", "llama-cli")
 }
 
 func ServerPath() string {
-	return filepath.Join(config.BinPath(), "llama-server")
+	return filepath.Join(config.BinPath(), "llama-current", "llama-server")
 }
 
 func IsInstalled() bool {
-	cliPath := filepath.Join(config.BinPath(), "llama-cli")
-	if _, err := os.Lstat(cliPath); err != nil {
+	cliPath := filepath.Join(config.BinPath(), "llama-current", "llama-cli")
+	if _, err := os.Stat(cliPath); err != nil {
 		return false
 	}
 	return true

@@ -27,12 +27,12 @@ type ProxyState struct {
 
 // ProxyPIDPath returns the path to the proxy PID file
 func ProxyPIDPath() string {
-	return filepath.Join(config.BinPath(), proxyPIDFile)
+	return filepath.Join(config.PidsPath(), proxyPIDFile)
 }
 
 // ProxyStatePath returns the path to the proxy state file
 func ProxyStatePath() string {
-	return filepath.Join(config.BinPath(), proxyStateFile)
+	return filepath.Join(config.PidsPath(), proxyStateFile)
 }
 
 // SaveProxyState saves the proxy state to disk using atomic writes

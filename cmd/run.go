@@ -13,6 +13,7 @@ import (
 	"github.com/nchapman/lleme/internal/config"
 	"github.com/nchapman/lleme/internal/hf"
 	"github.com/nchapman/lleme/internal/llama"
+	"github.com/nchapman/lleme/internal/logs"
 	"github.com/nchapman/lleme/internal/proxy"
 	"github.com/nchapman/lleme/internal/server"
 	"github.com/nchapman/lleme/internal/tui/chat"
@@ -412,7 +413,7 @@ func ensureProxyRunning(cfg *config.Config) (string, error) {
 	cmd.Env = os.Environ()
 
 	// Redirect output to log file
-	logFile := config.BinPath() + "/proxy.log"
+	logFile := logs.ProxyLogPath()
 	log, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
 		return "", fmt.Errorf("failed to open log file: %w", err)

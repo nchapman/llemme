@@ -253,6 +253,9 @@ func TestEnsureDirectories(t *testing.T) {
 		baseDir,
 		filepath.Join(baseDir, "models"),
 		filepath.Join(baseDir, "bin"),
+		filepath.Join(baseDir, "cache"),
+		filepath.Join(baseDir, "logs"),
+		filepath.Join(baseDir, "pids"),
 	}
 
 	for _, dir := range expectedDirs {
@@ -285,5 +288,17 @@ func TestPathHelpers(t *testing.T) {
 	expectedBinPath := filepath.Join(tmpDir, ".lleme", "bin")
 	if binPath != expectedBinPath {
 		t.Errorf("Expected BinPath %s, got %s", expectedBinPath, binPath)
+	}
+
+	cachePath := CachePath()
+	expectedCachePath := filepath.Join(tmpDir, ".lleme", "cache")
+	if cachePath != expectedCachePath {
+		t.Errorf("Expected CachePath %s, got %s", expectedCachePath, cachePath)
+	}
+
+	pidsPath := PidsPath()
+	expectedPidsPath := filepath.Join(tmpDir, ".lleme", "pids")
+	if pidsPath != expectedPidsPath {
+		t.Errorf("Expected PidsPath %s, got %s", expectedPidsPath, pidsPath)
 	}
 }

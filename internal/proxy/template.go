@@ -251,7 +251,7 @@ func skipGGUFValue(f *os.File, vtype uint32) error {
 
 // writeTemplateCache writes a patched template to a cache file and returns its path.
 func writeTemplateCache(modelPath, template string) (string, error) {
-	cacheDir := filepath.Join(config.BinPath(), "template-cache")
+	cacheDir := filepath.Join(config.CachePath(), "templates")
 	if err := os.MkdirAll(cacheDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create template cache dir: %w", err)
 	}
