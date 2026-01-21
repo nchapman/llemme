@@ -46,7 +46,7 @@ Examples:
 
 		// Must have pattern or filters
 		if pattern == "" && rmOlderThan == "" && rmLargerThan == "" {
-			fmt.Printf("%s Specify a model pattern or use --older-than/--larger-than\n", ui.ErrorMsg("Error:"))
+			ui.PrintError("Specify a model pattern or use --older-than/--larger-than")
 			fmt.Println()
 			fmt.Println("Examples:")
 			fmt.Println("  lleme remove user/repo:quant")
@@ -63,16 +63,14 @@ Examples:
 		if rmOlderThan != "" {
 			olderThan, err = parseDuration(rmOlderThan)
 			if err != nil {
-				fmt.Printf("%s Invalid --older-than value: %v\n", ui.ErrorMsg("Error:"), err)
-				os.Exit(1)
+				ui.Fatal("Invalid --older-than value: %v", err)
 			}
 		}
 
 		if rmLargerThan != "" {
 			largerThan, err = parseSize(rmLargerThan)
 			if err != nil {
-				fmt.Printf("%s Invalid --larger-than value: %v\n", ui.ErrorMsg("Error:"), err)
-				os.Exit(1)
+				ui.Fatal("Invalid --larger-than value: %v", err)
 			}
 		}
 
@@ -84,8 +82,7 @@ Examples:
 		// Find matching models
 		models, err := findModels(pattern, olderThan, largerThan)
 		if err != nil {
-			fmt.Printf("%s %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("%v", err)
 		}
 
 		if len(models) == 0 {
@@ -107,15 +104,15 @@ Examples:
 			}
 			fmt.Println()
 
+			var prompt string
 			if len(models) == 1 {
 				m := models[0]
-				fmt.Printf("Remove %s/%s:%s (%s)? [y/N] ", m.User, m.Repo, m.Quant, ui.FormatBytes(m.Size))
+				prompt = fmt.Sprintf("Remove %s/%s:%s (%s)?", m.User, m.Repo, m.Quant, ui.FormatBytes(m.Size))
 			} else {
-				fmt.Printf("Remove %d model(s), %s total? [y/N] ", len(models), ui.FormatBytes(totalSize))
+				prompt = fmt.Sprintf("Remove %d model(s), %s total?", len(models), ui.FormatBytes(totalSize))
 			}
 
-			var response string
-			if _, err := fmt.Scanln(&response); err != nil || (response != "y" && response != "Y") {
+			if !ui.PromptYesNo(prompt, false) {
 				fmt.Println(ui.Muted("Cancelled"))
 				return
 			}
@@ -127,7 +124,7 @@ Examples:
 		for _, m := range models {
 			modelPath := hf.GetModelFilePath(m.User, m.Repo, m.Quant)
 			if err := os.Remove(modelPath); err != nil {
-				fmt.Printf("%s Failed to remove %s/%s:%s: %v\n", ui.ErrorMsg("Error:"), m.User, m.Repo, m.Quant, err)
+				ui.PrintError("Failed to remove %s/%s:%s: %v", m.User, m.Repo, m.Quant, err)
 				continue
 			}
 			freedSize += m.Size

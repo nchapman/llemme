@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -49,21 +48,14 @@ var serverStartCmd = &cobra.Command{
 	PreRun: func(cmd *cobra.Command, args []string) {
 		if !llama.IsInstalled() {
 			fmt.Println("llama.cpp is not installed.")
-			fmt.Print("Install now? [Y/n] ")
-
-			var response string
-			fmt.Scanln(&response)
-			response = strings.TrimSpace(strings.ToLower(response))
-
-			if response != "" && response != "y" && response != "yes" {
+			if !ui.PromptYesNo("Install now?", true) {
 				fmt.Println(ui.Muted("Cancelled"))
 				os.Exit(0)
 			}
 
 			fmt.Println()
 			if _, err := llama.InstallLatest(); err != nil {
-				fmt.Printf("%s Failed to install llama.cpp: %v\n", ui.ErrorMsg("Error:"), err)
-				os.Exit(1)
+				ui.Fatal("Failed to install llama.cpp: %v", err)
 			}
 			fmt.Println()
 		}
@@ -71,8 +63,8 @@ var serverStartCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		// Check if already running
 		if existingState := proxy.GetRunningProxyState(); existingState != nil {
-			fmt.Printf("%s Server already running on http://%s:%d (PID %d)\n",
-				ui.ErrorMsg("Error:"), existingState.Host, existingState.Port, existingState.PID)
+			ui.PrintError("Server already running on http://%s:%d (PID %d)",
+				existingState.Host, existingState.Port, existingState.PID)
 			fmt.Println("Use 'lleme server stop' to stop the existing server first")
 			os.Exit(1)
 		}
@@ -159,8 +151,7 @@ func startServerForeground() {
 	// Load config
 	cfg, err := config.Load()
 	if err != nil {
-		fmt.Printf("%s Failed to load config: %v\n", ui.ErrorMsg("Error:"), err)
-		os.Exit(1)
+		ui.Fatal("Failed to load config: %v", err)
 	}
 
 	// Build proxy config from app config + CLI overrides
@@ -178,8 +169,7 @@ func startServerForeground() {
 	// Create and start server (handles orphan cleanup internally)
 	server := proxy.NewServer(proxyCfg, cfg)
 	if err := server.Start(); err != nil {
-		fmt.Printf("%s Failed to start server: %v\n", ui.ErrorMsg("Error:"), err)
-		os.Exit(1)
+		ui.Fatal("Failed to start server: %v", err)
 	}
 
 	// Print startup info
@@ -222,8 +212,7 @@ func startServerForeground() {
 func startServerDetached() {
 	executable, err := os.Executable()
 	if err != nil {
-		fmt.Printf("%s Failed to get executable path: %v\n", ui.ErrorMsg("Error:"), err)
-		os.Exit(1)
+		ui.Fatal("Failed to get executable path: %v", err)
 	}
 
 	// Build args: only pass CLI overrides that were explicitly set
@@ -246,8 +235,7 @@ func startServerDetached() {
 	}
 
 	if err := cmd.Start(); err != nil {
-		fmt.Printf("%s Failed to start server in background: %v\n", ui.ErrorMsg("Error:"), err)
-		os.Exit(1)
+		ui.Fatal("Failed to start server in background: %v", err)
 	}
 
 	// Poll for state file (up to 5 seconds)

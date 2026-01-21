@@ -57,15 +57,13 @@ Models are loaded on-demand and unloaded after idle timeout.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg, err := config.Load()
 		if err != nil {
-			fmt.Printf("%s Failed to load config: %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("Failed to load config: %v", err)
 		}
 
 		// Step 1: Ensure llama.cpp is installed
 		if !llama.IsInstalled() {
 			if err := ensureLlamaInstalled(); err != nil {
-				fmt.Printf("%s %v\n", ui.ErrorMsg("Error:"), err)
-				os.Exit(1)
+				ui.Fatal("%v", err)
 			}
 		}
 
@@ -79,8 +77,7 @@ Models are loaded on-demand and unloaded after idle timeout.`,
 			personaName = modelQuery // Save persona name before modelQuery changes
 			persona, err := config.LoadPersona(modelQuery)
 			if err != nil {
-				fmt.Printf("%s Failed to load persona: %v\n", ui.ErrorMsg("Error:"), err)
-				os.Exit(1)
+				ui.Fatal("Failed to load persona: %v", err)
 			}
 			activePersona = persona
 
@@ -91,7 +88,7 @@ Models are loaded on-demand and unloaded after idle timeout.`,
 				modelQuery = args[1]
 				promptStartIdx = 2 // Prompt starts after persona and model args
 			} else {
-				fmt.Printf("%s Persona '%s' has no model. Specify one:\n", ui.ErrorMsg("Error:"), args[0])
+				ui.PrintError("Persona '%s' has no model. Specify one:", args[0])
 				fmt.Printf("  lleme run %s <model> [prompt]\n", args[0])
 				os.Exit(1)
 			}
@@ -105,15 +102,13 @@ Models are loaded on-demand and unloaded after idle timeout.`,
 		// Step 2: Validate model exists (or offer to pull)
 		resolvedModel, err := validateModel(modelQuery, cfg)
 		if err != nil {
-			fmt.Printf("%s %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("%v", err)
 		}
 
 		// Step 3: Ensure proxy is running
 		proxyURL, err := ensureProxyRunning(cfg)
 		if err != nil {
-			fmt.Printf("%s Failed to start proxy: %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("Failed to start proxy: %v", err)
 		}
 
 		// Create API client pointing to proxy
@@ -121,8 +116,7 @@ Models are loaded on-demand and unloaded after idle timeout.`,
 
 		// Check health
 		if err := api.Health(); err != nil {
-			fmt.Printf("%s Proxy health check failed: %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("Proxy health check failed: %v", err)
 		}
 
 		// Use the resolved full model name
@@ -156,8 +150,7 @@ Models are loaded on-demand and unloaded after idle timeout.`,
 				opts.Threads = server.IntPtr(threads)
 			}
 			if err := api.Run(modelName, opts); err != nil {
-				fmt.Printf("%s Failed to load model: %v\n", ui.ErrorMsg("Error:"), err)
-				os.Exit(1)
+				ui.Fatal("Failed to load model: %v", err)
 			}
 		}
 
@@ -204,8 +197,7 @@ Models are loaded on-demand and unloaded after idle timeout.`,
 		m.SetProgram(p)
 
 		if _, err := p.Run(); err != nil {
-			fmt.Printf("%s TUI error: %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("TUI error: %v", err)
 		}
 	},
 }
@@ -213,13 +205,7 @@ Models are loaded on-demand and unloaded after idle timeout.`,
 // ensureLlamaInstalled prompts the user to install llama.cpp if not present
 func ensureLlamaInstalled() error {
 	fmt.Println("llama.cpp is not installed.")
-	fmt.Print("Install now? [Y/n] ")
-
-	var response string
-	fmt.Scanln(&response)
-	response = strings.TrimSpace(strings.ToLower(response))
-
-	if response != "" && response != "y" && response != "yes" {
+	if !ui.PromptYesNo("Install now?", true) {
 		return fmt.Errorf("llama.cpp is required to run models")
 	}
 
@@ -334,12 +320,8 @@ func offerToPull(cfg *config.Config, user, repo, quant string) (*proxy.Downloade
 	selectedQuant, _ := hf.FindQuantization(quants, quant)
 
 	// Prompt user to download
-	fmt.Printf("Model not downloaded. Pull %s/%s:%s (%s)? [Y/n] ", user, repo, quant, ui.FormatBytes(selectedQuant.Size))
-	var response string
-	fmt.Scanln(&response)
-	response = strings.TrimSpace(strings.ToLower(response))
-
-	if response != "" && response != "y" && response != "yes" {
+	prompt := fmt.Sprintf("Model not downloaded. Pull %s/%s:%s (%s)?", user, repo, quant, ui.FormatBytes(selectedQuant.Size))
+	if !ui.PromptYesNo(prompt, true) {
 		return nil, fmt.Errorf("model required to continue")
 	}
 

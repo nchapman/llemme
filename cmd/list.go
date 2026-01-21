@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -77,8 +76,7 @@ var listCmd = &cobra.Command{
 		})
 
 		if err != nil {
-			fmt.Printf("%s Failed to list models: %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("Failed to list models: %v", err)
 		}
 
 		if len(models) == 0 {

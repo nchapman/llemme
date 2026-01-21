@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/nchapman/lleme/internal/proxy"
@@ -61,24 +60,20 @@ func unloadModel(proxyURL, modelName string) {
 
 	reqBody, err := json.Marshal(map[string]string{"model": modelName})
 	if err != nil {
-		fmt.Printf("%s Failed to encode request: %v\n", ui.ErrorMsg("Error:"), err)
-		os.Exit(1)
+		ui.Fatal("Failed to encode request: %v", err)
 	}
 	resp, err := client.Post(proxyURL+"/api/stop", "application/json", bytes.NewReader(reqBody))
 	if err != nil {
-		fmt.Printf("%s Failed to unload model: %v\n", ui.ErrorMsg("Error:"), err)
-		os.Exit(1)
+		ui.Fatal("Failed to unload model: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
-		fmt.Printf("%s Model '%s' is not loaded\n", ui.ErrorMsg("Error:"), modelName)
-		os.Exit(1)
+		ui.Fatal("Model '%s' is not loaded", modelName)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		fmt.Printf("%s Failed to unload model: HTTP %d\n", ui.ErrorMsg("Error:"), resp.StatusCode)
-		os.Exit(1)
+		ui.Fatal("Failed to unload model: HTTP %d", resp.StatusCode)
 	}
 
 	fmt.Printf("Unloaded %s\n", modelName)
@@ -89,22 +84,19 @@ func unloadAllModels(proxyURL string) {
 
 	resp, err := client.Post(proxyURL+"/api/stop-all", "application/json", nil)
 	if err != nil {
-		fmt.Printf("%s Failed to unload models: %v\n", ui.ErrorMsg("Error:"), err)
-		os.Exit(1)
+		ui.Fatal("Failed to unload models: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		fmt.Printf("%s Failed to unload models: HTTP %d\n", ui.ErrorMsg("Error:"), resp.StatusCode)
-		os.Exit(1)
+		ui.Fatal("Failed to unload models: HTTP %d", resp.StatusCode)
 	}
 
 	var result struct {
 		Stopped int `json:"stopped"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		fmt.Printf("%s Failed to parse response: %v\n", ui.ErrorMsg("Error:"), err)
-		os.Exit(1)
+		ui.Fatal("Failed to parse response: %v", err)
 	}
 
 	switch result.Stopped {

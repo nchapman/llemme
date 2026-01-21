@@ -20,8 +20,7 @@ var searchCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg, err := config.Load()
 		if err != nil {
-			fmt.Printf("%s Failed to load config: %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("Failed to load config: %v", err)
 		}
 
 		client := hf.NewClient(cfg)
@@ -32,8 +31,7 @@ var searchCmd = &cobra.Command{
 
 		results, err := client.SearchModels(query, 15)
 		if err != nil {
-			fmt.Printf("%s Failed to search: %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("Failed to search: %v", err)
 		}
 
 		if len(results) == 0 {

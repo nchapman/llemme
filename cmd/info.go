@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/nchapman/lleme/internal/config"
@@ -20,8 +19,7 @@ var infoCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg, err := config.Load()
 		if err != nil {
-			fmt.Printf("%s Failed to load config: %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("Failed to load config: %v", err)
 		}
 
 		client := hf.NewClient(cfg)
@@ -29,20 +27,17 @@ var infoCmd = &cobra.Command{
 
 		user, repo, _, err := parseModelRef(modelRef)
 		if err != nil {
-			fmt.Printf("%s %s\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("%s", err)
 		}
 
 		modelInfo, err := client.GetModel(user, repo)
 		if err != nil {
-			fmt.Printf("%s Failed to get model info: %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("Failed to get model info: %v", err)
 		}
 
 		files, err := client.ListFiles(user, repo, "main")
 		if err != nil {
-			fmt.Printf("%s Failed to list files: %v\n", ui.ErrorMsg("Error:"), err)
-			os.Exit(1)
+			ui.Fatal("Failed to list files: %v", err)
 		}
 
 		quants := hf.ExtractQuantizations(files)

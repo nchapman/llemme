@@ -48,15 +48,6 @@ func (p *Persona) GetIntOption(key string, defaultVal int) int {
 	return defaultVal
 }
 
-// HasOption returns true if the persona has the given option set.
-func (p *Persona) HasOption(key string) bool {
-	if p == nil || p.Options == nil {
-		return false
-	}
-	_, ok := p.Options[key]
-	return ok
-}
-
 // GetServerOptions returns a map of server options (ctx-size, gpu-layers, threads, etc.)
 // that should be passed to the model loading API.
 func (p *Persona) GetServerOptions() map[string]any {
