@@ -45,7 +45,6 @@ const (
 	configFile = "config.yaml"
 	modelsDir  = "models"
 	binDir     = "bin"
-	blobsDir   = "blobs"
 	logsDir    = "logs"
 )
 
@@ -67,10 +66,6 @@ func ModelsPath() string {
 
 func BinPath() string {
 	return filepath.Join(GetHomeDir(), configDir, binDir)
-}
-
-func BlobsPath() string {
-	return filepath.Join(GetHomeDir(), configDir, blobsDir)
 }
 
 func LogsPath() string {
@@ -261,7 +256,6 @@ func EnsureDirectories() error {
 		ConfigPath(),
 		ModelsPath(),
 		BinPath(),
-		BlobsPath(),
 		LogsPath(),
 		PersonasPath(),
 	}

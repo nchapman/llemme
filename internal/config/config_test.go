@@ -253,7 +253,6 @@ func TestEnsureDirectories(t *testing.T) {
 		baseDir,
 		filepath.Join(baseDir, "models"),
 		filepath.Join(baseDir, "bin"),
-		filepath.Join(baseDir, "blobs"),
 	}
 
 	for _, dir := range expectedDirs {
@@ -286,11 +285,5 @@ func TestPathHelpers(t *testing.T) {
 	expectedBinPath := filepath.Join(tmpDir, ".lleme", "bin")
 	if binPath != expectedBinPath {
 		t.Errorf("Expected BinPath %s, got %s", expectedBinPath, binPath)
-	}
-
-	blobsPath := BlobsPath()
-	expectedBlobsPath := filepath.Join(tmpDir, ".lleme", "blobs")
-	if blobsPath != expectedBlobsPath {
-		t.Errorf("Expected BlobsPath %s, got %s", expectedBlobsPath, blobsPath)
 	}
 }
