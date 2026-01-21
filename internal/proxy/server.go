@@ -462,10 +462,12 @@ func (s *Server) handleModelError(w http.ResponseWriter, err error) {
 	}
 }
 
-// writeJSON encodes v as JSON to w. Encoding errors are ignored
-// since there's no meaningful recovery (client connection is typically closed).
+// writeJSON encodes v as JSON to w. Errors are logged but not returned
+// since callers are HTTP handlers where recovery is not possible.
 func writeJSON(w http.ResponseWriter, v any) {
-	_ = json.NewEncoder(w).Encode(v)
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		logs.Debug("failed to encode JSON response", "error", err)
+	}
 }
 
 // writeError writes an OpenAI-compatible error response

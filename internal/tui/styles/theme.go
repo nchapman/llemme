@@ -4,24 +4,24 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/nchapman/lleme/internal/styles"
 )
 
-// Colors - extend existing ui/style.go palette
+// Re-export colors from shared styles package for convenience.
 var (
-	ColorPrimary   = lipgloss.AdaptiveColor{Light: "62", Dark: "12"}
-	ColorSecondary = lipgloss.AdaptiveColor{Light: "240", Dark: "250"}
-	ColorMuted     = lipgloss.AdaptiveColor{Light: "246", Dark: "243"}
-	ColorSuccess   = lipgloss.AdaptiveColor{Light: "34", Dark: "10"}
-	ColorError     = lipgloss.AdaptiveColor{Light: "160", Dark: "9"}
-	ColorWarning   = lipgloss.AdaptiveColor{Light: "214", Dark: "11"}
-	ColorAccent    = lipgloss.AdaptiveColor{Light: "99", Dark: "13"}
-	ColorBorder    = lipgloss.AdaptiveColor{Light: "250", Dark: "238"}
+	ColorPrimary   = styles.ColorPrimary
+	ColorSecondary = styles.ColorSecondary
+	ColorMuted     = styles.ColorMuted
+	ColorSuccess   = styles.ColorSuccess
+	ColorError     = styles.ColorError
+	ColorWarning   = styles.ColorWarning
+	ColorAccent    = styles.ColorAccent
+	ColorBorder    = styles.ColorBorder
+	ColorValue     = styles.ColorValue
 )
 
-// Color values for glamour markdown styling (ANSI 256 color codes as strings)
-const (
-	ColorMutedCode = "243" // Muted gray for thinking/reasoning content
-)
+// Re-export color codes for glamour markdown styling.
+const ColorMutedCode = styles.ColorMutedCode
 
 // Header styles
 var (

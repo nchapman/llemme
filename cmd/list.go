@@ -109,14 +109,6 @@ var listCmd = &cobra.Command{
 	},
 }
 
-type ModelInfo struct {
-	User     string
-	Repo     string
-	Quant    string
-	Size     int64
-	LastUsed time.Time
-}
-
 func formatTime(t time.Time) string {
 	now := time.Now()
 	diff := now.Sub(t)

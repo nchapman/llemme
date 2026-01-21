@@ -86,8 +86,10 @@ func (m *ModelManager) GetOrLoadBackend(modelQuery string, options map[string]an
 	modelName := result.Model.FullName
 	modelPath := result.Model.ModelPath
 
-	// Track model usage for cleanup purposes (non-critical, ignore errors)
-	_ = hf.TouchLastUsed(result.Model.User, result.Model.Repo, result.Model.Quant)
+	// Track model usage for cleanup purposes (non-critical)
+	if err := hf.TouchLastUsed(result.Model.User, result.Model.Repo, result.Model.Quant); err != nil {
+		logs.Debug("failed to update last used timestamp", "model", modelName, "error", err)
+	}
 
 	// Check if already loaded or loading
 	m.mu.Lock()

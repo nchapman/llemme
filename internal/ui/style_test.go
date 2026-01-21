@@ -89,3 +89,16 @@ func TestIconConstants(t *testing.T) {
 		t.Error("Expected IconArrow to be non-empty")
 	}
 }
+
+func TestFatal_ExitFuncOverride(t *testing.T) {
+	var exitCode int
+	originalExit := ExitFunc
+	ExitFunc = func(code int) { exitCode = code }
+	t.Cleanup(func() { ExitFunc = originalExit })
+
+	Fatal("test error: %s", "details")
+
+	if exitCode != 1 {
+		t.Errorf("expected exit code 1, got %d", exitCode)
+	}
+}

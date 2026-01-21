@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/nchapman/lleme/internal/config"
+	"github.com/nchapman/lleme/internal/version"
 	"gopkg.in/yaml.v3"
 )
 
@@ -60,7 +61,7 @@ func (d *Downloader) DownloadModel(user, repo, branch, filename string, destPath
 		return nil, err
 	}
 
-	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("User-Agent", version.UserAgent())
 	if d.client.token != "" {
 		req.Header.Set("Authorization", "Bearer "+d.client.token)
 	}

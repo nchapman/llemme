@@ -5,27 +5,31 @@ import (
 	"os"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/nchapman/lleme/internal/styles"
 )
 
-// Icon constants for consistent output.
+// Re-export icons from shared styles for convenience.
 const (
-	IconCheck = "✓"
-	IconCross = "✗"
-	IconArrow = "→"
+	IconCheck = styles.IconCheck
+	IconCross = styles.IconCross
+	IconArrow = styles.IconArrow
 )
 
 var (
-	normalStyle   = lipgloss.NewStyle()
-	headerStyle   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12"))
-	successStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
-	errorStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
-	warningStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("11"))
-	mutedStyle    = lipgloss.NewStyle().Faint(true)
+	headerStyle   = lipgloss.NewStyle().Bold(true).Foreground(styles.ColorPrimary)
+	successStyle  = lipgloss.NewStyle().Foreground(styles.ColorSuccess)
+	errorStyle    = lipgloss.NewStyle().Foreground(styles.ColorError)
+	warningStyle  = lipgloss.NewStyle().Foreground(styles.ColorWarning)
+	mutedStyle    = lipgloss.NewStyle().Foreground(styles.ColorMuted)
 	boldStyle     = lipgloss.NewStyle().Bold(true)
-	keywordStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("13"))
-	valueStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
+	keywordStyle  = lipgloss.NewStyle().Bold(true).Foreground(styles.ColorAccent)
+	valueStyle    = lipgloss.NewStyle().Foreground(styles.ColorValue)
 	borderStyle   = lipgloss.NewStyle().Border(lipgloss.RoundedBorder())
 	borderPadding = lipgloss.NewStyle().Padding(1, 2)
+
+	// ExitFunc is the function called by Fatal. Override in tests to prevent os.Exit.
+	// Tests that modify this must use t.Cleanup() to restore the original value.
+	ExitFunc = os.Exit
 )
 
 func Header(text string) string {
@@ -72,7 +76,7 @@ func LlamaCppCredit(version string) string {
 // Fatal prints an error message to stderr and exits with code 1.
 func Fatal(format string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, "%s %s\n", ErrorMsg("Error:"), fmt.Sprintf(format, args...))
-	os.Exit(1)
+	ExitFunc(1)
 }
 
 // PrintError prints an error message to stderr without exiting.

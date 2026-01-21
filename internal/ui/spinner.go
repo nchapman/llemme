@@ -6,6 +6,7 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/nchapman/lleme/internal/styles"
 )
 
 type spinModel struct {
@@ -22,7 +23,7 @@ type spinFinishMsg struct {
 func initialSpinModel(message string) spinModel {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
-	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("12"))
+	s.Style = lipgloss.NewStyle().Foreground(styles.ColorPrimary)
 	return spinModel{
 		spinner: s,
 		message: message,
@@ -69,8 +70,7 @@ func (m spinModel) View() string {
 }
 
 type Spinner struct {
-	model *spinModel
-	prog  *tea.Program
+	prog *tea.Program
 }
 
 func NewSpinner() *Spinner {
@@ -78,7 +78,6 @@ func NewSpinner() *Spinner {
 }
 
 func (s *Spinner) Start(message string) {
-	s.model = &spinModel{}
 	m := initialSpinModel(message)
 	s.prog = tea.NewProgram(m)
 	go func() {

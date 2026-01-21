@@ -2,8 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"os/exec"
 
 	"github.com/nchapman/lleme/internal/config"
 	"github.com/nchapman/lleme/internal/ui"
@@ -208,21 +206,8 @@ var personaRmCmd = &cobra.Command{
 
 func openPersonaInEditor(name string) {
 	path := config.PersonaPath(name)
-
-	editor := getEditor()
-	if editor == "" {
-		ui.PrintError("No editor found. Set $EDITOR or $VISUAL.")
-		fmt.Printf("Edit manually: %s\n", ui.Muted(path))
-		return
-	}
-
-	cmd := exec.Command(editor, path)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		ui.Fatal("Failed to open editor: %v", err)
+	if err := openInEditor(path); err != nil {
+		ui.Fatal("%v", err)
 	}
 }
 

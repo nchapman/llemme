@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -163,27 +164,30 @@ Models are loaded on-demand and unloaded after idle timeout.`,
 		stat, _ := os.Stdin.Stat()
 		isPiped := (stat.Mode() & os.ModeCharDevice) == 0
 
-		// Use classic mode for piped input or one-shot prompts
-		if isPiped || promptArg != "" {
-			// Use classic stdin/stdout chat session
+		// Read piped input if present
+		if isPiped {
+			input, err := io.ReadAll(os.Stdin)
+			if err != nil {
+				ui.Fatal("Failed to read stdin: %v", err)
+			}
+			stdinContent := strings.TrimSpace(string(input))
+			if stdinContent != "" {
+				if promptArg != "" {
+					promptArg = promptArg + "\n" + stdinContent
+				} else {
+					promptArg = stdinContent
+				}
+			}
+		}
+
+		// One-shot mode for CLI prompts or piped input
+		if promptArg != "" {
 			session := NewChatSession(api, modelName, cfg, activePersona)
-			session.SetInitialServerOptions(ctxSize, gpuLayers, threads, ctxSizeSet, gpuLayersSet, threadsSet)
-			if temperature != 0 {
-				session.options.temp = temperature
+			session.SetSystemPrompt(systemPrompt)
+			session.SetSamplingOptions(temperature, topP, minP, repeatPenalty, topK, tokens)
+			if err := session.Run(promptArg); err != nil {
+				ui.Fatal("Chat failed: %v", err)
 			}
-			if topP != 0 {
-				session.options.topP = topP
-			}
-			if topK != 0 {
-				session.options.topK = topK
-			}
-			if minP != 0 {
-				session.options.minP = minP
-			}
-			if repeatPenalty != 0 {
-				session.options.repeatPenalty = repeatPenalty
-			}
-			session.Run(promptArg)
 			return
 		}
 
@@ -210,7 +214,7 @@ func ensureLlamaInstalled() error {
 	}
 
 	fmt.Println()
-	_, err := llama.InstallLatest()
+	_, err := llama.InstallLatest(func(msg string) { fmt.Println(msg) })
 	if err != nil {
 		return fmt.Errorf("failed to install llama.cpp: %w", err)
 	}
