@@ -4,12 +4,10 @@ Based on comprehensive code review. Completed items marked with ~~strikethrough~
 
 ## High Priority
 
-### 1. Add TUI Component Tests
-The `internal/tui/` directory has no test coverage for critical functionality.
-
-- [ ] `internal/tui/chat/` - Chat state management, message handling
-- [ ] `internal/tui/components/input.go` - Completion filtering logic
-- [ ] `internal/tui/components/messages.go` - Streaming state transitions
+### ~~1. Add TUI Component Tests~~ Done
+- [x] `internal/tui/components/completions_test.go` - Completion filtering, navigation, state
+- [x] `internal/tui/components/input_test.go` - Input state, completion triggering logic
+- [x] `internal/tui/components/messages_test.go` - Streaming state machine, message management
 
 ## Medium Priority
 
