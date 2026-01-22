@@ -158,6 +158,66 @@ func TestSplitFilePattern(t *testing.T) {
 	}
 }
 
+func TestParseSplitFilename(t *testing.T) {
+	tests := []struct {
+		name       string
+		filename   string
+		wantNil    bool
+		wantPrefix string
+		wantNo     int
+		wantCount  int
+	}{
+		{
+			name:       "simple split file",
+			filename:   "model-00001-of-00003.gguf",
+			wantPrefix: "model",
+			wantNo:     0,
+			wantCount:  3,
+		},
+		{
+			name:       "split file with path",
+			filename:   "Q4_K_M/gpt-120b-Q4_K_M-00002-of-00005.gguf",
+			wantPrefix: "Q4_K_M/gpt-120b-Q4_K_M",
+			wantNo:     1,
+			wantCount:  5,
+		},
+		{
+			name:     "not a split file",
+			filename: "model.gguf",
+			wantNil:  true,
+		},
+		{
+			name:     "wrong format",
+			filename: "model-001-of-002.gguf",
+			wantNil:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ParseSplitFilename(tt.filename)
+			if tt.wantNil {
+				if got != nil {
+					t.Errorf("ParseSplitFilename(%q) = %+v, want nil", tt.filename, got)
+				}
+				return
+			}
+			if got == nil {
+				t.Fatalf("ParseSplitFilename(%q) = nil, want non-nil", tt.filename)
+			}
+			if got.Prefix != tt.wantPrefix {
+				t.Errorf("Prefix = %q, want %q", got.Prefix, tt.wantPrefix)
+			}
+			if got.SplitNo != tt.wantNo {
+				t.Errorf("SplitNo = %d, want %d", got.SplitNo, tt.wantNo)
+			}
+			if got.SplitCount != tt.wantCount {
+				t.Errorf("SplitCount = %d, want %d", got.SplitCount, tt.wantCount)
+			}
+		})
+	}
+}
+
 func TestSplitPath(t *testing.T) {
 	tests := []struct {
 		prefix     string

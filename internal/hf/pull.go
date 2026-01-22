@@ -89,6 +89,9 @@ func PullModel(client *Client, user, repo string, quant Quantization, opts *Pull
 		return nil, fmt.Errorf("manifest does not contain a GGUF file")
 	}
 
+	// Check if this is a split file by examining the manifest filename
+	splitInfo := ParseSplitFilename(manifest.GGUFFile.RFilename)
+
 	// Calculate total download size
 	result := &PullResult{
 		GGUFSize:  manifest.GGUFFile.Size,
@@ -100,14 +103,37 @@ func PullModel(client *Client, user, repo string, quant Quantization, opts *Pull
 		result.TotalSize += result.MMProjSize
 	}
 
+	// If split file, fetch all sizes upfront via HEAD requests
+	var splitSizes []int64
+	if splitInfo != nil {
+		splitSizes = make([]int64, splitInfo.SplitCount)
+		splitSizes[0] = manifest.GGUFFile.Size
+
+		var totalGGUFSize int64 = manifest.GGUFFile.Size
+		for i := 1; i < splitInfo.SplitCount; i++ {
+			splitPath := SplitPath(splitInfo.Prefix, i, splitInfo.SplitCount)
+			size, err := client.GetFileSize(user, repo, "main", splitPath)
+			if err != nil {
+				// Fall back to estimate if HEAD fails
+				splitSizes[i] = manifest.GGUFFile.Size
+			} else {
+				splitSizes[i] = size
+			}
+			totalGGUFSize += splitSizes[i]
+		}
+		result.GGUFSize = totalGGUFSize
+		result.TotalSize = totalGGUFSize
+		if result.IsVision {
+			result.TotalSize += result.MMProjSize
+		}
+	}
+
 	// Create model directory
 	modelDir := GetModelPath(user, repo)
 	if err := os.MkdirAll(modelDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create model directory: %w", err)
 	}
 
-	// Download first file to temp location first (to check for splits)
-	tempPath := filepath.Join(modelDir, ".download-"+quant.Name+".gguf")
 	downloaded := int64(0)
 	downloaderWithProgress := NewDownloaderWithProgress(client, func(current, total int64, speed float64, eta time.Duration) {
 		if progress != nil {
@@ -119,35 +145,22 @@ func PullModel(client *Client, user, repo string, quant Quantization, opts *Pull
 		}
 	})
 
-	_, err = downloaderWithProgress.DownloadModel(user, repo, "main", manifest.GGUFFile.RFilename, tempPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to download model: %w", err)
-	}
-	downloaded += manifest.GGUFFile.Size
-
-	// Check if this is a split file
-	header, err := ReadGGUFHeader(tempPath)
-	if err != nil {
-		os.Remove(tempPath)
-		return nil, fmt.Errorf("failed to read GGUF header: %w", err)
-	}
-
-	if header.SplitCount > 1 {
-		// This is a split file - download remaining parts sequentially
-		result.ModelPath, err = handleSplitDownload(client, user, repo, quant, manifest, tempPath, header.SplitCount, &downloaded, result, progress)
+	if splitInfo != nil {
+		// Split file - download all parts to split directory
+		result.ModelPath, err = handleSplitDownload(client, user, repo, quant, splitInfo, &downloaded, result, progress)
 		if err != nil {
-			// Clean up split directory on failure (tempPath was moved inside handleSplitDownload)
 			splitDir := GetSplitModelDir(user, repo, quant.Name)
 			os.RemoveAll(splitDir)
 			return nil, err
 		}
 	} else {
-		// Single file - move to final location
+		// Single file - download directly to final location
 		result.ModelPath = GetModelFilePath(user, repo, quant.Name)
-		if err := os.Rename(tempPath, result.ModelPath); err != nil {
-			os.Remove(tempPath)
-			return nil, fmt.Errorf("failed to move model to final location: %w", err)
+		_, err = downloaderWithProgress.DownloadModel(user, repo, "main", manifest.GGUFFile.RFilename, result.ModelPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to download model: %w", err)
 		}
+		downloaded += manifest.GGUFFile.Size
 	}
 
 	// Download mmproj if present (vision model)
@@ -161,7 +174,7 @@ func PullModel(client *Client, user, repo string, quant Quantization, opts *Pull
 
 	// Verify downloaded files against manifest hashes (only for single files)
 	// Split files are verified by llama.cpp when loading
-	if manifest.GGUFFile.LFS != nil && header.SplitCount <= 1 {
+	if manifest.GGUFFile.LFS != nil && splitInfo == nil {
 		verified := int64(0)
 
 		hash, err := CalculateSHA256WithProgress(result.ModelPath, func(processed, total int64) {
@@ -211,9 +224,9 @@ func PullModel(client *Client, user, repo string, quant Quantization, opts *Pull
 	return result, nil
 }
 
-// handleSplitDownload handles downloading remaining split files and organizing them.
+// handleSplitDownload downloads all split files and organizes them.
 // Downloads sequentially with progress tracking. Returns the path to the first split file.
-func handleSplitDownload(client *Client, user, repo string, quant Quantization, manifest *Manifest, firstFilePath string, splitCount int, downloaded *int64, result *PullResult, progress func(PullProgress)) (string, error) {
+func handleSplitDownload(client *Client, user, repo string, quant Quantization, splitInfo *SplitInfo, downloaded *int64, result *PullResult, progress func(PullProgress)) (string, error) {
 	modelDir := GetModelPath(user, repo)
 
 	// Create quant subdirectory for split files
@@ -222,52 +235,17 @@ func handleSplitDownload(client *Client, user, repo string, quant Quantization, 
 		return "", fmt.Errorf("failed to create split directory: %w", err)
 	}
 
-	// Extract the original filename from the manifest's rfilename
-	// e.g., "Q4_K_M/gpt-oss-120b-Q4_K_M-00001-of-00002.gguf"
-	originalFilename := filepath.Base(manifest.GGUFFile.RFilename)
+	var firstSplitPath string
 
-	// Move first file to the split directory with original name
-	firstSplitPath := filepath.Join(splitDir, originalFilename)
-	if err := os.Rename(firstFilePath, firstSplitPath); err != nil {
-		return "", fmt.Errorf("failed to move first split: %w", err)
-	}
-
-	// Extract the URL prefix from the manifest's rfilename for remaining splits
-	// The rfilename contains the subdirectory: "Q4_K_M/gpt-oss-120b-Q4_K_M-00001-of-00002.gguf"
-	rfilename := manifest.GGUFFile.RFilename
-	splitPrefix := SplitPrefix(rfilename, 0, splitCount)
-	if splitPrefix == "" {
-		return "", fmt.Errorf("could not extract split prefix from %s", rfilename)
-	}
-
-	// Get sizes of remaining splits via HEAD requests for accurate progress
-	splitFilenames := make([]string, splitCount-1)
-	for idx := 1; idx < splitCount; idx++ {
-		splitFilenames[idx-1] = SplitPath(splitPrefix, idx, splitCount)
-	}
-
-	var remainingSize int64
-	for _, filename := range splitFilenames {
-		size, err := client.GetFileSize(user, repo, "main", filename)
-		if err != nil {
-			// Fall back to estimate if HEAD fails
-			remainingSize = manifest.GGUFFile.Size * int64(splitCount-1)
-			break
-		}
-		remainingSize += size
-	}
-
-	// Update total size with accurate value
-	result.TotalSize = manifest.GGUFFile.Size + remainingSize
-	result.GGUFSize = result.TotalSize
-	if result.IsVision {
-		result.TotalSize += result.MMProjSize
-	}
-
-	// Download remaining splits sequentially with progress tracking
-	for idx, splitFilename := range splitFilenames {
+	// Download all splits sequentially with progress tracking
+	for i := 0; i < splitInfo.SplitCount; i++ {
+		splitFilename := SplitPath(splitInfo.Prefix, i, splitInfo.SplitCount)
 		localFilename := filepath.Base(splitFilename)
 		localPath := filepath.Join(splitDir, localFilename)
+
+		if i == 0 {
+			firstSplitPath = localPath
+		}
 
 		downloader := NewDownloaderWithProgress(client, func(current, total int64, speed float64, eta time.Duration) {
 			if progress != nil {
@@ -282,7 +260,7 @@ func handleSplitDownload(client *Client, user, repo string, quant Quantization, 
 		dlResult, err := downloader.DownloadModel(user, repo, "main", splitFilename, localPath)
 		if err != nil {
 			os.RemoveAll(splitDir)
-			return "", fmt.Errorf("failed to download split %d: %w", idx+2, err)
+			return "", fmt.Errorf("failed to download split %d: %w", i+1, err)
 		}
 		*downloaded += dlResult.Total
 	}

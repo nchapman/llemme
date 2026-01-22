@@ -32,7 +32,7 @@ const (
 )
 
 // SplitFilePattern matches split GGUF files like "model-00001-of-00002.gguf"
-var SplitFilePattern = regexp.MustCompile(`-\d{5}-of-\d{5}\.gguf$`)
+var SplitFilePattern = regexp.MustCompile(`-(\d{5})-of-(\d{5})\.gguf$`)
 
 // GGUFHeader contains the basic header info from a GGUF file.
 type GGUFHeader struct {
@@ -181,6 +181,36 @@ func skipGGUFValue(r io.Reader, valType int32) error {
 		return nil
 	default:
 		return fmt.Errorf("unknown GGUF value type: %d", valType)
+	}
+}
+
+// SplitInfo contains parsed information from a split filename.
+type SplitInfo struct {
+	Prefix     string // e.g., "Q4_K_M/model-Q4_K_M"
+	SplitNo    int    // 0-based index
+	SplitCount int    // Total number of splits
+}
+
+// ParseSplitFilename parses a split filename and returns split info.
+// Returns nil if the filename doesn't match the split pattern.
+func ParseSplitFilename(path string) *SplitInfo {
+	matches := SplitFilePattern.FindStringSubmatch(path)
+	if matches == nil {
+		return nil
+	}
+
+	var splitNo, splitCount int
+	fmt.Sscanf(matches[1], "%d", &splitNo)
+	fmt.Sscanf(matches[2], "%d", &splitCount)
+
+	// Extract prefix (everything before the split suffix)
+	suffixLen := len(matches[0])
+	prefix := path[:len(path)-suffixLen]
+
+	return &SplitInfo{
+		Prefix:     prefix,
+		SplitNo:    splitNo - 1, // Convert to 0-based
+		SplitCount: splitCount,
 	}
 }
 
