@@ -88,6 +88,12 @@ func TestProgressModelView(t *testing.T) {
 			done:       true,
 			message:    "Complete",
 		},
+		{
+			name:       "overflow protection - downloaded exceeds total",
+			total:      1000,
+			downloaded: 1020, // 102% - should not panic
+			done:       false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -128,8 +134,8 @@ func TestProgressBarUpdateNilProgram(t *testing.T) {
 	bar := NewProgressBar()
 
 	// Update should not panic when program is nil (before Start is called)
-	bar.Update(500)
-	bar.Update(1000)
+	bar.Update(500, 1000)
+	bar.Update(1000, 1000)
 }
 
 func TestCalculateProgress(t *testing.T) {
@@ -206,7 +212,7 @@ func TestProgressModelUpdate(t *testing.T) {
 	model := initialProgressModel("test", 1000)
 
 	t.Run("progressUpdateMsg updates downloaded", func(t *testing.T) {
-		updated, cmd := model.Update(progressUpdateMsg{downloaded: 500})
+		updated, cmd := model.Update(progressUpdateMsg{downloaded: 500, total: 1000})
 		updatedModel := updated.(progressModel)
 
 		if updatedModel.downloaded != 500 {
@@ -214,6 +220,26 @@ func TestProgressModelUpdate(t *testing.T) {
 		}
 		if cmd != nil {
 			t.Error("expected nil cmd for update message")
+		}
+	})
+
+	t.Run("progressUpdateMsg updates total when positive", func(t *testing.T) {
+		testModel := initialProgressModel("test", 1000)
+		updated, _ := testModel.Update(progressUpdateMsg{downloaded: 500, total: 2000})
+		updatedModel := updated.(progressModel)
+
+		if updatedModel.total != 2000 {
+			t.Errorf("total = %v, want 2000", updatedModel.total)
+		}
+	})
+
+	t.Run("progressUpdateMsg ignores zero total", func(t *testing.T) {
+		testModel := initialProgressModel("test", 1000)
+		updated, _ := testModel.Update(progressUpdateMsg{downloaded: 500, total: 0})
+		updatedModel := updated.(progressModel)
+
+		if updatedModel.total != 1000 {
+			t.Errorf("total = %v, want 1000 (unchanged)", updatedModel.total)
 		}
 	})
 

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/nchapman/lleme/internal/config"
+	"github.com/nchapman/lleme/internal/hf"
 )
 
 // DownloadedModel represents a model that has been downloaded locally
@@ -34,6 +35,7 @@ func NewModelResolver() *ModelResolver {
 // ListDownloadedModels returns all downloaded models
 func (r *ModelResolver) ListDownloadedModels() ([]DownloadedModel, error) {
 	var models []DownloadedModel
+	seenSplitDirs := make(map[string]bool)
 
 	err := filepath.WalkDir(r.modelsPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -60,6 +62,36 @@ func (r *ModelResolver) ListDownloadedModels() ([]DownloadedModel, error) {
 
 		user := parts[0]
 		repo := parts[1]
+
+		// Check if this is a split file (in a quant subdirectory)
+		// Structure: user/repo/quant/model-00001-of-NNNNN.gguf
+		if len(parts) == 4 && hf.SplitFilePattern.MatchString(d.Name()) {
+			quant := parts[2]
+			splitDirKey := filepath.Join(user, repo, quant)
+
+			// Only add the first split file we encounter for this quant
+			if seenSplitDirs[splitDirKey] {
+				return nil
+			}
+			seenSplitDirs[splitDirKey] = true
+
+			// For split files, we want the first split file path
+			firstSplitPath := hf.FindFirstSplitFile(filepath.Dir(path))
+			if firstSplitPath == "" {
+				firstSplitPath = path // Fallback to current file
+			}
+
+			models = append(models, DownloadedModel{
+				User:      user,
+				Repo:      repo,
+				Quant:     quant,
+				FullName:  fmt.Sprintf("%s/%s:%s", user, repo, quant),
+				ModelPath: firstSplitPath,
+			})
+			return nil
+		}
+
+		// Standard single-file model: user/repo/quant.gguf
 		quant := strings.TrimSuffix(d.Name(), ".gguf")
 
 		models = append(models, DownloadedModel{

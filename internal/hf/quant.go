@@ -33,19 +33,23 @@ var (
 )
 
 type Quantization struct {
-	Name string
+	Name string // Normalized name for display/comparison (e.g., "FP16", "Q4_K_M")
+	Tag  string // Raw tag for HuggingFace API calls (e.g., "F16", "Q4_K_M")
 	File string
 	Size int64
 }
 
-func ParseQuantization(filename string) string {
+// ParseQuantization extracts the quantization from a filename.
+// Returns (normalized, raw) where normalized is for display/comparison and raw is for API calls.
+// Returns ("", "") if no quantization found.
+func ParseQuantization(filename string) (normalized string, raw string) {
 	matches := quantPattern.FindStringSubmatch(filename)
 	if len(matches) < 2 {
-		return ""
+		return "", ""
 	}
 
-	quant := strings.ToUpper(matches[1])
-	quant = strings.ReplaceAll(quant, "-", "_")
+	raw = strings.ToUpper(matches[1])
+	raw = strings.ReplaceAll(raw, "-", "_")
 
 	normalizations := map[string]string{
 		"F16": "FP16",
@@ -54,32 +58,75 @@ func ParseQuantization(filename string) string {
 		"I4":  "Q4_0",
 	}
 
-	if normalized, ok := normalizations[quant]; ok {
-		return normalized
+	if norm, ok := normalizations[raw]; ok {
+		return norm, raw
 	}
 
-	return quant
+	return raw, raw
 }
+
+// quantDirPattern matches directory names that look like quantization names
+var quantDirPattern = regexp.MustCompile(`^(?i)(Q[0-9]+[^/]*|FP16|FP32|F16|F32|I[0-9]+)$`)
 
 func ExtractQuantizations(files []FileTree) []Quantization {
 	var quants []Quantization
+	seenQuants := make(map[string]bool)
 
 	for _, file := range files {
-		if !strings.HasSuffix(file.Path, ".gguf") {
+		// Check for GGUF files
+		if strings.HasSuffix(file.Path, ".gguf") {
+			name, tag := ParseQuantization(file.Path)
+			if name == "" {
+				// GGUF file without quantization suffix - use "default"/"latest"
+				name = "default"
+				tag = "latest"
+			}
+
+			if seenQuants[name] {
+				continue
+			}
+			seenQuants[name] = true
+
+			quants = append(quants, Quantization{
+				Name: name,
+				Tag:  tag,
+				File: file.Path,
+				Size: file.Size,
+			})
 			continue
 		}
 
-		quant := ParseQuantization(file.Path)
-		if quant == "" {
-			// GGUF file without quantization suffix - use "default"
-			quant = "default"
-		}
+		// Check for directories that look like quantization names
+		// These contain split files or nested GGUF files
+		if file.Type == "directory" && quantDirPattern.MatchString(file.Path) {
+			// Normalize the directory name to a quantization name
+			name := strings.ToUpper(file.Path)
+			name = strings.ReplaceAll(name, "-", "_")
 
-		quants = append(quants, Quantization{
-			Name: quant,
-			File: file.Path,
-			Size: file.Size,
-		})
+			// Apply normalizations
+			normalizations := map[string]string{
+				"F16": "FP16",
+				"F32": "FP32",
+				"I8":  "Q8_0",
+				"I4":  "Q4_0",
+			}
+			normalized := name
+			if norm, ok := normalizations[name]; ok {
+				normalized = norm
+			}
+
+			if seenQuants[normalized] {
+				continue
+			}
+			seenQuants[normalized] = true
+
+			quants = append(quants, Quantization{
+				Name: normalized,
+				Tag:  file.Path, // Use original directory name as tag
+				File: "",        // Will be resolved from manifest
+				Size: 0,         // Size unknown until manifest fetch
+			})
+		}
 	}
 
 	return quants
@@ -125,7 +172,7 @@ func getQuantOrder(quant string) int {
 
 func FindQuantization(quants []Quantization, name string) (Quantization, bool) {
 	for _, q := range quants {
-		if strings.EqualFold(q.Name, name) {
+		if strings.EqualFold(q.Name, name) || strings.EqualFold(q.Tag, name) {
 			return q, true
 		}
 	}

@@ -1,11 +1,9 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/nchapman/lleme/internal/config"
 	"github.com/nchapman/lleme/internal/hf"
@@ -61,10 +59,14 @@ var pullCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		// Find the quantization to use
+		var selectedQuant hf.Quantization
 		if quant == "" {
 			quant = hf.GetBestQuantization(quants)
+			selectedQuant, _ = hf.FindQuantization(quants, quant)
 		} else {
-			_, found := hf.FindQuantization(quants, quant)
+			var found bool
+			selectedQuant, found = hf.FindQuantization(quants, quant)
 			if !found {
 				ui.PrintError("Quantization '%s' not found", quant)
 				fmt.Println("\nAvailable quantizations:")
@@ -75,136 +77,72 @@ var pullCmd = &cobra.Command{
 			}
 		}
 
-		modelDir := hf.GetModelPath(user, repo)
-		modelPath := hf.GetModelFilePath(user, repo, quant)
-
-		if err := os.MkdirAll(modelDir, 0755); err != nil {
-			ui.Fatal("Failed to create model directory: %v", err)
-		}
-
-		// Fetch remote manifest to check for updates and get file info
-		// Use "latest" tag for models without quantization suffix
-		manifestTag := quant
-		if quant == "default" {
-			manifestTag = "latest"
-		}
-		manifest, manifestJSON, err := client.GetManifest(user, repo, manifestTag)
-		if err != nil {
-			ui.Fatal("Failed to get manifest: %v", err)
-		}
-
-		if manifest.GGUFFile == nil {
-			ui.Fatal("Manifest does not contain a GGUF file")
-		}
-
 		// Check if local files are up to date with remote manifest
-		upToDate, saveManifest := isUpToDate(user, repo, quant, manifest)
+		upToDate, saveManifest, _, manifestJSON, err := hf.CheckForUpdates(client, user, repo, selectedQuant)
+		if err != nil {
+			ui.Fatal("%v", err)
+		}
 		if upToDate {
 			if saveManifest {
 				// Legacy model without manifest - save it now
 				manifestPath := hf.GetManifestFilePath(user, repo, quant)
-				os.WriteFile(manifestPath, manifestJSON, 0644)
+				if err := os.WriteFile(manifestPath, manifestJSON, 0644); err != nil {
+					ui.Fatal("Failed to save manifest: %v", err)
+				}
+			}
+			// Find the actual model path (handles both single and split files)
+			modelPath := hf.FindModelFile(user, repo, quant)
+			if modelPath == "" {
+				modelPath = hf.GetModelFilePath(user, repo, quant) // Fallback for display
 			}
 			fmt.Printf("Model is up to date: %s\n", ui.Bold(modelPath))
 			return
 		}
 
-		// Calculate total download size
-		totalSize := manifest.GGUFFile.Size
-		hasMMProj := manifest.MMProjFile != nil
-		if hasMMProj {
-			totalSize += manifest.MMProjFile.Size
-		}
-
-		modelName := ui.Keyword(hf.FormatModelName(user, repo, quant))
-		if hasMMProj {
-			fmt.Printf("Pulling %s (%s + %s mmproj)\n",
-				modelName,
-				ui.FormatBytes(manifest.GGUFFile.Size),
-				ui.FormatBytes(manifest.MMProjFile.Size))
-		} else {
-			fmt.Printf("Pulling %s (%s)\n", modelName, ui.FormatBytes(manifest.GGUFFile.Size))
-		}
-
-		progressBar := ui.NewProgressBar()
-		progressBar.Start("", totalSize)
-
-		downloaded := int64(0)
-		downloaderWithProgress := hf.NewDownloaderWithProgress(client, func(current, total int64, speed float64, eta time.Duration) {
-			progressBar.Update(downloaded + current)
-		})
-
-		// Download main model
-		_, err = downloaderWithProgress.DownloadModel(user, repo, "main", manifest.GGUFFile.RFilename, modelPath)
+		// Pull the model using shared download logic
+		result, err := pullModelWithProgress(client, user, repo, selectedQuant)
 		if err != nil {
-			progressBar.Stop()
-			ui.Fatal("Failed to download model: %v", err)
-		}
-		downloaded += manifest.GGUFFile.Size
-
-		// Download mmproj if present (vision model)
-		var mmprojPath string
-		if hasMMProj {
-			mmprojPath = hf.GetMMProjFilePath(user, repo, quant)
-			_, err = downloaderWithProgress.DownloadModel(user, repo, "main", manifest.MMProjFile.RFilename, mmprojPath)
-			if err != nil {
-				progressBar.Stop()
-				ui.Fatal("Failed to download mmproj: %v", err)
-			}
+			ui.Fatal("%v", err)
 		}
 
-		progressBar.Finish("Downloaded")
-
-		// Verify downloaded files against manifest hashes
-		if manifest.GGUFFile.LFS != nil {
-			verifyBar := ui.NewProgressBar()
-			verifyBar.Start("Verifying", totalSize)
-			verified := int64(0)
-
-			hash, err := hf.CalculateSHA256WithProgress(modelPath, func(processed, total int64) {
-				verifyBar.Update(verified + processed)
-			})
-			if err != nil {
-				verifyBar.Stop()
-				ui.Fatal("Failed to verify model: %v", err)
-			}
-			if hash != manifest.GGUFFile.LFS.SHA256 {
-				verifyBar.Stop()
-				os.Remove(modelPath)
-				ui.Fatal("Model verification failed: hash mismatch")
-			}
-			verified += manifest.GGUFFile.Size
-
-			if hasMMProj && manifest.MMProjFile.LFS != nil {
-				hash, err := hf.CalculateSHA256WithProgress(mmprojPath, func(processed, total int64) {
-					verifyBar.Update(verified + processed)
-				})
-				if err != nil {
-					verifyBar.Stop()
-					ui.Fatal("Failed to verify mmproj: %v", err)
-				}
-				if hash != manifest.MMProjFile.LFS.SHA256 {
-					verifyBar.Stop()
-					os.Remove(mmprojPath)
-					ui.Fatal("mmproj verification failed: hash mismatch")
-				}
-			}
-
-			verifyBar.Finish("Verified")
-		}
-
-		// Save manifest for offline reference and verification
-		manifestPath := hf.GetManifestFilePath(user, repo, quant)
-		if err := os.WriteFile(manifestPath, manifestJSON, 0644); err != nil {
-			ui.Fatal("Failed to save manifest: %v", err)
-		}
-
-		if hasMMProj {
+		modelName := hf.FormatModelName(user, repo, quant)
+		if result.IsVision {
 			fmt.Printf("Pulled %s (vision model)\n", modelName)
 		} else {
 			fmt.Printf("Pulled %s\n", modelName)
 		}
 	},
+}
+
+// pullModelWithProgress wraps hf.PullModel with progress bar display.
+func pullModelWithProgress(client *hf.Client, user, repo string, quant hf.Quantization) (*hf.PullResult, error) {
+	// Get manifest info for display (also returns manifest to pass to PullModel)
+	info, manifest, manifestJSON, err := hf.GetManifestInfo(client, user, repo, quant)
+	if err != nil {
+		return nil, err
+	}
+
+	modelName := ui.Keyword(hf.FormatModelName(user, repo, quant.Name))
+	if info.IsVision {
+		fmt.Printf("Pulling %s (%s + %s mmproj)\n",
+			modelName,
+			ui.FormatBytes(info.GGUFSize),
+			ui.FormatBytes(info.MMProjSize))
+	} else {
+		fmt.Printf("Pulling %s (%s)\n", modelName, ui.FormatBytes(info.GGUFSize))
+	}
+
+	opts := &hf.PullOptions{
+		Manifest:     manifest,
+		ManifestJSON: manifestJSON,
+	}
+
+	return hf.PullModelWithProgressFactory(client, user, repo, quant, opts, newProgressBar)
+}
+
+// newProgressBar creates a new progress bar that implements hf.ProgressDisplay.
+func newProgressBar() hf.ProgressDisplay {
+	return ui.NewProgressBar()
 }
 
 func parseModelRef(ref string) (user, repo, quant string, err error) {
@@ -225,74 +163,6 @@ func parseModelRef(ref string) (user, repo, quant string, err error) {
 	}
 
 	return repoParts[0], repoParts[1], quantPart, nil
-}
-
-// isUpToDate checks if local files match the remote manifest by comparing sha256 hashes.
-// Returns (up-to-date, should-save-manifest).
-func isUpToDate(user, repo, quant string, remote *hf.Manifest) (bool, bool) {
-	manifestPath := hf.GetManifestFilePath(user, repo, quant)
-	modelPath := hf.GetModelFilePath(user, repo, quant)
-
-	// Load saved manifest
-	manifestData, err := os.ReadFile(manifestPath)
-	if err != nil {
-		// No local manifest - check if this is a legacy download we can upgrade
-		modelInfo, statErr := os.Stat(modelPath)
-		if statErr == nil && modelInfo.Size() == remote.GGUFFile.Size {
-			// Model exists with matching size - likely a legacy download
-			// Check if vision model needs mmproj
-			if remote.MMProjFile != nil {
-				mmprojPath := hf.GetMMProjFilePath(user, repo, quant)
-				if _, err := os.Stat(mmprojPath); err != nil {
-					return false, false // Need to download mmproj
-				}
-			}
-			// Save manifest for this legacy model and consider it up to date
-			return true, true
-		}
-		return false, false
-	}
-
-	var local hf.Manifest
-	if err := json.Unmarshal(manifestData, &local); err != nil {
-		return false, false // Can't parse, need to download
-	}
-
-	// Compare GGUF file hash
-	if !hashesMatch(local.GGUFFile, remote.GGUFFile) {
-		return false, false
-	}
-
-	// Compare mmproj hash if remote has one
-	if remote.MMProjFile != nil {
-		if !hashesMatch(local.MMProjFile, remote.MMProjFile) {
-			return false, false
-		}
-		// Also verify the mmproj file actually exists
-		mmprojPath := hf.GetMMProjFilePath(user, repo, quant)
-		if _, err := os.Stat(mmprojPath); err != nil {
-			return false, false
-		}
-	}
-
-	// Verify the model file actually exists
-	if _, err := os.Stat(modelPath); err != nil {
-		return false, false
-	}
-
-	return true, false
-}
-
-// hashesMatch compares the sha256 hashes of two manifest files.
-func hashesMatch(local, remote *hf.ManifestFile) bool {
-	if local == nil || remote == nil {
-		return local == nil && remote == nil
-	}
-	if local.LFS == nil || remote.LFS == nil {
-		// No hash info, fall back to size comparison
-		return local.Size == remote.Size
-	}
-	return local.LFS.SHA256 == remote.LFS.SHA256
 }
 
 func handleModelError(err error, user, repo string) {

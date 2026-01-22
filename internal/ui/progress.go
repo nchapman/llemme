@@ -21,6 +21,7 @@ type progressModel struct {
 type progressTickMsg struct{}
 type progressUpdateMsg struct {
 	downloaded int64
+	total      int64
 }
 type progressFinishMsg struct {
 	message string
@@ -61,6 +62,9 @@ func (m progressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case progressUpdateMsg:
 		m.downloaded = msg.downloaded
+		if msg.total > 0 {
+			m.total = msg.total
+		}
 		return m, nil
 	case progressFinishMsg:
 		m.done = true
@@ -83,6 +87,9 @@ func (m progressModel) View() string {
 	percent := float64(m.downloaded) / float64(m.total)
 	width := 50
 	filled := int(float64(width) * percent)
+	if filled > width {
+		filled = width
+	}
 	bar := strings.Repeat("█", filled) + strings.Repeat("░", width-filled)
 
 	// Calculate speed and ETA
@@ -169,9 +176,9 @@ func (p *ProgressBar) Start(message string, total int64) {
 	}()
 }
 
-func (p *ProgressBar) Update(downloaded int64) {
+func (p *ProgressBar) Update(downloaded, total int64) {
 	if p.program != nil {
-		p.program.Send(progressUpdateMsg{downloaded: downloaded})
+		p.program.Send(progressUpdateMsg{downloaded: downloaded, total: total})
 	}
 }
 

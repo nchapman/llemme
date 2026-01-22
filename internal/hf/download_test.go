@@ -239,6 +239,153 @@ func TestCleanupPartialFiles(t *testing.T) {
 	}
 }
 
+func TestGetSplitModelDir(t *testing.T) {
+	user := "testuser"
+	repo := "testrepo"
+	quant := "Q4_K_M"
+
+	path := GetSplitModelDir(user, repo, quant)
+
+	if path == "" {
+		t.Error("GetSplitModelDir() returned empty string")
+	}
+
+	if !filepath.IsAbs(path) {
+		t.Error("GetSplitModelDir() should return absolute path")
+	}
+
+	if filepath.Base(path) != quant {
+		t.Errorf("GetSplitModelDir() basename = %v, want %v", filepath.Base(path), quant)
+	}
+}
+
+func TestFindFirstSplitFile(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create split files
+	splitFiles := []string{
+		"model-00001-of-00003.gguf",
+		"model-00002-of-00003.gguf",
+		"model-00003-of-00003.gguf",
+	}
+
+	for _, f := range splitFiles {
+		if err := os.WriteFile(filepath.Join(tmpDir, f), []byte("test"), 0644); err != nil {
+			t.Fatalf("Failed to create file %s: %v", f, err)
+		}
+	}
+
+	got := FindFirstSplitFile(tmpDir)
+	want := filepath.Join(tmpDir, "model-00001-of-00003.gguf")
+
+	if got != want {
+		t.Errorf("FindFirstSplitFile() = %v, want %v", got, want)
+	}
+}
+
+func TestFindFirstSplitFileNotFound(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create non-split file
+	if err := os.WriteFile(filepath.Join(tmpDir, "model.gguf"), []byte("test"), 0644); err != nil {
+		t.Fatalf("Failed to create file: %v", err)
+	}
+
+	got := FindFirstSplitFile(tmpDir)
+	if got != "" {
+		t.Errorf("FindFirstSplitFile() = %v, want empty string", got)
+	}
+}
+
+func TestFindFirstSplitFileEmptyDir(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	got := FindFirstSplitFile(tmpDir)
+	if got != "" {
+		t.Errorf("FindFirstSplitFile() = %v, want empty string", got)
+	}
+}
+
+func TestFindModelFileSingleFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	oldHome := os.Getenv("HOME")
+	defer os.Setenv("HOME", oldHome)
+	os.Setenv("HOME", tmpDir)
+
+	user := "testuser"
+	repo := "testrepo"
+	quant := "Q4_K_M"
+
+	// Create model directory and file
+	modelDir := filepath.Join(tmpDir, ".lleme", "models", user, repo)
+	if err := os.MkdirAll(modelDir, 0755); err != nil {
+		t.Fatalf("Failed to create model dir: %v", err)
+	}
+
+	modelFile := filepath.Join(modelDir, quant+".gguf")
+	if err := os.WriteFile(modelFile, []byte("test"), 0644); err != nil {
+		t.Fatalf("Failed to create model file: %v", err)
+	}
+
+	got := FindModelFile(user, repo, quant)
+	if got != modelFile {
+		t.Errorf("FindModelFile() = %v, want %v", got, modelFile)
+	}
+}
+
+func TestFindModelFileSplitFiles(t *testing.T) {
+	tmpDir := t.TempDir()
+	oldHome := os.Getenv("HOME")
+	defer os.Setenv("HOME", oldHome)
+	os.Setenv("HOME", tmpDir)
+
+	user := "testuser"
+	repo := "testrepo"
+	quant := "Q4_K_M"
+
+	// Create split directory and files
+	splitDir := filepath.Join(tmpDir, ".lleme", "models", user, repo, quant)
+	if err := os.MkdirAll(splitDir, 0755); err != nil {
+		t.Fatalf("Failed to create split dir: %v", err)
+	}
+
+	splitFiles := []string{
+		"model-00001-of-00002.gguf",
+		"model-00002-of-00002.gguf",
+	}
+
+	for _, f := range splitFiles {
+		if err := os.WriteFile(filepath.Join(splitDir, f), []byte("test"), 0644); err != nil {
+			t.Fatalf("Failed to create split file %s: %v", f, err)
+		}
+	}
+
+	got := FindModelFile(user, repo, quant)
+	want := filepath.Join(splitDir, "model-00001-of-00002.gguf")
+
+	if got != want {
+		t.Errorf("FindModelFile() = %v, want %v", got, want)
+	}
+}
+
+func TestFindModelFileNotFound(t *testing.T) {
+	tmpDir := t.TempDir()
+	oldHome := os.Getenv("HOME")
+	defer os.Setenv("HOME", oldHome)
+	os.Setenv("HOME", tmpDir)
+
+	// Create models directory but no model files
+	modelsDir := filepath.Join(tmpDir, ".lleme", "models")
+	if err := os.MkdirAll(modelsDir, 0755); err != nil {
+		t.Fatalf("Failed to create models dir: %v", err)
+	}
+
+	got := FindModelFile("testuser", "testrepo", "Q4_K_M")
+	if got != "" {
+		t.Errorf("FindModelFile() = %v, want empty string", got)
+	}
+}
+
 func TestCleanupPartialFilesEmptyDirs(t *testing.T) {
 	tmpDir := t.TempDir()
 	oldHome := os.Getenv("HOME")
