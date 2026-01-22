@@ -219,6 +219,27 @@ func (c *Client) ListFiles(user, repo, branch string) ([]FileTree, error) {
 	return files, nil
 }
 
+// GetFileSize returns the size of a file in a repository using a HEAD request.
+func (c *Client) GetFileSize(user, repo, branch, filename string) (int64, error) {
+	url := fmt.Sprintf("%s/%s/%s/resolve/%s/%s", baseURL, user, repo, branch, filename)
+	req, err := http.NewRequest("HEAD", url, nil)
+	if err != nil {
+		return 0, err
+	}
+
+	resp, err := c.doRequest(req)
+	if err != nil {
+		return 0, err
+	}
+	resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+
+	return resp.ContentLength, nil
+}
+
 func (c *Client) SearchModels(query string, limit int) ([]SearchResult, error) {
 	// Use models-json endpoint with apps=llama.cpp filter for llama.cpp compatible models
 	searchURL := fmt.Sprintf("%s/models-json?apps=llama.cpp&pipeline_tag=text-generation&sort=trending", baseURL)

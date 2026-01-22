@@ -77,8 +77,6 @@ var pullCmd = &cobra.Command{
 			}
 		}
 
-		modelPath := hf.GetModelFilePath(user, repo, quant)
-
 		// Check if local files are up to date with remote manifest
 		upToDate, saveManifest, _, manifestJSON, err := hf.CheckForUpdates(client, user, repo, selectedQuant)
 		if err != nil {
@@ -91,6 +89,11 @@ var pullCmd = &cobra.Command{
 				if err := os.WriteFile(manifestPath, manifestJSON, 0644); err != nil {
 					ui.Fatal("Failed to save manifest: %v", err)
 				}
+			}
+			// Find the actual model path (handles both single and split files)
+			modelPath := hf.FindModelFile(user, repo, quant)
+			if modelPath == "" {
+				modelPath = hf.GetModelFilePath(user, repo, quant) // Fallback for display
 			}
 			fmt.Printf("Model is up to date: %s\n", ui.Bold(modelPath))
 			return

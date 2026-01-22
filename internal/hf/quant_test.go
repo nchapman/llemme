@@ -239,6 +239,52 @@ func TestExtractQuantizationsF16Tag(t *testing.T) {
 	}
 }
 
+func TestExtractQuantizationsFromDirectories(t *testing.T) {
+	// Test extraction from directories (like unsloth/gpt-oss-120b-GGUF)
+	files := []FileTree{
+		{Path: "Q4_K_M", Type: "directory"},
+		{Path: "Q5_K_S", Type: "directory"},
+		{Path: "Q8_0", Type: "directory"},
+		{Path: "gpt-oss-120b-F16.gguf", Size: 65000000000},
+		{Path: "README.md", Size: 1024},
+		{Path: "config.json", Size: 2048},
+	}
+
+	quants := ExtractQuantizations(files)
+
+	if len(quants) != 4 {
+		t.Fatalf("ExtractQuantizations() got %d quants, want 4", len(quants))
+	}
+
+	// Check that all expected quants are found
+	names := make(map[string]string) // name -> tag
+	for _, q := range quants {
+		names[q.Name] = q.Tag
+	}
+
+	// Directory-based quants
+	if tag, ok := names["Q4_K_M"]; !ok {
+		t.Error("ExtractQuantizations() missing 'Q4_K_M' quant")
+	} else if tag != "Q4_K_M" {
+		t.Errorf("Q4_K_M tag = %q, want 'Q4_K_M'", tag)
+	}
+
+	if _, ok := names["Q5_K_S"]; !ok {
+		t.Error("ExtractQuantizations() missing 'Q5_K_S' quant")
+	}
+
+	if _, ok := names["Q8_0"]; !ok {
+		t.Error("ExtractQuantizations() missing 'Q8_0' quant")
+	}
+
+	// File-based quant (F16 -> FP16)
+	if tag, ok := names["FP16"]; !ok {
+		t.Error("ExtractQuantizations() missing 'FP16' quant")
+	} else if tag != "F16" {
+		t.Errorf("FP16 tag = %q, want 'F16'", tag)
+	}
+}
+
 func TestGetBestQuantization(t *testing.T) {
 	tests := []struct {
 		name   string

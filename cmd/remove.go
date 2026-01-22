@@ -138,10 +138,26 @@ Examples:
 		removed := 0
 		var freedSize int64
 		for _, m := range models {
-			modelPath := hf.GetModelFilePath(m.User, m.Repo, m.Quant)
-			if err := os.Remove(modelPath); err != nil {
-				ui.PrintError("Failed to remove %s: %v", hf.FormatModelName(m.User, m.Repo, m.Quant), err)
-				continue
+			// Find the actual model path (handles both single and split files)
+			modelPath := hf.FindModelFile(m.User, m.Repo, m.Quant)
+			if modelPath == "" {
+				modelPath = hf.GetModelFilePath(m.User, m.Repo, m.Quant)
+			}
+
+			// Check if this is a split file (stored in a quant subdirectory)
+			splitDir := hf.GetSplitModelDir(m.User, m.Repo, m.Quant)
+			if info, err := os.Stat(splitDir); err == nil && info.IsDir() {
+				// Remove the entire split directory
+				if err := os.RemoveAll(splitDir); err != nil {
+					ui.PrintError("Failed to remove %s: %v", hf.FormatModelName(m.User, m.Repo, m.Quant), err)
+					continue
+				}
+			} else {
+				// Single file - remove it directly
+				if err := os.Remove(modelPath); err != nil {
+					ui.PrintError("Failed to remove %s: %v", hf.FormatModelName(m.User, m.Repo, m.Quant), err)
+					continue
+				}
 			}
 			freedSize += m.Size
 
@@ -176,6 +192,7 @@ func findModels(pattern string, olderThan time.Duration, largerThan int64) ([]Mo
 // findModelsInDir is the testable version of findModels
 func findModelsInDir(modelsDir, pattern string, olderThan time.Duration, largerThan int64) ([]ModelInfo, error) {
 	var models []ModelInfo
+	seenSplitDirs := make(map[string]bool)
 
 	// Convert glob pattern to regex
 	regexPattern := globToRegex(pattern)
@@ -205,7 +222,41 @@ func findModelsInDir(modelsDir, pattern string, olderThan time.Duration, largerT
 
 		user := parts[0]
 		repo := parts[1]
-		quant := strings.TrimSuffix(d.Name(), ".gguf")
+		var quant string
+		var modelSize int64
+
+		// Check if this is a split file (in a quant subdirectory)
+		// Structure: user/repo/quant/model-00001-of-NNNNN.gguf
+		if len(parts) == 4 && hf.SplitFilePattern.MatchString(d.Name()) {
+			quant = parts[2]
+			splitDirKey := filepath.Join(user, repo, quant)
+
+			// Only add the first split file we encounter for this quant
+			if seenSplitDirs[splitDirKey] {
+				return nil
+			}
+			seenSplitDirs[splitDirKey] = true
+
+			// Calculate total size of all split files
+			splitDir := filepath.Dir(path)
+			entries, _ := os.ReadDir(splitDir)
+			for _, entry := range entries {
+				if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".gguf") {
+					continue
+				}
+				if info, err := entry.Info(); err == nil {
+					modelSize += info.Size()
+				}
+			}
+		} else {
+			// Standard single-file model: user/repo/quant.gguf
+			quant = strings.TrimSuffix(d.Name(), ".gguf")
+			info, err := d.Info()
+			if err != nil {
+				return err
+			}
+			modelSize = info.Size()
+		}
 
 		// Check pattern match
 		fullName := hf.FormatModelName(user, repo, quant)
@@ -216,15 +267,15 @@ func findModelsInDir(modelsDir, pattern string, olderThan time.Duration, largerT
 			return nil
 		}
 
-		info, err := d.Info()
-		if err != nil {
-			return err
-		}
-
 		// Get last used time
 		lastUsed := hf.GetLastUsed(user, repo, quant)
 		if lastUsed.IsZero() {
-			lastUsed = info.ModTime()
+			info, _ := d.Info()
+			if info != nil {
+				lastUsed = info.ModTime()
+			} else {
+				lastUsed = time.Now()
+			}
 		}
 
 		// Apply filters
@@ -235,7 +286,7 @@ func findModelsInDir(modelsDir, pattern string, olderThan time.Duration, largerT
 		}
 
 		if largerThan > 0 {
-			if info.Size() < largerThan {
+			if modelSize < largerThan {
 				return nil
 			}
 		}
@@ -244,7 +295,7 @@ func findModelsInDir(modelsDir, pattern string, olderThan time.Duration, largerT
 			User:     user,
 			Repo:     repo,
 			Quant:    quant,
-			Size:     info.Size(),
+			Size:     modelSize,
 			LastUsed: lastUsed,
 		})
 

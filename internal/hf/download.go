@@ -222,6 +222,30 @@ func GetModelFilePath(user, repo, quant string) string {
 	return filepath.Join(modelDir, quant+".gguf")
 }
 
+// GetSplitModelDir returns the directory path for split model files.
+func GetSplitModelDir(user, repo, quant string) string {
+	modelDir := GetModelPath(user, repo)
+	return filepath.Join(modelDir, quant)
+}
+
+// FindModelFile returns the actual model file path, checking both single file
+// and split directory cases. Returns empty string if not found.
+func FindModelFile(user, repo, quant string) string {
+	// Check for single file first
+	singlePath := GetModelFilePath(user, repo, quant)
+	if _, err := os.Stat(singlePath); err == nil {
+		return singlePath
+	}
+
+	// Check for split directory
+	splitDir := GetSplitModelDir(user, repo, quant)
+	if info, err := os.Stat(splitDir); err == nil && info.IsDir() {
+		return FindFirstSplitFile(splitDir)
+	}
+
+	return ""
+}
+
 // GetMMProjFilePath returns the path where the mmproj file is stored for a model.
 // The mmproj file is stored per-quantization since different quants may have different mmproj files.
 func GetMMProjFilePath(user, repo, quant string) string {
@@ -303,6 +327,25 @@ func GetLastUsed(user, repo, quant string) time.Time {
 		return time.Time{}
 	}
 	return meta.Quants[quant].LastUsed
+}
+
+// FindFirstSplitFile finds the first split file (-00001-of-NNNNN) in a directory.
+// Returns empty string if no split file is found.
+func FindFirstSplitFile(dir string) string {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return ""
+	}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if strings.HasSuffix(name, ".gguf") && strings.Contains(name, "-00001-of-") {
+			return filepath.Join(dir, name)
+		}
+	}
+	return ""
 }
 
 // FindMMProjFile checks if an mmproj file exists for the given model and returns its path.

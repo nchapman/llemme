@@ -280,6 +280,101 @@ func TestFindModels(t *testing.T) {
 	}
 }
 
+func TestFindModelsSplitFiles(t *testing.T) {
+	// Create a temporary models directory
+	tmpDir := t.TempDir()
+
+	// Create a split model (user/repo/quant/model-NNNNN-of-MMMMM.gguf)
+	splitDir := filepath.Join(tmpDir, "userA", "bigmodel", "Q4_K_M")
+	if err := os.MkdirAll(splitDir, 0755); err != nil {
+		t.Fatalf("Failed to create split dir: %v", err)
+	}
+
+	// Create split files with different sizes
+	splitFiles := []struct {
+		name string
+		size int64
+	}{
+		{"model-00001-of-00003.gguf", 1024 * 1024 * 100}, // 100MB
+		{"model-00002-of-00003.gguf", 1024 * 1024 * 100}, // 100MB
+		{"model-00003-of-00003.gguf", 1024 * 1024 * 50},  // 50MB (last split smaller)
+	}
+
+	for _, f := range splitFiles {
+		path := filepath.Join(splitDir, f.name)
+		if err := createTestFile(path, f.size); err != nil {
+			t.Fatalf("Failed to create split file: %v", err)
+		}
+	}
+
+	// Create a regular single-file model for comparison
+	singleDir := filepath.Join(tmpDir, "userB", "smallmodel")
+	if err := os.MkdirAll(singleDir, 0755); err != nil {
+		t.Fatalf("Failed to create single model dir: %v", err)
+	}
+	singlePath := filepath.Join(singleDir, "Q4_K_M.gguf")
+	if err := createTestFile(singlePath, 1024*1024*50); err != nil { // 50MB
+		t.Fatalf("Failed to create single model file: %v", err)
+	}
+
+	// Test: find all models
+	models, err := findModelsInDir(tmpDir, "*", 0, 0)
+	if err != nil {
+		t.Fatalf("findModelsInDir() error = %v", err)
+	}
+
+	if len(models) != 2 {
+		names := make([]string, len(models))
+		for i, m := range models {
+			names[i] = m.User + "/" + m.Repo + ":" + m.Quant
+		}
+		t.Fatalf("findModelsInDir() returned %d models %v, want 2", len(models), names)
+	}
+
+	// Check that split model is found with correct total size
+	var splitModel *ModelInfo
+	var singleModel *ModelInfo
+	for i := range models {
+		if models[i].User == "userA" && models[i].Repo == "bigmodel" {
+			splitModel = &models[i]
+		}
+		if models[i].User == "userB" && models[i].Repo == "smallmodel" {
+			singleModel = &models[i]
+		}
+	}
+
+	if splitModel == nil {
+		t.Fatal("Split model not found")
+	}
+	if splitModel.Quant != "Q4_K_M" {
+		t.Errorf("Split model quant = %q, want Q4_K_M", splitModel.Quant)
+	}
+	// Total size should be 100+100+50 = 250MB
+	expectedSize := int64(1024 * 1024 * 250)
+	if splitModel.Size != expectedSize {
+		t.Errorf("Split model size = %d, want %d", splitModel.Size, expectedSize)
+	}
+
+	if singleModel == nil {
+		t.Fatal("Single model not found")
+	}
+	if singleModel.Size != 1024*1024*50 {
+		t.Errorf("Single model size = %d, want %d", singleModel.Size, 1024*1024*50)
+	}
+
+	// Test: filter by size (larger than 200MB should only match split model)
+	models, err = findModelsInDir(tmpDir, "*", 0, 1024*1024*200)
+	if err != nil {
+		t.Fatalf("findModelsInDir() error = %v", err)
+	}
+	if len(models) != 1 {
+		t.Errorf("findModelsInDir() with size filter returned %d models, want 1", len(models))
+	}
+	if len(models) == 1 && models[0].User != "userA" {
+		t.Errorf("findModelsInDir() with size filter returned wrong model: %s/%s", models[0].User, models[0].Repo)
+	}
+}
+
 func TestCleanEmptyDir(t *testing.T) {
 	t.Run("removes empty directory", func(t *testing.T) {
 		tmpDir := t.TempDir()

@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -24,6 +25,7 @@ var listCmd = &cobra.Command{
 
 		var models []ModelInfo
 		var totalSize int64
+		seenSplitDirs := make(map[string]bool)
 
 		err := filepath.WalkDir(modelsDir, func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
@@ -50,27 +52,61 @@ var listCmd = &cobra.Command{
 
 			user := parts[0]
 			repo := parts[1]
-			quant := strings.TrimSuffix(d.Name(), ".gguf")
+			var quant string
+			var modelSize int64
 
-			info, err := d.Info()
-			if err != nil {
-				return err
+			// Check if this is a split file (in a quant subdirectory)
+			// Structure: user/repo/quant/model-00001-of-NNNNN.gguf
+			if len(parts) == 4 && hf.SplitFilePattern.MatchString(d.Name()) {
+				quant = parts[2]
+				splitDirKey := filepath.Join(user, repo, quant)
+
+				// Only add the first split file we encounter for this quant
+				if seenSplitDirs[splitDirKey] {
+					return nil
+				}
+				seenSplitDirs[splitDirKey] = true
+
+				// Calculate total size of all split files
+				splitDir := filepath.Dir(path)
+				entries, _ := os.ReadDir(splitDir)
+				for _, entry := range entries {
+					if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".gguf") {
+						continue
+					}
+					if info, err := entry.Info(); err == nil {
+						modelSize += info.Size()
+					}
+				}
+			} else {
+				// Standard single-file model: user/repo/quant.gguf
+				quant = strings.TrimSuffix(d.Name(), ".gguf")
+				info, err := d.Info()
+				if err != nil {
+					return err
+				}
+				modelSize = info.Size()
 			}
 
 			lastUsed := hf.GetLastUsed(user, repo, quant)
 			if lastUsed.IsZero() {
-				lastUsed = info.ModTime() // Fall back to download time
+				info, _ := d.Info()
+				if info != nil {
+					lastUsed = info.ModTime() // Fall back to download time
+				} else {
+					lastUsed = time.Now()
+				}
 			}
 
 			models = append(models, ModelInfo{
 				User:     user,
 				Repo:     repo,
 				Quant:    quant,
-				Size:     info.Size(),
+				Size:     modelSize,
 				LastUsed: lastUsed,
 			})
 
-			totalSize += info.Size()
+			totalSize += modelSize
 
 			return nil
 		})

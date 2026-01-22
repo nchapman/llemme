@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -67,7 +68,7 @@ type PullOptions struct {
 
 // PullModel downloads a model from HuggingFace using the manifest API.
 // It handles downloading the GGUF file, optional mmproj for vision models,
-// hash verification, and saving the manifest for future reference.
+// split GGUF files, hash verification, and saving the manifest for future reference.
 func PullModel(client *Client, user, repo string, quant Quantization, opts *PullOptions, progress func(PullProgress)) (*PullResult, error) {
 	var manifest *Manifest
 	var manifestJSON []byte
@@ -105,9 +106,8 @@ func PullModel(client *Client, user, repo string, quant Quantization, opts *Pull
 		return nil, fmt.Errorf("failed to create model directory: %w", err)
 	}
 
-	result.ModelPath = GetModelFilePath(user, repo, quant.Name)
-
-	// Download main model
+	// Download first file to temp location first (to check for splits)
+	tempPath := filepath.Join(modelDir, ".download-"+quant.Name+".gguf")
 	downloaded := int64(0)
 	downloaderWithProgress := NewDownloaderWithProgress(client, func(current, total int64, speed float64, eta time.Duration) {
 		if progress != nil {
@@ -119,11 +119,36 @@ func PullModel(client *Client, user, repo string, quant Quantization, opts *Pull
 		}
 	})
 
-	_, err = downloaderWithProgress.DownloadModel(user, repo, "main", manifest.GGUFFile.RFilename, result.ModelPath)
+	_, err = downloaderWithProgress.DownloadModel(user, repo, "main", manifest.GGUFFile.RFilename, tempPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to download model: %w", err)
 	}
 	downloaded += manifest.GGUFFile.Size
+
+	// Check if this is a split file
+	header, err := ReadGGUFHeader(tempPath)
+	if err != nil {
+		os.Remove(tempPath)
+		return nil, fmt.Errorf("failed to read GGUF header: %w", err)
+	}
+
+	if header.SplitCount > 1 {
+		// This is a split file - download remaining parts sequentially
+		result.ModelPath, err = handleSplitDownload(client, user, repo, quant, manifest, tempPath, header.SplitCount, &downloaded, result, progress)
+		if err != nil {
+			// Clean up split directory on failure (tempPath was moved inside handleSplitDownload)
+			splitDir := GetSplitModelDir(user, repo, quant.Name)
+			os.RemoveAll(splitDir)
+			return nil, err
+		}
+	} else {
+		// Single file - move to final location
+		result.ModelPath = GetModelFilePath(user, repo, quant.Name)
+		if err := os.Rename(tempPath, result.ModelPath); err != nil {
+			os.Remove(tempPath)
+			return nil, fmt.Errorf("failed to move model to final location: %w", err)
+		}
+	}
 
 	// Download mmproj if present (vision model)
 	if result.IsVision {
@@ -134,8 +159,9 @@ func PullModel(client *Client, user, repo string, quant Quantization, opts *Pull
 		}
 	}
 
-	// Verify downloaded files against manifest hashes
-	if manifest.GGUFFile.LFS != nil {
+	// Verify downloaded files against manifest hashes (only for single files)
+	// Split files are verified by llama.cpp when loading
+	if manifest.GGUFFile.LFS != nil && header.SplitCount <= 1 {
 		verified := int64(0)
 
 		hash, err := CalculateSHA256WithProgress(result.ModelPath, func(processed, total int64) {
@@ -185,6 +211,85 @@ func PullModel(client *Client, user, repo string, quant Quantization, opts *Pull
 	return result, nil
 }
 
+// handleSplitDownload handles downloading remaining split files and organizing them.
+// Downloads sequentially with progress tracking. Returns the path to the first split file.
+func handleSplitDownload(client *Client, user, repo string, quant Quantization, manifest *Manifest, firstFilePath string, splitCount int, downloaded *int64, result *PullResult, progress func(PullProgress)) (string, error) {
+	modelDir := GetModelPath(user, repo)
+
+	// Create quant subdirectory for split files
+	splitDir := filepath.Join(modelDir, quant.Name)
+	if err := os.MkdirAll(splitDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create split directory: %w", err)
+	}
+
+	// Extract the original filename from the manifest's rfilename
+	// e.g., "Q4_K_M/gpt-oss-120b-Q4_K_M-00001-of-00002.gguf"
+	originalFilename := filepath.Base(manifest.GGUFFile.RFilename)
+
+	// Move first file to the split directory with original name
+	firstSplitPath := filepath.Join(splitDir, originalFilename)
+	if err := os.Rename(firstFilePath, firstSplitPath); err != nil {
+		return "", fmt.Errorf("failed to move first split: %w", err)
+	}
+
+	// Extract the URL prefix from the manifest's rfilename for remaining splits
+	// The rfilename contains the subdirectory: "Q4_K_M/gpt-oss-120b-Q4_K_M-00001-of-00002.gguf"
+	rfilename := manifest.GGUFFile.RFilename
+	splitPrefix := SplitPrefix(rfilename, 0, splitCount)
+	if splitPrefix == "" {
+		return "", fmt.Errorf("could not extract split prefix from %s", rfilename)
+	}
+
+	// Get sizes of remaining splits via HEAD requests for accurate progress
+	splitFilenames := make([]string, splitCount-1)
+	for idx := 1; idx < splitCount; idx++ {
+		splitFilenames[idx-1] = SplitPath(splitPrefix, idx, splitCount)
+	}
+
+	var remainingSize int64
+	for _, filename := range splitFilenames {
+		size, err := client.GetFileSize(user, repo, "main", filename)
+		if err != nil {
+			// Fall back to estimate if HEAD fails
+			remainingSize = manifest.GGUFFile.Size * int64(splitCount-1)
+			break
+		}
+		remainingSize += size
+	}
+
+	// Update total size with accurate value
+	result.TotalSize = manifest.GGUFFile.Size + remainingSize
+	result.GGUFSize = result.TotalSize
+	if result.IsVision {
+		result.TotalSize += result.MMProjSize
+	}
+
+	// Download remaining splits sequentially with progress tracking
+	for idx, splitFilename := range splitFilenames {
+		localFilename := filepath.Base(splitFilename)
+		localPath := filepath.Join(splitDir, localFilename)
+
+		downloader := NewDownloaderWithProgress(client, func(current, total int64, speed float64, eta time.Duration) {
+			if progress != nil {
+				progress(PullProgress{
+					Phase:   "download",
+					Current: *downloaded + current,
+					Total:   result.TotalSize,
+				})
+			}
+		})
+
+		dlResult, err := downloader.DownloadModel(user, repo, "main", splitFilename, localPath)
+		if err != nil {
+			os.RemoveAll(splitDir)
+			return "", fmt.Errorf("failed to download split %d: %w", idx+2, err)
+		}
+		*downloaded += dlResult.Total
+	}
+
+	return firstSplitPath, nil
+}
+
 // CheckForUpdates checks if a local model is up to date with the remote manifest.
 // Returns (up-to-date, should-save-manifest, manifest, manifestJSON, error).
 func CheckForUpdates(client *Client, user, repo string, quant Quantization) (bool, bool, *Manifest, []byte, error) {
@@ -205,24 +310,28 @@ func CheckForUpdates(client *Client, user, repo string, quant Quantization) (boo
 // Returns (up-to-date, should-save-manifest).
 func isUpToDate(user, repo, quant string, remote *Manifest) (bool, bool) {
 	manifestPath := GetManifestFilePath(user, repo, quant)
-	modelPath := GetModelFilePath(user, repo, quant)
+
+	// Find the model file (single or split)
+	modelPath := FindModelFile(user, repo, quant)
 
 	// Load saved manifest
 	manifestData, err := os.ReadFile(manifestPath)
 	if err != nil {
 		// No local manifest - check if this is a legacy download we can upgrade
-		modelInfo, statErr := os.Stat(modelPath)
-		if statErr == nil && modelInfo.Size() == remote.GGUFFile.Size {
-			// Model exists with matching size - likely a legacy download
-			// Check if vision model needs mmproj
-			if remote.MMProjFile != nil {
-				mmprojPath := GetMMProjFilePath(user, repo, quant)
-				if _, err := os.Stat(mmprojPath); err != nil {
-					return false, false // Need to download mmproj
+		if modelPath != "" {
+			modelInfo, statErr := os.Stat(modelPath)
+			if statErr == nil && modelInfo.Size() == remote.GGUFFile.Size {
+				// Model exists with matching size - likely a legacy download
+				// Check if vision model needs mmproj
+				if remote.MMProjFile != nil {
+					mmprojPath := GetMMProjFilePath(user, repo, quant)
+					if _, err := os.Stat(mmprojPath); err != nil {
+						return false, false // Need to download mmproj
+					}
 				}
+				// Save manifest for this legacy model and consider it up to date
+				return true, true
 			}
-			// Save manifest for this legacy model and consider it up to date
-			return true, true
 		}
 		return false, false
 	}
@@ -250,7 +359,7 @@ func isUpToDate(user, repo, quant string, remote *Manifest) (bool, bool) {
 	}
 
 	// Verify the model file actually exists
-	if _, err := os.Stat(modelPath); err != nil {
+	if modelPath == "" {
 		return false, false
 	}
 

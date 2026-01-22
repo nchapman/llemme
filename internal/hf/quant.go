@@ -65,27 +65,68 @@ func ParseQuantization(filename string) (normalized string, raw string) {
 	return raw, raw
 }
 
+// quantDirPattern matches directory names that look like quantization names
+var quantDirPattern = regexp.MustCompile(`^(?i)(Q[0-9]+[^/]*|FP16|FP32|F16|F32|I[0-9]+)$`)
+
 func ExtractQuantizations(files []FileTree) []Quantization {
 	var quants []Quantization
+	seenQuants := make(map[string]bool)
 
 	for _, file := range files {
-		if !strings.HasSuffix(file.Path, ".gguf") {
+		// Check for GGUF files
+		if strings.HasSuffix(file.Path, ".gguf") {
+			name, tag := ParseQuantization(file.Path)
+			if name == "" {
+				// GGUF file without quantization suffix - use "default"/"latest"
+				name = "default"
+				tag = "latest"
+			}
+
+			if seenQuants[name] {
+				continue
+			}
+			seenQuants[name] = true
+
+			quants = append(quants, Quantization{
+				Name: name,
+				Tag:  tag,
+				File: file.Path,
+				Size: file.Size,
+			})
 			continue
 		}
 
-		name, tag := ParseQuantization(file.Path)
-		if name == "" {
-			// GGUF file without quantization suffix - use "default"/"latest"
-			name = "default"
-			tag = "latest"
-		}
+		// Check for directories that look like quantization names
+		// These contain split files or nested GGUF files
+		if file.Type == "directory" && quantDirPattern.MatchString(file.Path) {
+			// Normalize the directory name to a quantization name
+			name := strings.ToUpper(file.Path)
+			name = strings.ReplaceAll(name, "-", "_")
 
-		quants = append(quants, Quantization{
-			Name: name,
-			Tag:  tag,
-			File: file.Path,
-			Size: file.Size,
-		})
+			// Apply normalizations
+			normalizations := map[string]string{
+				"F16": "FP16",
+				"F32": "FP32",
+				"I8":  "Q8_0",
+				"I4":  "Q4_0",
+			}
+			normalized := name
+			if norm, ok := normalizations[name]; ok {
+				normalized = norm
+			}
+
+			if seenQuants[normalized] {
+				continue
+			}
+			seenQuants[normalized] = true
+
+			quants = append(quants, Quantization{
+				Name: normalized,
+				Tag:  file.Path, // Use original directory name as tag
+				File: "",        // Will be resolved from manifest
+				Size: 0,         // Size unknown until manifest fetch
+			})
+		}
 	}
 
 	return quants
