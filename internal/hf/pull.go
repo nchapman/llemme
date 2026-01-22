@@ -91,6 +91,9 @@ func PullModel(client *Client, user, repo string, quant Quantization, opts *Pull
 
 	// Check if this is a split file by examining the manifest filename
 	splitInfo := ParseSplitFilename(manifest.GGUFFile.RFilename)
+	if splitInfo != nil && splitInfo.SplitNo != 0 {
+		return nil, fmt.Errorf("manifest references split %d, expected first split", splitInfo.SplitNo+1)
+	}
 
 	// Calculate total download size
 	result := &PullResult{
@@ -104,22 +107,16 @@ func PullModel(client *Client, user, repo string, quant Quantization, opts *Pull
 	}
 
 	// If split file, fetch all sizes upfront via HEAD requests
-	var splitSizes []int64
 	if splitInfo != nil {
-		splitSizes = make([]int64, splitInfo.SplitCount)
-		splitSizes[0] = manifest.GGUFFile.Size
-
-		var totalGGUFSize int64 = manifest.GGUFFile.Size
+		totalGGUFSize := manifest.GGUFFile.Size
 		for i := 1; i < splitInfo.SplitCount; i++ {
 			splitPath := SplitPath(splitInfo.Prefix, i, splitInfo.SplitCount)
 			size, err := client.GetFileSize(user, repo, "main", splitPath)
 			if err != nil {
 				// Fall back to estimate if HEAD fails
-				splitSizes[i] = manifest.GGUFFile.Size
-			} else {
-				splitSizes[i] = size
+				size = manifest.GGUFFile.Size
 			}
-			totalGGUFSize += splitSizes[i]
+			totalGGUFSize += size
 		}
 		result.GGUFSize = totalGGUFSize
 		result.TotalSize = totalGGUFSize
@@ -259,7 +256,6 @@ func handleSplitDownload(client *Client, user, repo string, quant Quantization, 
 
 		dlResult, err := downloader.DownloadModel(user, repo, "main", splitFilename, localPath)
 		if err != nil {
-			os.RemoveAll(splitDir)
 			return "", fmt.Errorf("failed to download split %d: %w", i+1, err)
 		}
 		*downloaded += dlResult.Total

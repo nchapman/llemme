@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"strconv"
 )
 
 // GGUF format constants
@@ -199,9 +200,14 @@ func ParseSplitFilename(path string) *SplitInfo {
 		return nil
 	}
 
-	var splitNo, splitCount int
-	fmt.Sscanf(matches[1], "%d", &splitNo)
-	fmt.Sscanf(matches[2], "%d", &splitCount)
+	splitNo, err := strconv.Atoi(matches[1])
+	if err != nil {
+		return nil
+	}
+	splitCount, err := strconv.Atoi(matches[2])
+	if err != nil {
+		return nil
+	}
 
 	// Extract prefix (everything before the split suffix)
 	suffixLen := len(matches[0])
