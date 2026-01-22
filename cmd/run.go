@@ -323,35 +323,44 @@ func offerToPull(cfg *config.Config, user, repo, quant string) (*proxy.Downloade
 
 	selectedQuant, _ := hf.FindQuantization(quants, quant)
 
+	// Get manifest info for display (also returns manifest to pass to PullModel)
+	info, manifest, manifestJSON, err := hf.GetManifestInfo(client, user, repo, selectedQuant)
+	if err != nil {
+		return nil, err
+	}
+
 	// Prompt user to download
-	prompt := fmt.Sprintf("Model not downloaded. Pull %s (%s)?", hf.FormatModelName(user, repo, quant), ui.FormatBytes(selectedQuant.Size))
+	modelName := hf.FormatModelName(user, repo, quant)
+	var prompt string
+	if info.IsVision {
+		prompt = fmt.Sprintf("Model not downloaded. Pull %s (%s + %s mmproj)?",
+			modelName, ui.FormatBytes(info.GGUFSize), ui.FormatBytes(info.MMProjSize))
+	} else {
+		prompt = fmt.Sprintf("Model not downloaded. Pull %s (%s)?", modelName, ui.FormatBytes(info.GGUFSize))
+	}
 	if !ui.PromptYesNo(prompt, true) {
 		return nil, fmt.Errorf("model required to continue")
 	}
 
-	// Download the model
+	// Download the model using shared download logic
 	fmt.Println()
-	modelDir := hf.GetModelPath(user, repo)
-	modelPath := hf.GetModelFilePath(user, repo, quant)
-
-	if err := os.MkdirAll(modelDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create model directory: %w", err)
+	opts := &hf.PullOptions{
+		Manifest:     manifest,
+		ManifestJSON: manifestJSON,
 	}
 
-	progressBar := ui.NewProgressBar()
-	progressBar.Start("", selectedQuant.Size)
-
-	downloaderWithProgress := hf.NewDownloaderWithProgress(client, func(downloaded, total int64, speed float64, eta time.Duration) {
-		progressBar.Update(downloaded)
+	result, err := hf.PullModelWithProgressFactory(client, user, repo, selectedQuant, opts, func() hf.ProgressDisplay {
+		return ui.NewProgressBar()
 	})
-
-	_, err = downloaderWithProgress.DownloadModel(user, repo, "main", selectedQuant.File, modelPath)
 	if err != nil {
-		progressBar.Stop()
-		return nil, fmt.Errorf("failed to download: %w", err)
+		return nil, err
 	}
 
-	progressBar.Finish(fmt.Sprintf("Downloaded %s", hf.FormatModelName(user, repo, quant)))
+	if result.IsVision {
+		fmt.Printf("Pulled %s (vision model)\n", modelName)
+	} else {
+		fmt.Printf("Pulled %s\n", modelName)
+	}
 	fmt.Println()
 
 	// Return the downloaded model info
@@ -359,8 +368,8 @@ func offerToPull(cfg *config.Config, user, repo, quant string) (*proxy.Downloade
 		User:      user,
 		Repo:      repo,
 		Quant:     quant,
-		FullName:  hf.FormatModelName(user, repo, quant),
-		ModelPath: modelPath,
+		FullName:  modelName,
+		ModelPath: result.ModelPath,
 	}, nil
 }
 
