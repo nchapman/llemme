@@ -386,7 +386,7 @@ func parseManifest(data []byte, manifest *Manifest) error {
 // ProgressDisplay handles progress bar display for pull operations.
 type ProgressDisplay interface {
 	Start(label string, total int64)
-	Update(current int64)
+	Update(current, total int64)
 	Finish(label string)
 	Stop()
 }
@@ -427,7 +427,7 @@ func PullModelWithProgressFactory(client *Client, user, repo string, quant Quant
 			}
 		}
 		if progress != nil {
-			progress.Update(p.Current)
+			progress.Update(p.Current, p.Total)
 		}
 	})
 
