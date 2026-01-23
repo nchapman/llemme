@@ -1,9 +1,8 @@
 import useSWR from "swr";
 
-// In dev mode, Vite proxies /v1 to localhost:11313
-// In production (embedded), requests go to the same origin
-// Either way, we can use relative URLs
-export const LLEME_BASE_URL = "";
+// In dev mode, use the configured API URL
+// In production (embedded), use relative URLs (same origin)
+export const LLEME_BASE_URL = import.meta.env.VITE_LLEME_API_URL || "";
 
 export interface LlemeModel {
   id: string;
