@@ -1,8 +1,11 @@
+import { useState } from "react";
 import {
   type ThreadHistoryAdapter,
   type ExportedMessageRepository,
   type ExportedMessageRepositoryItem,
   type MessageFormatAdapter,
+  type AssistantApi,
+  useAssistantApi,
 } from "@assistant-ui/react";
 import {
   getChatMessages,
@@ -56,11 +59,10 @@ class FormattedLocalHistoryAdapter<TMessage, TStorageFormat>
 }
 
 export class LocalHistoryAdapter implements ThreadHistoryAdapter {
-  // Thread ID will be set by the runtime
-  private currentThreadId: string | null = null;
+  constructor(private store: AssistantApi) {}
 
-  setThreadId(threadId: string | null) {
-    this.currentThreadId = threadId;
+  private get currentThreadId(): string | null {
+    return this.store.threadListItem().getState().remoteId ?? null;
   }
 
   withFormat<TMessage, TStorageFormat>(
@@ -74,12 +76,13 @@ export class LocalHistoryAdapter implements ThreadHistoryAdapter {
   }
 
   async load(): Promise<ExportedMessageRepository> {
-    if (!this.currentThreadId) return { messages: [] };
+    const threadId = this.currentThreadId;
+    if (!threadId) return { messages: [] };
 
-    const stored = await getChatMessages(this.currentThreadId);
+    const stored = await getChatMessages(threadId);
     if (!stored) return { messages: [] };
 
-    return { messages: [], headId: stored.headId };
+    return { messages: [], headId: stored.headId ?? null };
   }
 
   async _appendWithFormat<T>(
@@ -88,12 +91,9 @@ export class LocalHistoryAdapter implements ThreadHistoryAdapter {
     format: string,
     content: T,
   ): Promise<void> {
-    if (!this.currentThreadId) {
-      // Generate a thread ID if we don't have one
-      this.currentThreadId = crypto.randomUUID();
-    }
+    const { remoteId } = await this.store.threadListItem().initialize();
+    const threadId = remoteId;
 
-    const threadId = this.currentThreadId;
     const stored = (await getChatMessages(threadId)) ?? { messages: [] };
 
     const existingIndex = stored.messages.findIndex((m) => m.id === messageId);
@@ -123,16 +123,23 @@ export class LocalHistoryAdapter implements ThreadHistoryAdapter {
       message: MessageStorageEntry<TStorageFormat>,
     ) => MessageFormatItem<TMessage>,
   ): Promise<MessageFormatRepository<TMessage>> {
-    if (!this.currentThreadId) return { messages: [] };
+    const threadId = this.currentThreadId;
+    if (!threadId) return { messages: [] };
 
-    const stored = await getChatMessages(this.currentThreadId);
+    const stored = await getChatMessages(threadId);
     if (!stored) return { messages: [] };
 
     return {
-      headId: stored.headId,
+      headId: stored.headId ?? null,
       messages: stored.messages
         .filter((m) => m.format === format)
         .map((m) => decoder(m as MessageStorageEntry<TStorageFormat>)),
     };
   }
 }
+
+export const useLocalHistoryAdapter = (): ThreadHistoryAdapter => {
+  const store = useAssistantApi();
+  const [adapter] = useState(() => new LocalHistoryAdapter(store));
+  return adapter;
+};

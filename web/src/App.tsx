@@ -1,5 +1,4 @@
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
-import { useChatRuntime } from "@assistant-ui/react-ai-sdk";
 import { Thread } from "@/components/assistant-ui/thread";
 import { ThreadList } from "@/components/assistant-ui/thread-list";
 import { Button } from "@/components/ui/button";
@@ -10,7 +9,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { createLlemeTransport } from "@/lib/lleme-transport";
-import { LocalHistoryAdapter } from "@/lib/local-history-adapter";
+import { useChatWithPersistence } from "@/lib/use-chat-with-persistence";
 import { useState, useMemo, type FC, type ComponentPropsWithRef } from "react";
 import { ModelSelector } from "@/components/model-selector";
 import { MenuIcon, MessagesSquare, PanelLeftIcon } from "lucide-react";
@@ -125,13 +124,8 @@ export default function App() {
 
   const transport = useMemo(() => createLlemeTransport({ model }), [model]);
 
-  const historyAdapter = useMemo(() => new LocalHistoryAdapter(), []);
-
-  const runtime = useChatRuntime({
+  const runtime = useChatWithPersistence({
     transport,
-    adapters: {
-      history: historyAdapter,
-    },
   });
 
   return (
