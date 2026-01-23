@@ -176,6 +176,7 @@ func startServerForeground() {
 	fmt.Printf("  %-14s %d-%d\n", "Backend ports", proxyCfg.BackendPortMin, proxyCfg.BackendPortMax)
 	fmt.Println()
 	fmt.Println(ui.Header("Endpoints"))
+	fmt.Printf("  %-12s %s %s\n", "Web UI", ui.Muted("GET"), "/")
 	fmt.Printf("  %-12s %s %s\n", "Chat", ui.Muted("POST"), "/v1/chat/completions")
 	fmt.Printf("  %-12s %s %s\n", "Completions", ui.Muted("POST"), "/v1/completions")
 	fmt.Printf("  %-12s %s %s\n", "Messages", ui.Muted("POST"), "/v1/messages")
@@ -240,6 +241,7 @@ func startServerDetached() {
 	for time.Now().Before(deadline) {
 		if state := proxy.GetRunningProxyState(); state != nil {
 			fmt.Printf("Server started in background on http://%s:%d (PID %d)\n", state.Host, state.Port, state.PID)
+			fmt.Printf("Web UI available at http://%s:%d\n", state.Host, state.Port)
 			fmt.Printf("Logs: %s\n", ui.Muted(logPath))
 			return
 		}
