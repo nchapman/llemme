@@ -73,7 +73,7 @@ class LocalThreadListAdapter implements RemoteThreadListAdapter {
   }
 
   async generateTitle(
-    _remoteId: string,
+    remoteId: string,
     messages: readonly ThreadMessage[],
   ) {
     // Extract first user message text for fallback
@@ -107,14 +107,20 @@ class LocalThreadListAdapter implements RemoteThreadListAdapter {
       });
 
       return createAssistantStream(async (controller) => {
+        let title = "";
         for await (const chunk of textStream) {
+          title += chunk;
           controller.appendText(chunk);
         }
+        // Persist the title to storage
+        await updateChatMeta(remoteId, { title: title.trim() });
       });
     } catch (error) {
       console.error("Title generation failed, using fallback:", error);
       return createAssistantStream(async (controller) => {
         controller.appendText(fallbackTitle);
+        // Persist the fallback title
+        await updateChatMeta(remoteId, { title: fallbackTitle });
       });
     }
   }
