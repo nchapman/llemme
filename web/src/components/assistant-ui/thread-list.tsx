@@ -5,9 +5,11 @@ import {
   ThreadListItemMorePrimitive,
   ThreadListItemPrimitive,
   ThreadListPrimitive,
+  useThreadListItemRuntime,
 } from "@assistant-ui/react";
 import { MoreHorizontalIcon, SquarePenIcon, TrashIcon } from "lucide-react";
-import type { FC } from "react";
+import { type FC, useCallback, useState } from "react";
+import { deleteChat } from "@/lib/chat-storage";
 
 export const ThreadList: FC = () => {
   return (
@@ -65,7 +67,40 @@ const ThreadListItem: FC = () => {
   );
 };
 
+/**
+ * WORKAROUND: Direct storage delete + page reload
+ *
+ * assistant-ui has a bug where threads created in the current session have
+ * __LOCALID_xxx internal IDs that aren't properly tracked in its state lookup
+ * table. Any operation that triggers a re-render causes components to try to
+ * look up these IDs and crash with "tapLookupResources: Resource not found".
+ *
+ * The built-in ThreadListItemPrimitive.Delete triggers this bug. Our workaround:
+ * 1. Delete directly from IndexedDB (bypasses assistant-ui's broken state)
+ * 2. Reload the page to reset assistant-ui's internal state
+ *
+ * TODO: Remove this workaround when assistant-ui fixes the __LOCALID lookup bug.
+ * Consider filing an issue at https://github.com/assistant-ui/assistant-ui/issues
+ */
 const ThreadListItemMore: FC = () => {
+  const threadListItemRuntime = useThreadListItemRuntime();
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = useCallback(async () => {
+    if (isDeleting) return;
+    setIsDeleting(true);
+
+    const state = threadListItemRuntime.getState();
+
+    // Only delete from storage if thread was initialized (has remoteId)
+    if (state.remoteId) {
+      await deleteChat(state.remoteId);
+    }
+
+    // Reload to reset assistant-ui's broken internal state
+    window.location.reload();
+  }, [threadListItemRuntime, isDeleting]);
+
   return (
     <ThreadListItemMorePrimitive.Root>
       <ThreadListItemMorePrimitive.Trigger asChild>
@@ -83,12 +118,14 @@ const ThreadListItemMore: FC = () => {
         align="start"
         className="aui-thread-list-item-more-content z-50 min-w-32 overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
       >
-        <ThreadListItemPrimitive.Delete asChild>
-          <ThreadListItemMorePrimitive.Item className="aui-thread-list-item-more-item flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-destructive outline-none hover:bg-destructive/10 focus:bg-destructive/10">
-            <TrashIcon className="size-4" />
-            Delete
-          </ThreadListItemMorePrimitive.Item>
-        </ThreadListItemPrimitive.Delete>
+        <ThreadListItemMorePrimitive.Item
+          onClick={handleDelete}
+          disabled={isDeleting}
+          className="aui-thread-list-item-more-item flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-destructive outline-none hover:bg-destructive/10 focus:bg-destructive/10 disabled:pointer-events-none disabled:opacity-50"
+        >
+          <TrashIcon className="size-4" />
+          {isDeleting ? "Deleting..." : "Delete"}
+        </ThreadListItemMorePrimitive.Item>
       </ThreadListItemMorePrimitive.Content>
     </ThreadListItemMorePrimitive.Root>
   );
