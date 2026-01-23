@@ -10,3 +10,7 @@ vendor/
 
 # Go workspace file
 go.work
+
+# Web UI build artifacts
+web/node_modules/
+web/.next/

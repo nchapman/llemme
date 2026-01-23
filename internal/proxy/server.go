@@ -73,6 +73,9 @@ func NewServer(cfg *Config, appCfg *config.Config) *Server {
 	mux.HandleFunc("/api/stop", s.handleStopModel)
 	mux.HandleFunc("/api/stop-all", s.handleStopAll)
 
+	// Serve embedded web UI at root
+	mux.Handle("/", newWebUIHandler())
+
 	// Apply CORS middleware
 	handler := CORSMiddleware(cfg.CORSOrigins)(mux)
 
