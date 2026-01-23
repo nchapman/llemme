@@ -6,13 +6,16 @@ import {
   ThreadListItemPrimitive,
   ThreadListPrimitive,
 } from "@assistant-ui/react";
-import { MoreHorizontalIcon, PlusIcon, TrashIcon } from "lucide-react";
+import { MoreHorizontalIcon, SquarePenIcon, TrashIcon } from "lucide-react";
 import type { FC } from "react";
 
 export const ThreadList: FC = () => {
   return (
     <ThreadListPrimitive.Root className="aui-root aui-thread-list-root flex flex-col gap-1">
       <ThreadListNew />
+      <div className="px-2 pt-4 pb-1">
+        <h2 className="text-xs font-medium text-muted-foreground">Your Chats</h2>
+      </div>
       <AssistantIf condition={({ threads }) => threads.isLoading}>
         <ThreadListSkeleton />
       </AssistantIf>
@@ -26,13 +29,10 @@ export const ThreadList: FC = () => {
 const ThreadListNew: FC = () => {
   return (
     <ThreadListPrimitive.New asChild>
-      <Button
-        variant="outline"
-        className="aui-thread-list-new h-9 justify-start gap-2 rounded-lg px-3 text-sm hover:bg-muted data-active:bg-muted"
-      >
-        <PlusIcon className="size-4" />
-        New Thread
-      </Button>
+      <button className="flex h-9 items-center gap-2 rounded-lg px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+        <SquarePenIcon className="size-4" />
+        New Chat
+      </button>
     </ThreadListPrimitive.New>
   );
 };
