@@ -1,12 +1,14 @@
-import { useMemo, type FC, type PropsWithChildren } from "react";
+import { useRef, useMemo, type FC, type PropsWithChildren } from "react";
 import {
   RuntimeAdapterProvider,
   unstable_useRemoteThreadListRuntime,
   type AssistantRuntime,
+  type ThreadMessage,
   type unstable_RemoteThreadListAdapter as RemoteThreadListAdapter,
 } from "@assistant-ui/react";
 import { useChatRuntime } from "@assistant-ui/react-ai-sdk";
-import { AssistantStream, type AssistantStreamChunk } from "assistant-stream";
+import { createAssistantStream } from "assistant-stream";
+import { streamText } from "ai";
 import { useLocalHistoryAdapter } from "./local-history-adapter";
 import {
   getAllChatMetas,
@@ -15,6 +17,7 @@ import {
   deleteChat,
   getChatMeta,
 } from "./chat-storage";
+import { createLlemeProvider } from "./lleme-transport";
 
 type RemoteThreadMetadata = {
   readonly status: "regular" | "archived";
@@ -33,6 +36,8 @@ type RemoteThreadInitializeResponse = {
 };
 
 class LocalThreadListAdapter implements RemoteThreadListAdapter {
+  constructor(private getModel: () => string) {}
+
   async list(): Promise<RemoteThreadListResponse> {
     const metas = await getAllChatMetas();
     return {
@@ -67,8 +72,51 @@ class LocalThreadListAdapter implements RemoteThreadListAdapter {
     return { remoteId: id, externalId: undefined };
   }
 
-  async generateTitle(): Promise<AssistantStream> {
-    return new ReadableStream<AssistantStreamChunk>();
+  async generateTitle(
+    _remoteId: string,
+    messages: readonly ThreadMessage[],
+  ) {
+    // Extract first user message text for fallback
+    const firstUserMessage = messages.find((m) => m.role === "user");
+    const firstMessageText = firstUserMessage?.content
+      .filter((part): part is { type: "text"; text: string } => part.type === "text")
+      .map((part) => part.text)
+      .join(" ");
+    const fallbackTitle = firstMessageText?.slice(0, 50).trim() || "New conversation";
+
+    try {
+      const provider = createLlemeProvider();
+
+      // Extract text content from messages for title generation
+      const conversationText = messages
+        .map((msg) => {
+          const role = msg.role === "user" ? "User" : "Assistant";
+          const text = msg.content
+            .filter((part): part is { type: "text"; text: string } => part.type === "text")
+            .map((part) => part.text)
+            .join(" ");
+          return `${role}: ${text}`;
+        })
+        .join("\n");
+
+      const { textStream } = streamText({
+        model: provider(this.getModel()),
+        system:
+          "Generate a short title (3-6 words) for this conversation. Reply with only the title, no quotes or punctuation.",
+        prompt: conversationText,
+      });
+
+      return createAssistantStream(async (controller) => {
+        for await (const chunk of textStream) {
+          controller.appendText(chunk);
+        }
+      });
+    } catch (error) {
+      console.error("Title generation failed, using fallback:", error);
+      return createAssistantStream(async (controller) => {
+        controller.appendText(fallbackTitle);
+      });
+    }
   }
 
   async fetch(threadId: string): Promise<RemoteThreadMetadata> {
@@ -105,9 +153,18 @@ const LocalAdapterProvider: FC<PropsWithChildren> = ({ children }) => {
 };
 
 export function useChatWithPersistence(options: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   transport: any;
+  model: string;
 }): AssistantRuntime {
-  const localAdapter = useMemo(() => new LocalThreadListAdapter(), []);
+  // Use a ref to always get the current model without recreating the adapter
+  const modelRef = useRef(options.model);
+  modelRef.current = options.model;
+
+  const localAdapter = useMemo(
+    () => new LocalThreadListAdapter(() => modelRef.current),
+    [],
+  );
 
   return unstable_useRemoteThreadListRuntime({
     runtimeHook: function RuntimeHook() {

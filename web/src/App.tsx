@@ -126,6 +126,7 @@ export default function App() {
 
   const runtime = useChatWithPersistence({
     transport,
+    model,
   });
 
   return (
