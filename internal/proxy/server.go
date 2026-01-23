@@ -240,6 +240,8 @@ func (s *Server) proxyToBackend(w http.ResponseWriter, r *http.Request, path str
 	// Handle streaming responses properly
 	proxy.FlushInterval = -1 // Flush immediately for SSE
 
+	proxy.ModifyResponse = stripCORSHeaders
+
 	// Restore the body for the proxied request
 	r.Body = io.NopCloser(bytes.NewReader(body))
 	r.ContentLength = int64(len(body))
@@ -301,10 +303,9 @@ func (s *Server) proxyToBackendAnthropic(w http.ResponseWriter, r *http.Request,
 	// Handle streaming responses properly
 	proxy.FlushInterval = -1 // Flush immediately for SSE
 
-	// Modify response to add request-id header
 	proxy.ModifyResponse = func(resp *http.Response) error {
 		resp.Header.Set("request-id", requestID)
-		return nil
+		return stripCORSHeaders(resp)
 	}
 
 	// Handle backend errors
