@@ -10,6 +10,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { createLlemeTransport } from "@/lib/lleme-transport";
+import { LocalHistoryAdapter } from "@/lib/local-history-adapter";
 import { useState, useMemo, type FC, type ComponentPropsWithRef } from "react";
 import { ModelSelector } from "@/components/model-selector";
 import { MenuIcon, MessagesSquare, PanelLeftIcon } from "lucide-react";
@@ -124,8 +125,13 @@ export default function App() {
 
   const transport = useMemo(() => createLlemeTransport({ model }), [model]);
 
+  const historyAdapter = useMemo(() => new LocalHistoryAdapter(), []);
+
   const runtime = useChatRuntime({
     transport,
+    adapters: {
+      history: historyAdapter,
+    },
   });
 
   return (
