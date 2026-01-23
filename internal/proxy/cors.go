@@ -5,6 +5,17 @@ import (
 	"strings"
 )
 
+// stripCORSHeaders removes CORS headers from backend responses.
+// This prevents duplicate headers when the backend (llama-server) also sets CORS headers.
+func stripCORSHeaders(resp *http.Response) error {
+	resp.Header.Del("Access-Control-Allow-Origin")
+	resp.Header.Del("Access-Control-Allow-Methods")
+	resp.Header.Del("Access-Control-Allow-Headers")
+	resp.Header.Del("Access-Control-Max-Age")
+	resp.Header.Del("Access-Control-Allow-Credentials")
+	return nil
+}
+
 // CORSMiddleware creates a middleware that handles CORS requests.
 // Allowed origins are configured in the config file.
 func CORSMiddleware(allowedOrigins []string) func(http.Handler) http.Handler {

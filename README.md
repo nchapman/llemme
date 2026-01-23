@@ -10,6 +10,7 @@ The easy way to find, run, and manage local LLMs.
 - 🔎 **Discover & Manage Models**: Search Hugging Face, view trending models, and manage your local model library (`list`, `pull`, `rm`).
 - 🤖 **Custom Personas**: Create and switch between custom personalities and system prompts for tailored interactions.
 - ⚡ **Universal API Support**: Acts as a local, drop-in replacement for both OpenAI and Anthropic APIs.
+- 🌐 **Web UI**: Chat with your models in a browser at `http://localhost:11313`.
 - ⚙️ **Powered by [llama.cpp](https://github.com/ggerganov/llama.cpp)**: Enjoy a zero-config start with smart defaults, or take full control with direct access to all underlying `llama.cpp` parameters.
 
 ## Install
@@ -114,6 +115,8 @@ The `remove` command offers powerful filtering options to manage your downloaded
 ## Multi-Model Support
 
 Lemme runs a proxy that manages multiple llama.cpp backends. Models load on demand and unload after a configurable idle period (defaulting to 10 minutes) to conserve resources.
+
+A web UI is available at `http://localhost:11313` when the server is running.
 
 ```bash
 # Use the OpenAI-compatible API
