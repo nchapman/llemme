@@ -5,10 +5,10 @@ import (
 	"io/fs"
 )
 
-//go:embed all:out
+//go:embed all:dist
 var content embed.FS
 
-// DistFS returns the embedded static files as an fs.FS rooted at the out/ directory.
+// DistFS returns the embedded static files as an fs.FS rooted at the dist/ directory.
 func DistFS() (fs.FS, error) {
-	return fs.Sub(content, "out")
+	return fs.Sub(content, "dist")
 }

@@ -13,9 +13,8 @@
 # testing
 /coverage
 
-# next.js
-/.next/
-/out/
+# build output
+/dist/
 
 # production
 /build
@@ -30,8 +29,11 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files
+# .env.local and .env*.local are for local overrides (secrets, etc.)
+# .env.development and .env.production can be committed
+.env.local
+.env*.local
 
 # vercel
 .vercel

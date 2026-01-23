@@ -1,8 +1,9 @@
 import useSWR from "swr";
 
-// Use current origin when embedded, allowing the app to work from any host
-export const LLEME_BASE_URL =
-  typeof window !== "undefined" ? window.location.origin : "";
+// In dev mode, Vite proxies /v1 to localhost:11313
+// In production (embedded), requests go to the same origin
+// Either way, we can use relative URLs
+export const LLEME_BASE_URL = "";
 
 export interface LlemeModel {
   id: string;
@@ -27,7 +28,7 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json());
 export function useModels() {
   const { data, error, isLoading } = useSWR<ModelsResponse>(
     `${LLEME_BASE_URL}/v1/models`,
-    fetcher
+    fetcher,
   );
 
   return {

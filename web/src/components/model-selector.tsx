@@ -1,4 +1,3 @@
-"use client";
 
 import { useModels, type LlemeModel } from "@/lib/lleme-api";
 import {

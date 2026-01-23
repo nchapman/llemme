@@ -13,7 +13,7 @@ pnpm install
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:5173](http://localhost:5173).
 
 ## Build
 
@@ -21,8 +21,8 @@ Open [http://localhost:3000](http://localhost:3000).
 pnpm build
 ```
 
-Static files are output to `out/`. Serve with any static file server:
+Static files are output to `dist/`. Preview locally:
 
 ```bash
-pnpm dlx serve out
+pnpm preview
 ```

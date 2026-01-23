@@ -1,4 +1,3 @@
-"use client";
 
 import { memo, useCallback, useRef, useState } from "react";
 import { cva, type VariantProps } from "class-variance-authority";

@@ -1,5 +1,3 @@
-"use client";
-
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import { useChatRuntime } from "@assistant-ui/react-ai-sdk";
 import { Thread } from "@/components/assistant-ui/thread";
@@ -58,7 +56,7 @@ const Sidebar: FC<{ collapsed?: boolean }> = ({ collapsed }) => {
     <aside
       className={cn(
         "flex h-full flex-col bg-sidebar transition-all duration-200",
-        collapsed ? "w-0 overflow-hidden opacity-0" : "w-[260px] opacity-100"
+        collapsed ? "w-0 overflow-hidden opacity-0" : "w-[260px] opacity-100",
       )}
     >
       <div className="flex h-14 shrink-0 items-center px-4">
@@ -120,7 +118,7 @@ const Header: FC<{
   );
 };
 
-export const Assistant = () => {
+export default function App() {
   const [model, setModel] = useState(DEFAULT_MODEL);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -150,4 +148,4 @@ export const Assistant = () => {
       </div>
     </AssistantRuntimeProvider>
   );
-};
+}
