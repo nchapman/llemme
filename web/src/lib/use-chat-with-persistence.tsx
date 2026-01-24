@@ -19,6 +19,11 @@ import {
 } from "./chat-storage";
 import { createLlemeProvider } from "./lleme-transport";
 
+// crypto.randomUUID() requires a secure context (HTTPS), but this app runs on local networks without SSL.
+function generateId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).substring(2);
+}
+
 type RemoteThreadMetadata = {
   readonly status: "regular" | "archived";
   readonly remoteId: string;
@@ -67,7 +72,7 @@ class LocalThreadListAdapter implements RemoteThreadListAdapter {
   }
 
   async initialize(_threadId: string): Promise<RemoteThreadInitializeResponse> {
-    const id = crypto.randomUUID();
+    const id = generateId();
     await createChat(id);
     return { remoteId: id, externalId: undefined };
   }
