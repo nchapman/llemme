@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"testing"
 )
 
@@ -24,8 +25,11 @@ func TestGetPlatform(t *testing.T) {
 			t.Errorf("Expected platform macos-x64, got %s", result)
 		}
 	case "linux":
-		if runtime.GOARCH == "amd64" && result != "ubuntu-x64" {
-			t.Errorf("Expected platform ubuntu-x64, got %s", result)
+		if runtime.GOARCH == "amd64" {
+			// On Linux x64, result depends on GPU detection
+			if result != "ubuntu-x64" && result != "ubuntu-vulkan-x64" {
+				t.Errorf("Expected platform ubuntu-x64 or ubuntu-vulkan-x64, got %s", result)
+			}
 		}
 		if runtime.GOARCH == "arm64" && result != "" {
 			t.Errorf("Expected empty platform for Linux ARM64 (unsupported), got %s", result)
@@ -377,4 +381,46 @@ func indexOfSubstring(s, substr string) int {
 		}
 	}
 	return -1
+}
+
+func TestHasVulkanSupport(t *testing.T) {
+	// HasVulkanSupport only runs on Linux
+	if runtime.GOOS != "linux" {
+		t.Run("returns false on non-Linux", func(t *testing.T) {
+			if HasVulkanSupport() {
+				t.Errorf("HasVulkanSupport() on %s = true, want false", runtime.GOOS)
+			}
+		})
+		return
+	}
+
+	// On Linux, just verify it returns a boolean without error
+	t.Run("returns boolean on Linux", func(t *testing.T) {
+		// Just call it to ensure no panic
+		_ = HasVulkanSupport()
+	})
+}
+
+func TestGetPlatformLinuxVariants(t *testing.T) {
+	if runtime.GOOS != "linux" || runtime.GOARCH != "amd64" {
+		t.Skip("Skipping Linux-specific test on non-Linux/amd64 platform")
+	}
+
+	result := getPlatform()
+
+	// On Linux x64, should be either ubuntu-x64 (no Vulkan) or ubuntu-vulkan-x64 (Vulkan available)
+	validPlatforms := []string{"ubuntu-x64", "ubuntu-vulkan-x64"}
+	if !slices.Contains(validPlatforms, result) {
+		t.Errorf("getPlatform() on Linux x64 = %q, want one of %v", result, validPlatforms)
+	}
+
+	// Verify consistency with Vulkan support detection
+	// Platform selection is based on libvulkan.so availability, not GPU detection
+	hasVulkan := HasVulkanSupport()
+	if hasVulkan && result != "ubuntu-vulkan-x64" {
+		t.Errorf("Vulkan support detected but platform is %q, expected ubuntu-vulkan-x64", result)
+	}
+	if !hasVulkan && result != "ubuntu-x64" {
+		t.Errorf("No Vulkan support but platform is %q, expected ubuntu-x64", result)
+	}
 }

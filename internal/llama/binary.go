@@ -1,6 +1,7 @@
 package llama
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,6 +16,51 @@ import (
 	"github.com/nchapman/lleme/internal/config"
 	"github.com/nchapman/lleme/internal/version"
 )
+
+const vulkanCheckTimeout = 2 * time.Second
+
+// HasVulkanSupport checks if the Vulkan loader library is available.
+// This mirrors what the dynamic linker does when loading the llama.cpp Vulkan binary.
+// If libvulkan.so is present, the Vulkan build can run and llama.cpp will
+// enumerate GPU devices at runtime via vk::enumeratePhysicalDevices().
+func HasVulkanSupport() bool {
+	if runtime.GOOS != "linux" {
+		return false
+	}
+
+	// Check LD_LIBRARY_PATH first (matches dynamic linker behavior)
+	if ldPath := os.Getenv("LD_LIBRARY_PATH"); ldPath != "" {
+		for _, dir := range strings.Split(ldPath, ":") {
+			if _, err := os.Stat(filepath.Join(dir, "libvulkan.so.1")); err == nil {
+				return true
+			}
+		}
+	}
+
+	// Check standard library paths
+	libPaths := []string{
+		"/usr/lib/x86_64-linux-gnu/libvulkan.so.1", // Debian/Ubuntu
+		"/usr/lib64/libvulkan.so.1",                // RHEL/Fedora
+		"/usr/lib/libvulkan.so.1",                  // Arch/other
+	}
+	for _, path := range libPaths {
+		if _, err := os.Stat(path); err == nil {
+			return true
+		}
+	}
+
+	// Fallback: use ldconfig to check if libvulkan is in the cache
+	ctx, cancel := context.WithTimeout(context.Background(), vulkanCheckTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "ldconfig", "-p")
+	if output, err := cmd.Output(); err == nil {
+		if strings.Contains(string(output), "libvulkan.so") {
+			return true
+		}
+	}
+
+	return false
+}
 
 const (
 	llamaRepo = "ggml-org/llama.cpp"
@@ -55,6 +101,11 @@ func getPlatform() string {
 		return "macos-x64"
 	case "linux":
 		if arch == "amd64" {
+			// Use Vulkan build if libvulkan.so is available
+			// llama.cpp handles GPU enumeration at runtime via vk::enumeratePhysicalDevices()
+			if HasVulkanSupport() {
+				return "ubuntu-vulkan-x64"
+			}
 			return "ubuntu-x64"
 		}
 		// llama.cpp does not ship Linux ARM64 binaries
@@ -238,7 +289,11 @@ func InstallLatest(status StatusFunc) (*VersionInfo, error) {
 	archivePath := filepath.Join(binDir, binaryName)
 
 	if status != nil {
-		status(fmt.Sprintf("Downloading llama.cpp %s", release.TagName))
+		msg := fmt.Sprintf("Downloading llama.cpp %s", release.TagName)
+		if HasVulkanSupport() {
+			msg += " (Vulkan)"
+		}
+		status(msg)
 	}
 
 	if err := DownloadBinary(downloadURL, archivePath, nil); err != nil {
