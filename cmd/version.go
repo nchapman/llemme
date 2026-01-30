@@ -33,6 +33,7 @@ var versionCmd = &cobra.Command{
 		fmt.Println(ui.Header("Paths"))
 		fmt.Printf("  %-10s %s\n", "Models", ui.Muted(config.ModelsPath()))
 		fmt.Printf("  %-10s %s\n", "Binaries", ui.Muted(config.BinPath()))
+		fmt.Printf("  %-10s %s\n", "Config", ui.Muted(config.ConfigPath()))
 	},
 }
 

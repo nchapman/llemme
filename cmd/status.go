@@ -60,7 +60,7 @@ var statusCmd = &cobra.Command{
 		fmt.Println()
 
 		table := ui.NewTable().
-			AddColumn("MODEL", 50, ui.AlignLeft).
+			AddColumn("MODEL", 0, ui.AlignLeft).
 			AddColumn("PORT", 5, ui.AlignRight).
 			AddColumn("STATUS", 7, ui.AlignLeft).
 			AddColumn("UNLOADS IN", 10, ui.AlignLeft)

@@ -15,7 +15,12 @@ var pullCmd = &cobra.Command{
 	Use:     "pull <user/repo>[:quant]",
 	Short:   "Download a model from Hugging Face",
 	GroupID: "model",
-	Args:    cobra.ExactArgs(1),
+	Long: `Download a model from Hugging Face.
+
+Examples:
+  lleme pull unsloth/Llama-3.2-1B-Instruct-GGUF           # Download default quant
+  lleme pull unsloth/Llama-3.2-1B-Instruct-GGUF:Q8_0      # Download specific quant`,
+	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		modelRef := args[0]
 
@@ -70,6 +75,7 @@ var pullCmd = &cobra.Command{
 			if !found {
 				ui.PrintError("Quantization '%s' not found", quant)
 				fmt.Println("\nAvailable quantizations:")
+				client.FetchFolderQuantSizes(user, repo, "main", quants)
 				for _, q := range hf.SortQuantizations(quants) {
 					fmt.Printf("  • %s (%s)\n", q.Name, ui.FormatBytes(q.Size))
 				}

@@ -156,3 +156,38 @@ func TestAlignment(t *testing.T) {
 		t.Errorf("Expected AlignRight to be 1, got %d", AlignRight)
 	}
 }
+
+func TestTableAutoWidth(t *testing.T) {
+	t.Run("auto-sizes based on content", func(t *testing.T) {
+		tbl := NewTable().Indent(0).
+			AddColumn("NAME", 0, AlignLeft). // Auto-width
+			AddColumn("SIZE", 6, AlignRight)
+		tbl.AddRow("short", "100")
+		tbl.AddRow("this-is-a-long-model-name", "200")
+
+		result := tbl.Render()
+
+		// Should contain the full long name without truncation
+		if !strings.Contains(result, "this-is-a-long-model-name") {
+			t.Error("Expected auto-width column to contain full long name")
+		}
+	})
+
+	t.Run("uses header width as minimum", func(t *testing.T) {
+		tbl := NewTable().Indent(0).
+			AddColumn("LONGHEADER", 0, AlignLeft) // Auto-width, header is 10 chars
+		tbl.AddRow("x") // Short value
+
+		result := tbl.Render()
+		lines := strings.Split(strings.TrimSuffix(result, "\n"), "\n")
+
+		// Data row should be padded to at least header length
+		if len(lines) < 2 {
+			t.Fatal("Expected at least 2 lines")
+		}
+		// "x" should be padded to match "LONGHEADER" width
+		if !strings.Contains(lines[1], "x         ") {
+			t.Errorf("Expected 'x' to be padded to header width, got '%s'", lines[1])
+		}
+	})
+}

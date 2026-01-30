@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/nchapman/lleme/internal/hf"
 )
 
 func TestLevenshtein(t *testing.T) {
@@ -96,15 +98,15 @@ func TestAllSameRepo(t *testing.T) {
 
 func TestGetQuantPriority(t *testing.T) {
 	// Q4_K_M should have lower (better) priority than Q8_0
-	q4 := getQuantPriority("Q4_K_M")
-	q8 := getQuantPriority("Q8_0")
+	q4 := hf.GetQuantPriority("Q4_K_M")
+	q8 := hf.GetQuantPriority("Q8_0")
 
 	if q4 >= q8 {
 		t.Errorf("Q4_K_M priority (%d) should be lower than Q8_0 (%d)", q4, q8)
 	}
 
 	// Unknown quants should have high priority
-	unknown := getQuantPriority("UNKNOWN")
+	unknown := hf.GetQuantPriority("UNKNOWN")
 	if unknown <= q8 {
 		t.Errorf("Unknown quant priority (%d) should be higher than Q8_0 (%d)", unknown, q8)
 	}

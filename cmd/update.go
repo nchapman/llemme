@@ -4,63 +4,233 @@ import (
 	"fmt"
 
 	"github.com/nchapman/lleme/internal/llama"
+	"github.com/nchapman/lleme/internal/selfupdate"
 	"github.com/nchapman/lleme/internal/ui"
 	"github.com/spf13/cobra"
 )
 
 var updateCmd = &cobra.Command{
 	Use:     "update",
-	Short:   "Update llama.cpp to the latest version",
+	Short:   "Update lleme and/or llama.cpp",
 	GroupID: "config",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Checking for llama.cpp updates...")
-		fmt.Println()
+	Run:     runUpdateAll,
+}
 
-		installed, err := llama.GetInstalledVersion()
-		if err != nil {
-			ui.Fatal("Failed to check installed version: %v", err)
-		}
+var updateLlamaCmd = &cobra.Command{
+	Use:   "llama.cpp",
+	Short: "Update llama.cpp to the latest version",
+	Run:   runUpdateLlama,
+}
 
-		release, err := llama.GetLatestVersion()
-		if err != nil {
-			ui.Fatal("Failed to get latest release: %v", err)
-		}
-
-		currentVersion := "Not installed"
-		if installed != nil {
-			currentVersion = installed.TagName
-		}
-
-		fmt.Printf("  %-12s %s\n", "Installed", currentVersion)
-		fmt.Printf("  %-12s %s\n", "Available", release.TagName)
-		fmt.Println()
-
-		if installed != nil && installed.TagName == release.TagName {
-			fmt.Println("llama.cpp is already up to date")
-			return
-		}
-
-		if !forceUpdate {
-			if !ui.PromptYesNo(fmt.Sprintf("Update to %s?", release.TagName), false) {
-				fmt.Println(ui.Muted("Cancelled"))
-				return
-			}
-		}
-
-		fmt.Println()
-
-		version, err := llama.InstallLatest(func(msg string) { fmt.Println(msg) })
-		if err != nil {
-			ui.Fatal("Failed to install llama.cpp: %v", err)
-		}
-
-		fmt.Printf("Updated to llama.cpp %s\n", version.TagName)
-	},
+var updateSelfCmd = &cobra.Command{
+	Use:   "self",
+	Short: "Update lleme to the latest version",
+	Run:   runUpdateSelf,
 }
 
 var forceUpdate bool
 
 func init() {
-	updateCmd.Flags().BoolVarP(&forceUpdate, "force", "f", false, "Force update without confirmation")
+	updateCmd.PersistentFlags().BoolVarP(&forceUpdate, "force", "f", false, "Skip confirmation")
+
 	rootCmd.AddCommand(updateCmd)
+	updateCmd.AddCommand(updateLlamaCmd)
+	updateCmd.AddCommand(updateSelfCmd)
+}
+
+func runUpdateAll(cmd *cobra.Command, args []string) {
+	fmt.Println("Checking for updates...")
+	fmt.Println()
+
+	// Check lleme version
+	llemeInstalled := selfupdate.GetInstalledVersion()
+	llemeLatest, llemeErr := selfupdate.GetLatestVersion()
+	llemeNeedsUpdate := llemeErr == nil && llemeInstalled != llemeLatest
+
+	// Check llama.cpp version
+	llamaInstalled, llamaErr := llama.GetInstalledVersion()
+	llamaRelease, llamaFetchErr := llama.GetLatestVersion()
+
+	llamaInstalledStr := "Not installed"
+	if llamaInstalled != nil {
+		llamaInstalledStr = llamaInstalled.TagName
+	}
+
+	llamaLatestStr := "Unknown"
+	if llamaRelease != nil {
+		llamaLatestStr = llamaRelease.TagName
+	}
+
+	llamaNeedsUpdate := llamaFetchErr == nil && llamaRelease != nil &&
+		(llamaInstalled == nil || llamaInstalled.TagName != llamaRelease.TagName)
+
+	// Display status
+	fmt.Println("  lleme:")
+	fmt.Printf("    %-12s %s\n", "Installed", llemeInstalled)
+	if llemeErr != nil {
+		fmt.Printf("    %-12s %s\n", "Available", ui.Muted("Failed to check"))
+	} else if llemeNeedsUpdate {
+		fmt.Printf("    %-12s %s\n", "Available", llemeLatest)
+	} else {
+		fmt.Printf("    %-12s %s %s\n", "Available", llemeLatest, ui.Success(ui.IconCheck))
+	}
+	fmt.Println()
+
+	fmt.Println("  llama.cpp:")
+	fmt.Printf("    %-12s %s\n", "Installed", llamaInstalledStr)
+	if llamaFetchErr != nil {
+		fmt.Printf("    %-12s %s\n", "Available", ui.Muted("Failed to check"))
+	} else if llamaNeedsUpdate {
+		fmt.Printf("    %-12s %s\n", "Available", llamaLatestStr)
+	} else {
+		fmt.Printf("    %-12s %s %s\n", "Available", llamaLatestStr, ui.Success(ui.IconCheck))
+	}
+	fmt.Println()
+
+	if llamaErr != nil {
+		ui.PrintError("Failed to check llama.cpp installed version: %v", llamaErr)
+	}
+
+	if !llemeNeedsUpdate && !llamaNeedsUpdate {
+		fmt.Println("Everything is up to date")
+		return
+	}
+
+	// Build update message
+	var updates []string
+	if llemeNeedsUpdate {
+		updates = append(updates, fmt.Sprintf("lleme to %s", llemeLatest))
+	}
+	if llamaNeedsUpdate {
+		updates = append(updates, fmt.Sprintf("llama.cpp to %s", llamaLatestStr))
+	}
+
+	if !forceUpdate {
+		prompt := fmt.Sprintf("Update %s?", joinWithAnd(updates))
+		if !ui.PromptYesNo(prompt, false) {
+			fmt.Println(ui.Muted("Cancelled"))
+			return
+		}
+	}
+	fmt.Println()
+
+	// Update lleme if needed
+	if llemeNeedsUpdate {
+		updateLleme(selfupdate.DetectInstallMethod())
+		fmt.Println()
+	}
+
+	// Update llama.cpp if needed
+	if llamaNeedsUpdate {
+		updateLlamaCpp()
+	}
+}
+
+func runUpdateLlama(cmd *cobra.Command, args []string) {
+	fmt.Println("Checking for llama.cpp updates...")
+	fmt.Println()
+
+	installed, err := llama.GetInstalledVersion()
+	if err != nil {
+		ui.Fatal("Failed to check installed version: %v", err)
+	}
+
+	release, err := llama.GetLatestVersion()
+	if err != nil {
+		ui.Fatal("Failed to get latest release: %v", err)
+	}
+
+	currentVersion := "Not installed"
+	if installed != nil {
+		currentVersion = installed.TagName
+	}
+
+	fmt.Printf("  %-12s %s\n", "Installed", currentVersion)
+	fmt.Printf("  %-12s %s\n", "Available", release.TagName)
+	fmt.Println()
+
+	if installed != nil && installed.TagName == release.TagName {
+		fmt.Println("llama.cpp is already up to date")
+		return
+	}
+
+	if !forceUpdate {
+		if !ui.PromptYesNo(fmt.Sprintf("Update to %s?", release.TagName), false) {
+			fmt.Println(ui.Muted("Cancelled"))
+			return
+		}
+	}
+
+	fmt.Println()
+	updateLlamaCpp()
+}
+
+func runUpdateSelf(cmd *cobra.Command, args []string) {
+	fmt.Println("Checking for lleme updates...")
+	fmt.Println()
+
+	installed := selfupdate.GetInstalledVersion()
+	latest, err := selfupdate.GetLatestVersion()
+	if err != nil {
+		ui.Fatal("Failed to get latest release: %v", err)
+	}
+
+	fmt.Printf("  %-12s %s\n", "Installed", installed)
+	fmt.Printf("  %-12s %s\n", "Available", latest)
+	fmt.Println()
+
+	if installed == latest {
+		fmt.Println("lleme is already up to date")
+		return
+	}
+
+	method := selfupdate.DetectInstallMethod()
+	if method == selfupdate.InstallUnknown {
+		fmt.Println(selfupdate.ManualUpdateInstructions())
+		return
+	}
+
+	if !forceUpdate {
+		if !ui.PromptYesNo(fmt.Sprintf("Update to %s?", latest), false) {
+			fmt.Println(ui.Muted("Cancelled"))
+			return
+		}
+	}
+
+	fmt.Println()
+	updateLleme(method)
+}
+
+func updateLleme(method selfupdate.InstallMethod) {
+	if method == selfupdate.InstallUnknown {
+		fmt.Println(selfupdate.ManualUpdateInstructions())
+		return
+	}
+
+	fmt.Println("Updating lleme...")
+	if err := selfupdate.Update(method); err != nil {
+		ui.Fatal("Failed to update lleme: %v", err)
+	}
+	fmt.Println("lleme updated successfully")
+}
+
+func updateLlamaCpp() {
+	version, err := llama.InstallLatest(func(msg string) { fmt.Println(msg) })
+	if err != nil {
+		ui.Fatal("Failed to install llama.cpp: %v", err)
+	}
+	fmt.Printf("Updated to llama.cpp %s\n", version.TagName)
+}
+
+func joinWithAnd(items []string) string {
+	switch len(items) {
+	case 0:
+		return ""
+	case 1:
+		return items[0]
+	case 2:
+		return items[0] + " and " + items[1]
+	default:
+		return items[0] + ", " + joinWithAnd(items[1:])
+	}
 }

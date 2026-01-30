@@ -206,13 +206,9 @@ Models are loaded on-demand and unloaded after idle timeout.`,
 	},
 }
 
-// ensureLlamaInstalled prompts the user to install llama.cpp if not present
+// ensureLlamaInstalled installs llama.cpp if not present
 func ensureLlamaInstalled() error {
-	fmt.Println("llama.cpp is not installed.")
-	if !ui.PromptYesNo("Install now?", true) {
-		return fmt.Errorf("llama.cpp is required to run models")
-	}
-
+	fmt.Println("Installing llama.cpp...")
 	fmt.Println()
 	_, err := llama.InstallLatest(func(msg string) { fmt.Println(msg) })
 	if err != nil {
@@ -329,17 +325,13 @@ func offerToPull(cfg *config.Config, user, repo, quant string) (*proxy.Downloade
 		return nil, err
 	}
 
-	// Prompt user to download
+	// Download the model
 	modelName := hf.FormatModelName(user, repo, quant)
-	var prompt string
 	if info.IsVision {
-		prompt = fmt.Sprintf("Model not downloaded. Pull %s (%s + %s mmproj)?",
+		fmt.Printf("Downloading %s (%s + %s mmproj)...\n",
 			modelName, ui.FormatBytes(info.GGUFSize), ui.FormatBytes(info.MMProjSize))
 	} else {
-		prompt = fmt.Sprintf("Model not downloaded. Pull %s (%s)?", modelName, ui.FormatBytes(info.GGUFSize))
-	}
-	if !ui.PromptYesNo(prompt, true) {
-		return nil, fmt.Errorf("model required to continue")
+		fmt.Printf("Downloading %s (%s)...\n", modelName, ui.FormatBytes(info.GGUFSize))
 	}
 
 	// Download the model using shared download logic

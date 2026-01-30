@@ -254,28 +254,6 @@ func allSameRepo(models []DownloadedModel) bool {
 	return true
 }
 
-// quantPriority returns a priority score for quantization (lower is better)
-var quantPriority = map[string]int{
-	"Q4_K_M": 1,
-	"Q4_K_S": 2,
-	"Q5_K_M": 3,
-	"Q5_K_S": 4,
-	"Q5_0":   5,
-	"Q5_1":   6,
-	"Q6_K":   7,
-	"Q8_0":   8,
-	"Q3_K_M": 9,
-	"Q3_K_S": 10,
-	"Q3_K_L": 11,
-	"Q2_K":   12,
-	"Q4_0":   13,
-	"Q4_1":   14,
-	"FP16":   15,
-	"F16":    16,
-	"FP32":   17,
-	"F32":    18,
-}
-
 // pickBestQuant returns the model with the best quantization
 func pickBestQuant(models []DownloadedModel) *DownloadedModel {
 	if len(models) == 0 {
@@ -283,10 +261,10 @@ func pickBestQuant(models []DownloadedModel) *DownloadedModel {
 	}
 
 	best := &models[0]
-	bestPriority := getQuantPriority(best.Quant)
+	bestPriority := hf.GetQuantPriority(best.Quant)
 
 	for i := 1; i < len(models); i++ {
-		p := getQuantPriority(models[i].Quant)
+		p := hf.GetQuantPriority(models[i].Quant)
 		if p < bestPriority {
 			best = &models[i]
 			bestPriority = p
@@ -294,14 +272,6 @@ func pickBestQuant(models []DownloadedModel) *DownloadedModel {
 	}
 
 	return best
-}
-
-func getQuantPriority(quant string) int {
-	quant = strings.ToUpper(quant)
-	if p, ok := quantPriority[quant]; ok {
-		return p
-	}
-	return 100 // Unknown quants get low priority
 }
 
 // fuzzyMatch finds models with similar names (for typo suggestions)

@@ -8,9 +8,18 @@ import (
 )
 
 func TestStopServerNotRunning(t *testing.T) {
-	// Ensure no proxy state exists
-	proxy.ClearProxyState()
+	// Use temp directory to isolate from real system state
+	tmpDir := t.TempDir()
+	oldHome := os.Getenv("HOME")
+	defer os.Setenv("HOME", oldHome)
+	os.Setenv("HOME", tmpDir)
 
+	// Use a port that's definitely not in use to avoid finding real servers
+	oldPort := serverPort
+	defer func() { serverPort = oldPort }()
+	serverPort = 59999
+
+	// With a temp HOME and unused port, no server should be found
 	stopped, err := stopServer()
 	if err != nil {
 		t.Errorf("stopServer() error = %v, want nil", err)
