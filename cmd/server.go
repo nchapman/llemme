@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -116,7 +117,15 @@ var serverRestartCmd = &cobra.Command{
 func stopServer() (bool, error) {
 	state := proxy.GetRunningProxyState()
 	if state == nil {
-		return false, nil
+		// No state file found - try to find process by port (for servers started by older versions)
+		port := 11313 // Default port as fallback
+		if cfg, err := config.Load(); err == nil {
+			port = cfg.Server.Port
+		}
+		if serverPort != 0 {
+			port = serverPort
+		}
+		return stopServerByPort(port)
 	}
 
 	process, err := os.FindProcess(state.PID)
@@ -141,6 +150,71 @@ func stopServer() (bool, error) {
 	process.Kill()
 	proxy.ClearProxyState()
 	return true, nil
+}
+
+// stopServerByPort finds and stops a process listening on the given port.
+// Used as a fallback when no state file exists (e.g., server started by older version).
+func stopServerByPort(port int) (bool, error) {
+	pid := findProcessOnPort(port)
+	if pid == 0 {
+		return false, nil
+	}
+
+	// Verify it's a lleme process before killing
+	if !isLlemeProcess(pid) {
+		return false, fmt.Errorf("process on port %d (PID %d) is not a lleme server", port, pid)
+	}
+
+	process, err := os.FindProcess(pid)
+	if err != nil {
+		return false, fmt.Errorf("could not find process %d: %w", pid, err)
+	}
+
+	if err := process.Signal(syscall.SIGTERM); err != nil {
+		return false, fmt.Errorf("could not signal process %d: %w", pid, err)
+	}
+
+	for range 40 { // 4 seconds max
+		time.Sleep(100 * time.Millisecond)
+		if err := process.Signal(syscall.Signal(0)); err != nil {
+			return true, nil
+		}
+	}
+
+	if err := process.Kill(); err != nil {
+		return false, fmt.Errorf("failed to kill process %d: %w", pid, err)
+	}
+	return true, nil
+}
+
+// findProcessOnPort uses lsof to find the PID of a process listening on a port.
+func findProcessOnPort(port int) int {
+	cmd := exec.Command("lsof", "-ti", fmt.Sprintf("tcp:%d", port))
+	output, err := cmd.Output()
+	if err != nil {
+		return 0
+	}
+
+	// lsof may return multiple PIDs (parent/child); take the first one
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	if len(lines) == 0 {
+		return 0
+	}
+	var pid int
+	if _, err := fmt.Sscanf(lines[0], "%d", &pid); err != nil {
+		return 0
+	}
+	return pid
+}
+
+// isLlemeProcess checks if the given PID is a lleme process.
+func isLlemeProcess(pid int) bool {
+	cmd := exec.Command("ps", "-p", fmt.Sprintf("%d", pid), "-o", "args=")
+	output, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+	return strings.Contains(string(output), "lleme")
 }
 
 func startServerForeground() {
