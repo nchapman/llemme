@@ -14,6 +14,7 @@ const (
 )
 
 // Column defines a table column with a header, width, and alignment.
+// Width=0 means auto-size based on content.
 type Column struct {
 	Header string
 	Width  int
@@ -74,11 +75,38 @@ func (t *Table) formatCell(value string, col Column) string {
 	return fmt.Sprintf("%-*s", col.Width, value)
 }
 
+// calculateWidths computes effective widths for all columns.
+// Width=0 means auto-size based on content (header + all row values).
+func (t *Table) calculateWidths() []int {
+	widths := make([]int, len(t.columns))
+	for i, col := range t.columns {
+		if col.Width > 0 {
+			widths[i] = col.Width
+		} else {
+			// Auto-size: start with header width
+			widths[i] = len(col.Header)
+			// Check all row values
+			for _, row := range t.rows {
+				if i < len(row) && len(row[i]) > widths[i] {
+					widths[i] = len(row[i])
+				}
+			}
+			// Ensure minimum width of 1
+			if widths[i] < 1 {
+				widths[i] = 1
+			}
+		}
+	}
+	return widths
+}
+
 // Render returns the formatted table as a string.
 func (t *Table) Render() string {
 	if len(t.columns) == 0 {
 		return ""
 	}
+
+	widths := t.calculateWidths()
 
 	var b strings.Builder
 	indent := strings.Repeat(" ", t.indent)
@@ -90,7 +118,8 @@ func (t *Table) Render() string {
 		if i > 0 {
 			b.WriteString(gap)
 		}
-		cell := t.formatCell(col.Header, col)
+		effectiveCol := Column{Header: col.Header, Width: widths[i], Align: col.Align}
+		cell := t.formatCell(col.Header, effectiveCol)
 		b.WriteString(Header(cell))
 	}
 	b.WriteString("\n")
@@ -106,7 +135,8 @@ func (t *Table) Render() string {
 			if i < len(row) {
 				value = row[i]
 			}
-			b.WriteString(t.formatCell(value, col))
+			effectiveCol := Column{Header: col.Header, Width: widths[i], Align: col.Align}
+			b.WriteString(t.formatCell(value, effectiveCol))
 		}
 		b.WriteString("\n")
 	}

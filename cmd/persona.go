@@ -58,8 +58,8 @@ var personaListCmd = &cobra.Command{
 		fmt.Println()
 
 		table := ui.NewTable().
-			AddColumn("NAME", 25, ui.AlignLeft).
-			AddColumn("MODEL", 50, ui.AlignLeft)
+			AddColumn("NAME", 0, ui.AlignLeft).
+			AddColumn("MODEL", 0, ui.AlignLeft)
 
 		for _, p := range personas {
 			model := ui.Muted("(not set)")

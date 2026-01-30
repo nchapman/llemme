@@ -60,7 +60,7 @@ var searchCmd = &cobra.Command{
 
 		table := ui.NewTable().
 			Indent(0).
-			AddColumn("MODEL", 54, ui.AlignLeft).
+			AddColumn("MODEL", 0, ui.AlignLeft).
 			AddColumn("DOWNLOADS", 10, ui.AlignRight).
 			AddColumn("LIKES", 8, ui.AlignRight)
 

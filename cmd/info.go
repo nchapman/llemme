@@ -62,7 +62,7 @@ var infoCmd = &cobra.Command{
 			fmt.Println()
 
 			table := ui.NewTable().
-				AddColumn("NAME", 12, ui.AlignLeft).
+				AddColumn("NAME", 0, ui.AlignLeft).
 				AddColumn("SIZE", 12, ui.AlignRight)
 
 			sortedQuants := hf.SortQuantizations(quants)
