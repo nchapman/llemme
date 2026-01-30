@@ -29,7 +29,7 @@ var searchCmd = &cobra.Command{
 			query = args[0]
 		}
 
-		results, err := client.SearchModels(query, 15)
+		results, err := client.SearchModels(query, 20)
 		if err != nil {
 			ui.Fatal("Failed to search: %v", err)
 		}
