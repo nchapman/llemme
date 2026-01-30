@@ -41,6 +41,7 @@ var infoCmd = &cobra.Command{
 		}
 
 		quants := hf.ExtractQuantizations(files)
+		client.FetchFolderQuantSizes(user, repo, "main", quants)
 
 		fmt.Println(ui.Header(modelInfo.ModelId))
 		fmt.Println()
@@ -65,13 +66,8 @@ var infoCmd = &cobra.Command{
 				AddColumn("SIZE", 12, ui.AlignRight)
 
 			sortedQuants := hf.SortQuantizations(quants)
-			bestQuant := hf.GetBestQuantization(quants)
 			for _, q := range sortedQuants {
-				size := ui.FormatBytes(q.Size)
-				if q.Name == bestQuant {
-					size += "  (recommended)"
-				}
-				table.AddRow(q.Name, size)
+				table.AddRow(q.Name, ui.FormatBytes(q.Size))
 			}
 			fmt.Print(table.Render())
 		}

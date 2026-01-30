@@ -70,6 +70,7 @@ var pullCmd = &cobra.Command{
 			if !found {
 				ui.PrintError("Quantization '%s' not found", quant)
 				fmt.Println("\nAvailable quantizations:")
+				client.FetchFolderQuantSizes(user, repo, "main", quants)
 				for _, q := range hf.SortQuantizations(quants) {
 					fmt.Printf("  • %s (%s)\n", q.Name, ui.FormatBytes(q.Size))
 				}

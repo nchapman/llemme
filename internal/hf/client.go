@@ -194,8 +194,18 @@ func (c *Client) GetModel(user, repo string) (*ModelInfo, error) {
 }
 
 func (c *Client) ListFiles(user, repo, branch string) ([]FileTree, error) {
-	url := fmt.Sprintf("%s/models/%s/%s/tree/%s", apiBase, user, repo, branch)
-	req, err := http.NewRequest("GET", url, nil)
+	return c.ListFilesInPath(user, repo, branch, "")
+}
+
+// ListFilesInPath lists files in a specific path within a repository.
+func (c *Client) ListFilesInPath(user, repo, branch, path string) ([]FileTree, error) {
+	var urlStr string
+	if path == "" {
+		urlStr = fmt.Sprintf("%s/models/%s/%s/tree/%s", apiBase, user, repo, branch)
+	} else {
+		urlStr = fmt.Sprintf("%s/models/%s/%s/tree/%s/%s", apiBase, user, repo, branch, path)
+	}
+	req, err := http.NewRequest("GET", urlStr, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -369,4 +379,23 @@ func (c *Client) GetManifest(user, repo, tag string) (*Manifest, []byte, error) 
 	}
 
 	return &manifest, rawJSON, nil
+}
+
+// FetchFolderQuantSizes fills in Size for folder-style quantizations by
+// summing the sizes of GGUF files in each directory.
+func (c *Client) FetchFolderQuantSizes(user, repo, branch string, quants []Quantization) {
+	for i := range quants {
+		if quants[i].Size == 0 {
+			dirFiles, err := c.ListFilesInPath(user, repo, branch, quants[i].Tag)
+			if err == nil {
+				var total int64
+				for _, f := range dirFiles {
+					if strings.HasSuffix(f.Path, ".gguf") {
+						total += f.Size
+					}
+				}
+				quants[i].Size = total
+			}
+		}
+	}
 }
