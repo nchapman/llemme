@@ -64,7 +64,7 @@ func GetLatestVersion() (string, error) {
 		return "", fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	return release.TagName, nil
+	return strings.TrimPrefix(release.TagName, "v"), nil
 }
 
 func DetectInstallMethod() InstallMethod {
