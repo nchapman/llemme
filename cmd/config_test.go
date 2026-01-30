@@ -293,3 +293,373 @@ func TestResetToDefaults(t *testing.T) {
 		t.Error("Expected reset config to contain commented options")
 	}
 }
+
+func TestParseValue(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected any
+	}{
+		// Booleans
+		{"true", true},
+		{"false", false},
+		// Integers
+		{"0", 0},
+		{"42", 42},
+		{"-7", -7},
+		{"8192", 8192},
+		// Floats (only with decimal point)
+		{"0.5", 0.5},
+		{"3.14", 3.14},
+		{"-0.001", -0.001},
+		// Strings (including things that look like numbers but aren't valid ints/floats)
+		{"hello", "hello"},
+		{"127.0.0.1", "127.0.0.1"}, // IP address stays string
+		{"", ""},
+		{"True", "True"},   // not "true"
+		{"FALSE", "FALSE"}, // not "false"
+		{"3.14.159", "3.14.159"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := parseValue(tt.input)
+			if got != tt.expected {
+				t.Errorf("parseValue(%q) = %v (%T), want %v (%T)",
+					tt.input, got, got, tt.expected, tt.expected)
+			}
+		})
+	}
+}
+
+func TestGetValueByPath(t *testing.T) {
+	m := map[string]any{
+		"server": map[string]any{
+			"port": 11313,
+			"host": "127.0.0.1",
+		},
+		"llamacpp": map[string]any{
+			"options": map[string]any{
+				"ctx-size": 8192,
+				"temp":     0.8,
+			},
+		},
+		"simple": "value",
+	}
+
+	tests := []struct {
+		path     string
+		expected any
+		wantErr  bool
+	}{
+		{"server.port", 11313, false},
+		{"server.host", "127.0.0.1", false},
+		{"llamacpp.options.ctx-size", 8192, false},
+		{"llamacpp.options.temp", 0.8, false},
+		{"simple", "value", false},
+		{"nonexistent", nil, true},
+		{"server.nonexistent", nil, true},
+		{"simple.nested", nil, true}, // simple is not a map
+		{"", nil, true},              // empty path
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			got, err := getValueByPath(m, tt.path)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("getValueByPath(%q) expected error, got nil", tt.path)
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("getValueByPath(%q) unexpected error: %v", tt.path, err)
+				return
+			}
+			if got != tt.expected {
+				t.Errorf("getValueByPath(%q) = %v, want %v", tt.path, got, tt.expected)
+			}
+		})
+	}
+
+	// Test getting a map (for llamacpp.options)
+	t.Run("get map value", func(t *testing.T) {
+		got, err := getValueByPath(m, "llamacpp.options")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		gotMap, ok := got.(map[string]any)
+		if !ok {
+			t.Fatalf("expected map, got %T", got)
+		}
+		if gotMap["ctx-size"] != 8192 {
+			t.Errorf("expected ctx-size 8192, got %v", gotMap["ctx-size"])
+		}
+	})
+}
+
+func TestSetValueByPath(t *testing.T) {
+	t.Run("set existing value", func(t *testing.T) {
+		m := map[string]any{
+			"server": map[string]any{
+				"port": 11313,
+			},
+		}
+		err := setValueByPath(m, "server.port", 8080)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		got, _ := getValueByPath(m, "server.port")
+		if got != 8080 {
+			t.Errorf("expected 8080, got %v", got)
+		}
+	})
+
+	t.Run("create intermediate maps", func(t *testing.T) {
+		m := map[string]any{
+			"llamacpp": map[string]any{},
+		}
+		err := setValueByPath(m, "llamacpp.options.ctx-size", 8192)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		got, _ := getValueByPath(m, "llamacpp.options.ctx-size")
+		if got != 8192 {
+			t.Errorf("expected 8192, got %v", got)
+		}
+	})
+
+	t.Run("create all intermediate maps", func(t *testing.T) {
+		m := map[string]any{}
+		err := setValueByPath(m, "a.b.c", "value")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		got, _ := getValueByPath(m, "a.b.c")
+		if got != "value" {
+			t.Errorf("expected 'value', got %v", got)
+		}
+	})
+
+	t.Run("error when path through non-map", func(t *testing.T) {
+		m := map[string]any{
+			"simple": "value",
+		}
+		err := setValueByPath(m, "simple.nested", "value")
+		if err == nil {
+			t.Error("expected error when setting path through non-map")
+		}
+	})
+
+	t.Run("set single-segment path", func(t *testing.T) {
+		m := map[string]any{}
+		err := setValueByPath(m, "key", "value")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if m["key"] != "value" {
+			t.Errorf("expected 'value', got %v", m["key"])
+		}
+	})
+
+	t.Run("empty path returns error", func(t *testing.T) {
+		m := map[string]any{}
+		err := setValueByPath(m, "", "value")
+		if err == nil {
+			t.Error("expected error for empty path")
+		}
+	})
+}
+
+func TestConfigSetGetIntegration(t *testing.T) {
+	// Create temp directory for isolated config
+	tmpDir := t.TempDir()
+	oldHome := os.Getenv("HOME")
+	defer os.Setenv("HOME", oldHome)
+	os.Setenv("HOME", tmpDir)
+
+	// Start with default config
+	cfg := config.DefaultConfig()
+	if err := config.Save(cfg); err != nil {
+		t.Fatalf("Failed to save initial config: %v", err)
+	}
+
+	// Test set and get for server.port
+	t.Run("set and get server.port", func(t *testing.T) {
+		cfg, _ := config.Load()
+		m, _ := configToMap(cfg)
+		setValueByPath(m, "server.port", 9999)
+		newCfg, _ := mapToConfig(m)
+		config.Save(newCfg)
+
+		// Reload and verify
+		loaded, _ := config.Load()
+		if loaded.Server.Port != 9999 {
+			t.Errorf("expected port 9999, got %d", loaded.Server.Port)
+		}
+	})
+
+	// Test creating options map
+	t.Run("set llamacpp.options.ctx-size", func(t *testing.T) {
+		cfg, _ := config.Load()
+		m, _ := configToMap(cfg)
+		setValueByPath(m, "llamacpp.options.ctx-size", 8192)
+		newCfg, _ := mapToConfig(m)
+		config.Save(newCfg)
+
+		// Reload and verify
+		loaded, _ := config.Load()
+		if loaded.LlamaCpp.GetIntOption("ctx-size", 0) != 8192 {
+			t.Errorf("expected ctx-size 8192, got %d", loaded.LlamaCpp.GetIntOption("ctx-size", 0))
+		}
+	})
+
+	// Test boolean option
+	t.Run("set llamacpp.options.flash-attn", func(t *testing.T) {
+		cfg, _ := config.Load()
+		m, _ := configToMap(cfg)
+		setValueByPath(m, "llamacpp.options.flash-attn", true)
+		newCfg, _ := mapToConfig(m)
+		config.Save(newCfg)
+
+		// Reload and verify
+		loaded, _ := config.Load()
+		val, ok := loaded.LlamaCpp.GetOption("flash-attn")
+		if !ok {
+			t.Fatal("expected flash-attn to be set")
+		}
+		if val != true {
+			t.Errorf("expected flash-attn true, got %v", val)
+		}
+	})
+}
+
+func TestFormatValue(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    any
+		expected string
+	}{
+		{"int", 42, "42"},
+		{"string", "hello", "hello"},
+		{"bool", true, "true"},
+		{"float", 3.14, "3.14"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := formatValue(tt.input)
+			if got != tt.expected {
+				t.Errorf("formatValue(%v) = %q, want %q", tt.input, got, tt.expected)
+			}
+		})
+	}
+
+	// Test map formatting (YAML output)
+	t.Run("map", func(t *testing.T) {
+		m := map[string]any{
+			"key": "value",
+		}
+		got := formatValue(m)
+		if !strings.Contains(got, "key: value") {
+			t.Errorf("formatValue(map) = %q, expected to contain 'key: value'", got)
+		}
+	})
+}
+
+func TestConfigGetSetSubcommands(t *testing.T) {
+	// Test that subcommands are properly registered
+	cmd := configCmd
+	subCmds := cmd.Commands()
+
+	expectedCmds := []string{"get", "set"}
+	for _, expected := range expectedCmds {
+		found := false
+		for _, sub := range subCmds {
+			if sub.Name() == expected {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Expected subcommand '%s' to be registered", expected)
+		}
+	}
+}
+
+func TestConfigSetSilentFailures(t *testing.T) {
+	// Document current behavior: some invalid sets succeed but don't persist.
+	// TODO: Consider adding validation to detect these cases.
+
+	tmpDir := t.TempDir()
+	oldHome := os.Getenv("HOME")
+	defer os.Setenv("HOME", oldHome)
+	os.Setenv("HOME", tmpDir)
+
+	cfg := config.DefaultConfig()
+	config.Save(cfg)
+
+	t.Run("unknown field in struct is silently dropped", func(t *testing.T) {
+		cfg, _ := config.Load()
+		m, _ := configToMap(cfg)
+		// This sets a field that doesn't exist in the Server struct
+		setValueByPath(m, "server.bogus_field", 123)
+		newCfg, err := mapToConfig(m)
+		if err != nil {
+			t.Fatalf("mapToConfig failed: %v", err)
+		}
+		config.Save(newCfg)
+
+		// Verify the field was silently dropped
+		loaded, _ := config.Load()
+		verifyMap, _ := configToMap(loaded)
+		_, err = getValueByPath(verifyMap, "server.bogus_field")
+		if err == nil {
+			t.Error("expected bogus_field to be dropped, but it persisted")
+		}
+	})
+
+	t.Run("unknown top-level key is silently dropped", func(t *testing.T) {
+		cfg, _ := config.Load()
+		m, _ := configToMap(cfg)
+		setValueByPath(m, "totally_fake.nested", "value")
+		newCfg, _ := mapToConfig(m)
+		config.Save(newCfg)
+
+		// Verify the key was silently dropped
+		loaded, _ := config.Load()
+		verifyMap, _ := configToMap(loaded)
+		_, err := getValueByPath(verifyMap, "totally_fake.nested")
+		if err == nil {
+			t.Error("expected totally_fake to be dropped, but it persisted")
+		}
+	})
+
+	t.Run("type mismatch on struct field fails", func(t *testing.T) {
+		cfg, _ := config.Load()
+		m, _ := configToMap(cfg)
+		// Try to set server (a struct) to a string
+		m["server"] = "bingo-bango"
+		_, err := mapToConfig(m)
+		if err == nil {
+			t.Error("expected type mismatch to fail, but it succeeded")
+		}
+	})
+
+	t.Run("llamacpp.options allows arbitrary keys", func(t *testing.T) {
+		cfg, _ := config.Load()
+		m, _ := configToMap(cfg)
+		setValueByPath(m, "llamacpp.options.custom-option", "custom-value")
+		newCfg, _ := mapToConfig(m)
+		config.Save(newCfg)
+
+		// Verify the custom option persisted (options is map[string]any)
+		loaded, _ := config.Load()
+		val, ok := loaded.LlamaCpp.GetOption("custom-option")
+		if !ok {
+			t.Error("expected custom-option to persist in llamacpp.options")
+		}
+		if val != "custom-value" {
+			t.Errorf("expected 'custom-value', got %v", val)
+		}
+	})
+}
