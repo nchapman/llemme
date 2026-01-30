@@ -84,7 +84,7 @@ _To record one, you can use `asciinema rec lleme-demo.cast` then convert with `s
 | Config | `config get <path>` | | Get a config value by dot-path |
 | Config | `config set <path> <value>` | | Set a config value by dot-path |
 | Config | `config reset` | | Reset config to defaults |
-| Config | `update` | | Update llama.cpp binaries |
+| Config | `update` | | Update lleme and llama.cpp |
 | Config | `version` | | Show version information |
 
 ### Advanced Model Removal
