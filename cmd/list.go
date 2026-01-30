@@ -132,7 +132,7 @@ var listCmd = &cobra.Command{
 			AddColumn("MODEL", 0, ui.AlignLeft).
 			AddColumn("QUANT", 0, ui.AlignLeft).
 			AddColumn("SIZE", 10, ui.AlignRight).
-			AddColumn("LAST USED", 12, ui.AlignLeft)
+			AddColumn("LAST USED", 12, ui.AlignRight)
 
 		for _, m := range models {
 			modelRef := fmt.Sprintf("%s/%s", m.User, m.Repo)

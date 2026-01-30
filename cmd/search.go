@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/nchapman/lleme/internal/config"
 	"github.com/nchapman/lleme/internal/hf"
@@ -13,9 +12,9 @@ import (
 
 var searchCmd = &cobra.Command{
 	Use:     "search [query]",
-	Short:   "Search Hugging Face for llama.cpp compatible models",
+	Short:   "Search Hugging Face for GGUF models",
 	GroupID: "discovery",
-	Long:    "Search Hugging Face for llama.cpp compatible models. If no query is provided, shows trending models.",
+	Long:    "Search Hugging Face for GGUF models. If no query is provided, shows trending models.",
 	Args:    cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg, err := config.Load()
@@ -45,7 +44,7 @@ var searchCmd = &cobra.Command{
 			fmt.Println("  Try a different search term")
 			fmt.Println("  Check spelling")
 			fmt.Println("  Browse Hugging Face: https://huggingface.co/models?apps=llama.cpp")
-			os.Exit(1)
+			return
 		}
 
 		// Build set of installed models (by user/repo).
@@ -73,26 +72,17 @@ var searchCmd = &cobra.Command{
 			if result.Gated {
 				modelName += " (gated)"
 			}
-			table.AddRow(modelName, formatNumber(result.Downloads), formatNumber(result.Likes))
+			table.AddRow(modelName, ui.FormatNumber(result.Downloads), ui.FormatNumber(result.Likes))
 		}
 
 		fmt.Print(table.Render())
 		fmt.Println("\n✓ = installed")
-		fmt.Printf("%d results from Hugging Face\n", len(results))
+		if query != "" {
+			fmt.Printf("%d results for \"%s\"\n", len(results), query)
+		} else {
+			fmt.Printf("%d trending models\n", len(results))
+		}
 	},
-}
-
-func formatNumber(n int64) string {
-	if n < 1000 {
-		return fmt.Sprintf("%d", n)
-	}
-	if n < 1000000 {
-		return fmt.Sprintf("%.1fK", float64(n)/1000)
-	}
-	if n < 1000000000 {
-		return fmt.Sprintf("%.1fM", float64(n)/1000000)
-	}
-	return fmt.Sprintf("%.1fB", float64(n)/1000000000)
 }
 
 func init() {

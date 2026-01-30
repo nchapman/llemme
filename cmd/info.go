@@ -6,6 +6,7 @@ import (
 
 	"github.com/nchapman/lleme/internal/config"
 	"github.com/nchapman/lleme/internal/hf"
+	"github.com/nchapman/lleme/internal/proxy"
 	"github.com/nchapman/lleme/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -50,6 +51,8 @@ var infoCmd = &cobra.Command{
 			fmt.Printf("  %-12s %s\n", "License", modelInfo.CardData.License)
 		}
 		fmt.Printf("  %-12s %s\n", "Updated", modelInfo.LastModified.Format("Jan 2, 2006"))
+		fmt.Printf("  %-12s %s\n", "Downloads", ui.FormatNumber(modelInfo.Downloads))
+		fmt.Printf("  %-12s %s\n", "Likes", ui.FormatNumber(modelInfo.Likes))
 
 		if modelInfo.Gated {
 			fmt.Println()
@@ -61,15 +64,39 @@ var infoCmd = &cobra.Command{
 			fmt.Println(ui.Header("Quantizations"))
 			fmt.Println()
 
+			// Build set of installed quants for this model
+			installedQuants := make(map[string]bool)
+			resolver := proxy.NewModelResolver()
+			if downloaded, err := resolver.ListDownloadedModels(); err == nil {
+				for _, m := range downloaded {
+					if m.User == user && m.Repo == repo {
+						installedQuants[m.Quant] = true
+					}
+				}
+			}
+
 			table := ui.NewTable().
 				AddColumn("NAME", 0, ui.AlignLeft).
 				AddColumn("SIZE", 12, ui.AlignRight)
 
+			hasInstalled := false
 			sortedQuants := hf.SortQuantizations(quants)
 			for _, q := range sortedQuants {
-				table.AddRow(q.Name, ui.FormatBytes(q.Size))
+				name := q.Name
+				if installedQuants[q.Name] {
+					name = "✓ " + name
+					hasInstalled = true
+				} else {
+					name = "  " + name
+				}
+				table.AddRow(name, ui.FormatBytes(q.Size))
 			}
 			fmt.Print(table.Render())
+
+			if hasInstalled {
+				fmt.Println()
+				fmt.Println("✓ = installed")
+			}
 		}
 
 		if len(modelInfo.Tags) > 0 {

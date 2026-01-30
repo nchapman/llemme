@@ -61,6 +61,6 @@ var updateCmd = &cobra.Command{
 var forceUpdate bool
 
 func init() {
-	updateCmd.Flags().BoolVarP(&forceUpdate, "force", "f", false, "Force update without confirmation")
+	updateCmd.Flags().BoolVarP(&forceUpdate, "force", "f", false, "Skip confirmation")
 	rootCmd.AddCommand(updateCmd)
 }

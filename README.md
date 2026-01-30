@@ -75,12 +75,14 @@ _To record one, you can use `asciinema rec lleme-demo.cast` then convert with `s
 | Server | `server start` | | Start the proxy server |
 | Server | `server stop` | | Stop the proxy server |
 | Server | `server restart` | | Restart the proxy server |
-| Discovery | `search <query>` | | Search Hugging Face for models |
-| Discovery | `trending` | | Show trending models |
-| Discovery | `info <model>` | `show` | Show model details |
+| Discovery | `search <query>` | | Search Hugging Face for GGUF models |
+| Discovery | `trending` | | Show trending GGUF models |
+| Discovery | `info <model>` | `show` | Show model details (downloads, likes, quants) |
 | Config | `config edit` | | Open config in your editor |
 | Config | `config show` | | Print current configuration |
 | Config | `config path` | | Print config file path |
+| Config | `config get <path>` | | Get a config value by dot-path |
+| Config | `config set <path> <value>` | | Set a config value by dot-path |
 | Config | `config reset` | | Reset config to defaults |
 | Config | `update` | | Update llama.cpp binaries |
 | Config | `version` | | Show version information |

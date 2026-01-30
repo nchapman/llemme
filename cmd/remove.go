@@ -388,7 +388,7 @@ func cleanEmptyDir(dir string) {
 }
 
 func init() {
-	removeCmd.Flags().BoolVarP(&rmForce, "force", "f", false, "Skip confirmation prompt")
+	removeCmd.Flags().BoolVarP(&rmForce, "force", "f", false, "Skip confirmation")
 	removeCmd.Flags().StringVar(&rmOlderThan, "older-than", "", "Remove models not used in this duration (e.g., 24h, 7d, 4w)")
 	removeCmd.Flags().StringVar(&rmLargerThan, "larger-than", "", "Remove models larger than this size (e.g., 500MB, 10GB)")
 	removeCmd.Flags().BoolVar(&rmPartialDownloads, "partial-downloads", false, "Remove incomplete/interrupted downloads")

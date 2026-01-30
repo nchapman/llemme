@@ -35,6 +35,8 @@ type ModelInfo struct {
 	LastModified time.Time   `json:"lastModified"`
 	Private      bool        `json:"private"`
 	Gated        GatedStatus `json:"gated"`
+	Downloads    int64       `json:"downloads"`
+	Likes        int64       `json:"likes"`
 	Siblings     []Sibling   `json:"siblings"`
 	Tags         []string    `json:"tags"`
 	CardData     CardData    `json:"cardData"`

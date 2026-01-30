@@ -3,6 +3,8 @@ package cmd
 import (
 	"testing"
 	"time"
+
+	"github.com/nchapman/lleme/internal/ui"
 )
 
 func TestFormatTime(t *testing.T) {
@@ -74,9 +76,9 @@ func TestFormatNumber(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.want, func(t *testing.T) {
-			got := formatNumber(tt.input)
+			got := ui.FormatNumber(tt.input)
 			if got != tt.want {
-				t.Errorf("formatNumber(%d) = %v, want %v", tt.input, got, tt.want)
+				t.Errorf("ui.FormatNumber(%d) = %v, want %v", tt.input, got, tt.want)
 			}
 		})
 	}

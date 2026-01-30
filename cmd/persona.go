@@ -48,7 +48,7 @@ var personaListCmd = &cobra.Command{
 		}
 
 		if len(personas) == 0 {
-			fmt.Println(ui.Muted("No personas configured yet"))
+			fmt.Println(ui.Muted("No personas saved"))
 			fmt.Println()
 			fmt.Println("Create one with: lleme persona create <name>")
 			return
