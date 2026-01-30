@@ -48,12 +48,7 @@ var serverStartCmd = &cobra.Command{
 	Short: "Start the proxy server",
 	PreRun: func(cmd *cobra.Command, args []string) {
 		if !llama.IsInstalled() {
-			fmt.Println("llama.cpp is not installed.")
-			if !ui.PromptYesNo("Install now?", true) {
-				fmt.Println(ui.Muted("Cancelled"))
-				os.Exit(0)
-			}
-
+			fmt.Println("Installing llama.cpp...")
 			fmt.Println()
 			if _, err := llama.InstallLatest(func(msg string) { fmt.Println(msg) }); err != nil {
 				ui.Fatal("Failed to install llama.cpp: %v", err)
