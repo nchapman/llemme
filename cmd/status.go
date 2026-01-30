@@ -62,8 +62,8 @@ var statusCmd = &cobra.Command{
 		table := ui.NewTable().
 			AddColumn("MODEL", 0, ui.AlignLeft).
 			AddColumn("PORT", 5, ui.AlignRight).
-			AddColumn("STATUS", 7, ui.AlignLeft).
-			AddColumn("UNLOADS IN", 10, ui.AlignLeft)
+			AddColumn("STATUS", 0, ui.AlignLeft).
+			AddColumn("UNLOADS", 7, ui.AlignLeft)
 
 		// Calculate idle timeout in minutes for "unload in" display
 		idleTimeoutMins := 10.0 // default

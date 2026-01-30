@@ -123,37 +123,10 @@ Models are loaded on-demand and unloaded after idle timeout.`,
 		// Use the resolved full model name
 		modelName := resolvedModel.FullName
 
-		// Build server options from persona and CLI flags
-		// Priority: CLI flags > persona options > config defaults
+		// Track which server options were explicitly set
 		ctxSizeSet := cmd.Flags().Changed("ctx-size")
 		gpuLayersSet := cmd.Flags().Changed("gpu-layers")
 		threadsSet := cmd.Flags().Changed("threads")
-
-		// Get persona server options (if any)
-		var personaOpts map[string]any
-		if activePersona != nil {
-			personaOpts = activePersona.GetServerOptions()
-		}
-
-		// Only call /api/run if we have options to pass
-		if ctxSizeSet || gpuLayersSet || threadsSet || personaOpts != nil {
-			opts := &server.RunOptions{
-				Options: personaOpts, // Base options from persona
-			}
-			// CLI flags override persona options
-			if ctxSizeSet {
-				opts.CtxSize = server.IntPtr(ctxSize)
-			}
-			if gpuLayersSet {
-				opts.GpuLayers = server.IntPtr(gpuLayers)
-			}
-			if threadsSet {
-				opts.Threads = server.IntPtr(threads)
-			}
-			if err := api.Run(modelName, opts); err != nil {
-				ui.Fatal("Failed to load model: %v", err)
-			}
-		}
 
 		promptArg := ""
 		if len(args) > promptStartIdx {
@@ -182,6 +155,29 @@ Models are loaded on-demand and unloaded after idle timeout.`,
 
 		// One-shot mode for CLI prompts or piped input
 		if promptArg != "" {
+			// Preload model with options (sync - user is blocked waiting for output anyway)
+			var personaOpts map[string]any
+			if activePersona != nil {
+				personaOpts = activePersona.GetServerOptions()
+			}
+			if ctxSizeSet || gpuLayersSet || threadsSet || personaOpts != nil {
+				opts := &server.RunOptions{
+					Options: personaOpts,
+				}
+				if ctxSizeSet {
+					opts.CtxSize = server.IntPtr(ctxSize)
+				}
+				if gpuLayersSet {
+					opts.GpuLayers = server.IntPtr(gpuLayers)
+				}
+				if threadsSet {
+					opts.Threads = server.IntPtr(threads)
+				}
+				if err := api.Run(modelName, opts); err != nil {
+					ui.Fatal("Failed to load model: %v", err)
+				}
+			}
+
 			session := NewChatSession(api, modelName, cfg, activePersona)
 			session.SetSystemPrompt(systemPrompt)
 			session.SetSamplingOptions(temperature, topP, minP, repeatPenalty, topK, tokens)

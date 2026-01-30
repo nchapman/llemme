@@ -193,7 +193,42 @@ func (m *Model) SetSystemPrompt(prompt string) {
 
 // Init initializes the model
 func (m *Model) Init() tea.Cmd {
-	return m.input.Init()
+	return tea.Batch(
+		m.input.Init(),
+		m.preloadModel(),
+	)
+}
+
+// preloadModel starts loading the model in the background
+func (m *Model) preloadModel() tea.Cmd {
+	// Capture values now before the goroutine runs
+	api := m.api
+	model := m.model
+	options := m.options
+	var personaOpts map[string]any
+	if m.persona != nil {
+		personaOpts = m.persona.GetServerOptions()
+	}
+
+	return func() tea.Msg {
+		var opts *server.RunOptions
+		if options.CtxSizeSet || options.GpuLayersSet || options.ThreadsSet || personaOpts != nil {
+			opts = &server.RunOptions{Options: personaOpts}
+			if options.CtxSizeSet {
+				opts.CtxSize = server.IntPtr(options.CtxSize)
+			}
+			if options.GpuLayersSet {
+				opts.GpuLayers = server.IntPtr(options.GpuLayers)
+			}
+			if options.ThreadsSet {
+				opts.Threads = server.IntPtr(options.Threads)
+			}
+		}
+
+		// Fire and forget - errors will surface when user sends first message
+		api.Run(model, opts)
+		return nil
+	}
 }
 
 // Update handles messages
