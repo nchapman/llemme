@@ -12,6 +12,7 @@ import (
 
 	"github.com/nchapman/lleme/internal/config"
 	"github.com/nchapman/lleme/internal/hf"
+	"github.com/nchapman/lleme/internal/peer"
 	"github.com/nchapman/lleme/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -173,6 +174,13 @@ Examples:
 			cleanEmptyDir(userDir)
 
 			removed++
+		}
+
+		// Update peer sharing index
+		if removed > 0 {
+			if err := peer.RebuildPeerFileIndex(); err != nil {
+				ui.PrintError("Failed to update peer index: %v", err)
+			}
 		}
 
 		if removed == 1 {

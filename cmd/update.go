@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nchapman/lleme/internal/llama"
+	"github.com/nchapman/lleme/internal/proxy"
 	"github.com/nchapman/lleme/internal/selfupdate"
 	"github.com/nchapman/lleme/internal/ui"
 	"github.com/spf13/cobra"
@@ -124,6 +125,8 @@ func runUpdateAll(cmd *cobra.Command, args []string) {
 	if llamaNeedsUpdate {
 		updateLlamaCpp()
 	}
+
+	restartServerIfRunning()
 }
 
 func runUpdateLlama(cmd *cobra.Command, args []string) {
@@ -163,6 +166,7 @@ func runUpdateLlama(cmd *cobra.Command, args []string) {
 
 	fmt.Println()
 	updateLlamaCpp()
+	restartServerIfRunning()
 }
 
 func runUpdateSelf(cmd *cobra.Command, args []string) {
@@ -199,6 +203,7 @@ func runUpdateSelf(cmd *cobra.Command, args []string) {
 
 	fmt.Println()
 	updateLleme(method)
+	restartServerIfRunning()
 }
 
 func updateLleme(method selfupdate.InstallMethod) {
@@ -233,4 +238,23 @@ func joinWithAnd(items []string) string {
 	default:
 		return items[0] + ", " + joinWithAnd(items[1:])
 	}
+}
+
+func restartServerIfRunning() {
+	if !proxy.IsProxyRunning() {
+		return
+	}
+
+	fmt.Println()
+	fmt.Println("Restarting server to apply updates...")
+	stopped, err := stopServer()
+	if err != nil {
+		ui.PrintError("Failed to stop server: %v", err)
+		return
+	}
+	if stopped {
+		fmt.Println("Stopped server")
+	}
+	// startServerDetached executes the binary from disk, which is now the updated version
+	startServerDetached()
 }
