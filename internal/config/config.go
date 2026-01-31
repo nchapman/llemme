@@ -21,9 +21,10 @@ type Config struct {
 }
 
 type Peer struct {
-	Enabled bool `yaml:"enabled"` // Discover and download from peers (default: false)
-	Share   bool `yaml:"share"`   // Allow peers to download from this instance (default: true, requires enabled=true)
-	Port    int  `yaml:"port"`    // Port for peer sharing server (default: 11314)
+	Enabled     bool     `yaml:"enabled"`      // Discover and download from peers (default: false)
+	Share       bool     `yaml:"share"`        // Allow peers to download from this instance (default: true, requires enabled=true)
+	Port        int      `yaml:"port"`         // Port for peer sharing server (default: 11314)
+	StaticPeers []string `yaml:"static_peers"` // Static peer addresses (host:port) when mDNS discovery fails
 }
 
 type HuggingFace struct {
@@ -196,6 +197,8 @@ peer:
   enabled: false  # Enable peer discovery (must be true for share to work)
   share: true     # Allow peers to download models from this instance
   port: 11314     # Port for peer sharing server (binds to 0.0.0.0)
+  # static_peers:  # Manual peers when mDNS discovery doesn't work (e.g., Linux)
+  #   - 192.168.1.100:11314
 `
 
 func Load() (*Config, error) {

@@ -184,3 +184,49 @@ func TestPeersCopyBehavior(t *testing.T) {
 		t.Errorf("original peer was modified, expected 192.168.1.100, got %s", original.Host)
 	}
 }
+
+func TestProbeStaticPeerInvalidAddress(t *testing.T) {
+	tests := []struct {
+		name string
+		addr string
+	}{
+		{"no port", "192.168.1.100"},
+		{"empty", ""},
+		{"just colon", ":"},
+		{"invalid port", "192.168.1.100:abc"},
+		{"negative port", "192.168.1.100:-1"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := probeStaticPeer(tt.addr)
+			if result != nil {
+				t.Errorf("probeStaticPeer(%q) should return nil for invalid address", tt.addr)
+			}
+		})
+	}
+}
+
+func TestProbeStaticPeerLocalIP(t *testing.T) {
+	// Local IPs should be skipped
+	result := probeStaticPeer("127.0.0.1:11314")
+	if result != nil {
+		t.Error("probeStaticPeer should return nil for loopback address")
+	}
+}
+
+func TestProbeStaticPeerUnreachable(t *testing.T) {
+	// Use a non-routable IP that will timeout quickly
+	result := probeStaticPeer("192.0.2.1:11314") // TEST-NET-1, should be unreachable
+	if result != nil {
+		t.Error("probeStaticPeer should return nil for unreachable peer")
+	}
+}
+
+func TestGetStaticPeersEmpty(t *testing.T) {
+	// When no static peers are configured, should return nil
+	// This test relies on the test environment not having static_peers configured
+	peers := getStaticPeers()
+	// Just verify it doesn't panic - result depends on config
+	t.Logf("getStaticPeers returned %d peers", len(peers))
+}

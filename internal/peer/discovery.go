@@ -4,12 +4,15 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/hashicorp/mdns"
+	"github.com/grandcat/zeroconf"
+	"github.com/nchapman/lleme/internal/config"
 	"github.com/nchapman/lleme/internal/logs"
 )
 
@@ -30,7 +33,7 @@ type Peer struct {
 // Discovery manages mDNS service registration and peer discovery
 type Discovery struct {
 	mu       sync.RWMutex
-	server   *mdns.Server
+	server   *zeroconf.Server
 	peers    map[string]*Peer // key: "host:port"
 	cache    *PeerCache       // persistent peer cache
 	port     int
@@ -95,37 +98,29 @@ func (d *Discovery) Stop() {
 	}
 }
 
-// register advertises this instance via mDNS
+// register advertises this instance via mDNS using zeroconf
 func (d *Discovery) register() error {
 	hostname, err := os.Hostname()
 	if err != nil {
 		hostname = "lleme"
 	}
 
-	// Get local IP address
-	localIP := getLocalIP()
-
-	// Build TXT records with metadata (no model count for privacy)
+	// Build TXT records with metadata
 	txt := []string{
 		fmt.Sprintf("version=%s", d.version),
 	}
 
-	service, err := mdns.NewMDNSService(
-		hostname,          // Instance name
-		ServiceType,       // Service type
-		Domain,            // Domain
-		"",                // Host (empty = use hostname)
-		d.port,            // Port
-		[]net.IP{localIP}, // IPs
-		txt,               // TXT records
+	// Register the service - zeroconf handles the rest
+	server, err := zeroconf.Register(
+		hostname,    // Instance name
+		ServiceType, // Service type
+		Domain,      // Domain
+		d.port,      // Port
+		txt,         // TXT records
+		nil,         // Use all interfaces
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create mDNS service: %w", err)
-	}
-
-	server, err := mdns.NewServer(&mdns.Config{Zone: service})
-	if err != nil {
-		return fmt.Errorf("failed to start mDNS server: %w", err)
+		return fmt.Errorf("failed to register mDNS service: %w", err)
 	}
 
 	d.mu.Lock()
@@ -163,76 +158,70 @@ func (d *Discovery) discoverLoop() {
 	}
 }
 
-// discover performs a single mDNS query for peers
+// discover performs a single mDNS query for peers using zeroconf
 func (d *Discovery) discover() {
-	entriesCh := make(chan *mdns.ServiceEntry, 10)
+	resolver, err := zeroconf.NewResolver(nil)
+	if err != nil {
+		logs.Debug("Failed to create mDNS resolver", "error", err)
+		return
+	}
+
+	entries := make(chan *zeroconf.ServiceEntry, 10)
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	go func() {
-		params := mdns.DefaultParams(ServiceType)
-		params.DisableIPv6 = true
-		params.Entries = entriesCh
-		params.Timeout = 3 * time.Second
-		if err := mdns.Query(params); err != nil {
-			logs.Debug("mDNS query failed", "error", err)
+		if err := resolver.Browse(ctx, ServiceType, Domain, entries); err != nil {
+			logs.Debug("mDNS browse failed", "error", err)
 		}
 	}()
 
 	// Collect discovered peers
 	newPeers := make(map[string]*Peer)
 
-	for {
-		select {
-		case entry, ok := <-entriesCh:
-			if !ok {
-				goto done
+	for entry := range entries {
+		if entry == nil {
+			continue
+		}
+
+		// Parse TXT records to get version
+		version := ""
+		for _, txt := range entry.Text {
+			if v, ok := strings.CutPrefix(txt, "version="); ok {
+				version = v
 			}
-			if entry == nil {
-				continue
+		}
+
+		// Get IPv4 address
+		var host string
+		for _, ip := range entry.AddrIPv4 {
+			if ip != nil && !isLocalIP(ip) {
+				host = ip.String()
+				break
 			}
+		}
 
-			// Parse TXT records first to validate this is a lleme service
-			version := ""
-			for _, txt := range entry.InfoFields {
-				if v, ok := strings.CutPrefix(txt, "version="); ok {
-					version = v
-				}
-			}
+		// Skip if no valid IPv4 or is local
+		if host == "" {
+			continue
+		}
 
-			// Skip non-lleme services (must have version TXT record)
-			if version == "" {
-				continue
-			}
+		// Skip our own instance (host is already verified non-local, just check port)
+		if entry.Port == d.port && len(entry.AddrIPv4) > 0 && isLocalIP(entry.AddrIPv4[0]) {
+			continue
+		}
 
-			// Skip entries without IPv4 address
-			if entry.AddrV4 == nil {
-				continue
-			}
+		key := fmt.Sprintf("%s:%d", host, entry.Port)
 
-			// Skip our own instance
-			if entry.Port == d.port && isLocalIP(entry.AddrV4) {
-				continue
-			}
-
-			host := entry.AddrV4.String()
-
-			key := fmt.Sprintf("%s:%d", host, entry.Port)
-
-			newPeers[key] = &Peer{
-				Name:         entry.Name,
-				Host:         host,
-				Port:         entry.Port,
-				Version:      version,
-				DiscoveredAt: time.Now(),
-			}
-
-		case <-ctx.Done():
-			goto done
+		newPeers[key] = &Peer{
+			Name:         entry.Instance,
+			Host:         host,
+			Port:         entry.Port,
+			Version:      version,
+			DiscoveredAt: time.Now(),
 		}
 	}
 
-done:
 	// Update peer list
 	d.mu.Lock()
 	d.peers = newPeers
@@ -313,7 +302,7 @@ func isLocalIP(ip net.IP) bool {
 	return false
 }
 
-// DiscoverPeers returns peers from cache merged with fresh mDNS discovery.
+// DiscoverPeers returns peers from cache merged with fresh mDNS discovery and static peers.
 // Fresh discovery results take precedence over cached entries.
 func DiscoverPeers() []*Peer {
 	// Load cache
@@ -356,6 +345,15 @@ func DiscoverPeers() []*Peer {
 		}
 	}
 
+	// Add static peers from config (useful when mDNS doesn't work)
+	for _, p := range getStaticPeers() {
+		key := peerKey(p.Host, p.Port)
+		if !seen[key] {
+			seen[key] = true
+			result = append(result, p)
+		}
+	}
+
 	return result
 }
 
@@ -381,68 +379,126 @@ func discoverPeersOnce() []*Peer {
 func QuickDiscover(results chan<- *Peer) {
 	defer close(results)
 
-	entriesCh := make(chan *mdns.ServiceEntry, 10)
+	resolver, err := zeroconf.NewResolver(nil)
+	if err != nil {
+		logs.Debug("Failed to create mDNS resolver", "error", err)
+		return
+	}
+
+	entries := make(chan *zeroconf.ServiceEntry, 10)
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	go func() {
-		params := mdns.DefaultParams(ServiceType)
-		params.DisableIPv6 = true
-		params.Entries = entriesCh
-		params.Timeout = 3 * time.Second
-		mdns.Query(params)
+		if err := resolver.Browse(ctx, ServiceType, Domain, entries); err != nil {
+			logs.Debug("mDNS browse failed", "error", err)
+		}
 	}()
 
 	seen := make(map[string]bool)
 
-	for {
-		select {
-		case entry, ok := <-entriesCh:
-			if !ok {
-				return
+	for entry := range entries {
+		if entry == nil {
+			continue
+		}
+
+		// Get IPv4 address, skip local
+		var host string
+		for _, ip := range entry.AddrIPv4 {
+			if ip != nil && !isLocalIP(ip) {
+				host = ip.String()
+				break
 			}
-			if entry == nil || entry.AddrV4 == nil {
-				continue
+		}
+
+		if host == "" {
+			continue
+		}
+
+		// Parse TXT records for version
+		version := ""
+		for _, txt := range entry.Text {
+			if v, ok := strings.CutPrefix(txt, "version="); ok {
+				version = v
 			}
+		}
 
-			host := entry.AddrV4.String()
+		logs.Debug("Discovered lleme peer", "host", host, "port", entry.Port, "version", version)
 
-			// Skip local instances
-			if isLocalIP(entry.AddrV4) {
-				continue
-			}
+		key := fmt.Sprintf("%s:%d", host, entry.Port)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
 
-			// Parse TXT records first to validate this is a lleme service
-			version := ""
-			for _, txt := range entry.InfoFields {
-				if v, ok := strings.CutPrefix(txt, "version="); ok {
-					version = v
-				}
-			}
-
-			// Skip non-lleme services (must have version TXT record)
-			if version == "" {
-				continue
-			}
-
-			logs.Debug("Discovered lleme peer", "host", host, "port", entry.Port, "version", version)
-
-			key := fmt.Sprintf("%s:%d", host, entry.Port)
-			if seen[key] {
-				continue
-			}
-			seen[key] = true
-
-			results <- &Peer{
-				Name:         entry.Name,
-				Host:         host,
-				Port:         entry.Port,
-				Version:      version,
-				DiscoveredAt: time.Now(),
-			}
-
-		case <-ctx.Done():
-			return
+		results <- &Peer{
+			Name:         entry.Instance,
+			Host:         host,
+			Port:         entry.Port,
+			Version:      version,
+			DiscoveredAt: time.Now(),
 		}
 	}
+}
+
+// probeStaticPeer checks if a static peer address is a valid lleme instance.
+// Returns a Peer if valid, nil otherwise.
+func probeStaticPeer(addr string) *Peer {
+	host, portStr, err := net.SplitHostPort(addr)
+	if err != nil {
+		logs.Debug("Invalid static peer address", "addr", addr, "error", err)
+		return nil
+	}
+
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		logs.Debug("Invalid static peer port", "addr", addr, "error", err)
+		return nil
+	}
+
+	// Skip if this is our own address
+	if ip := net.ParseIP(host); ip != nil && isLocalIP(ip) {
+		return nil
+	}
+
+	// Probe the peer with a HEAD request to check if it's alive
+	client := &http.Client{Timeout: 2 * time.Second}
+	url := fmt.Sprintf("http://%s/api/peer/sha256/0000000000000000000000000000000000000000000000000000000000000000", addr)
+	resp, err := client.Head(url)
+	if err != nil {
+		logs.Debug("Static peer not reachable", "addr", addr, "error", err)
+		return nil
+	}
+	resp.Body.Close()
+
+	// 400 (invalid hash) or 404 (not found) both indicate a working peer server
+	if resp.StatusCode != http.StatusBadRequest && resp.StatusCode != http.StatusNotFound {
+		logs.Debug("Static peer returned unexpected status", "addr", addr, "status", resp.StatusCode)
+		return nil
+	}
+
+	logs.Debug("Static peer verified", "addr", addr)
+	return &Peer{
+		Name:         host,
+		Host:         host,
+		Port:         port,
+		Version:      "unknown",
+		DiscoveredAt: time.Now(),
+	}
+}
+
+// getStaticPeers loads and probes static peers from config.
+func getStaticPeers() []*Peer {
+	cfg, err := config.Load()
+	if err != nil || len(cfg.Peer.StaticPeers) == 0 {
+		return nil
+	}
+
+	var peers []*Peer
+	for _, addr := range cfg.Peer.StaticPeers {
+		if p := probeStaticPeer(addr); p != nil {
+			peers = append(peers, p)
+		}
+	}
+	return peers
 }
