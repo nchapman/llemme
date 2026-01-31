@@ -340,7 +340,7 @@ func offerToPull(cfg *config.Config, user, repo, quant string) (*proxy.Downloade
 
 	// Add peer download support if enabled
 	if cfg.Peer.Enabled {
-		opts.PeerDownload = peer.CreateDownloader(user, repo, quant)
+		opts.PeerDownload = peer.CreateDownloader()
 	}
 
 	result, err := hf.PullModelWithProgressFactory(client, user, repo, selectedQuant, opts, func() hf.ProgressDisplay {

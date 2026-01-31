@@ -9,7 +9,7 @@ import (
 )
 
 func TestCreateDownloader(t *testing.T) {
-	downloader := CreateDownloader("user", "repo", "Q4_K_M")
+	downloader := CreateDownloader()
 	if downloader == nil {
 		t.Fatal("CreateDownloader() returned nil")
 	}
@@ -17,7 +17,7 @@ func TestCreateDownloader(t *testing.T) {
 
 func TestCreateDownloaderNoPeers(t *testing.T) {
 	// When no peers are discovered, should return false
-	downloader := CreateDownloader("user", "repo", "Q4_K_M")
+	downloader := CreateDownloader()
 
 	tmpDir := t.TempDir()
 	destPath := filepath.Join(tmpDir, "model.gguf")
@@ -87,7 +87,7 @@ func TestPeerMatchStruct(t *testing.T) {
 
 func TestCreateDownloaderReusePeers(t *testing.T) {
 	// Test that peer discovery happens only once
-	downloader := CreateDownloader("user", "repo", "Q4_K_M")
+	downloader := CreateDownloader()
 
 	tmpDir := t.TempDir()
 
@@ -107,7 +107,7 @@ func TestCreateDownloaderReusePeers(t *testing.T) {
 }
 
 func TestCreateDownloaderWithProgress(t *testing.T) {
-	downloader := CreateDownloader("user", "repo", "Q4_K_M")
+	downloader := CreateDownloader()
 
 	tmpDir := t.TempDir()
 	destPath := filepath.Join(tmpDir, "model.gguf")

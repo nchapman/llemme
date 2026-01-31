@@ -18,40 +18,48 @@ var peerCmd = &cobra.Command{
 
 var peerStatusCmd = &cobra.Command{
 	Use:   "status",
-	Short: "Show peer sharing configuration and status",
+	Short: "Show peer sharing status",
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg, err := config.Load()
 		if err != nil {
 			ui.Fatal("Failed to load config: %v", err)
 		}
 
-		fmt.Println(ui.Header("Peer Configuration"))
-		fmt.Println()
-
-		table := ui.NewTable().
-			AddColumn("Setting", 20, ui.AlignLeft).
-			AddColumn("Value", 0, ui.AlignLeft)
-		table.AddRow("Discovery enabled", fmt.Sprintf("%v", cfg.Peer.Enabled))
-		table.AddRow("Sharing enabled", fmt.Sprintf("%v", cfg.Peer.Share))
-		table.AddRow("Port", fmt.Sprintf("%d", cfg.Peer.Port))
-		fmt.Print(table.Render())
-
 		if !cfg.Peer.Enabled {
+			fmt.Println("Peer sharing: " + ui.Muted("disabled"))
 			fmt.Println()
-			fmt.Println(ui.Muted("Peer discovery is disabled. Enable with:"))
-			fmt.Println(ui.Muted("  Set 'peer.enabled: true' in ~/.lleme/config.yaml"))
-		} else if !cfg.Peer.Share {
-			fmt.Println()
-			fmt.Println(ui.Muted("Sharing is disabled. Other peers cannot download from this instance."))
+			fmt.Println(ui.Muted("Enable with: lleme config set peer.enabled true"))
+			return
 		}
 
-		// Show index stats if sharing is enabled
-		if cfg.Peer.Enabled && cfg.Peer.Share {
+		// Check if server is actually running by trying to connect
+		serverRunning := peer.IsServerRunning(cfg.Peer.Port)
+
+		if !cfg.Peer.Share {
+			fmt.Println("Peer sharing: " + ui.Keyword("discovery only"))
+			if serverRunning {
+				fmt.Printf("Server:       running on port %d\n", cfg.Peer.Port)
+			}
 			fmt.Println()
+			fmt.Println(ui.Muted("To share your models: lleme config set peer.share true"))
+			return
+		}
+
+		// Full sharing enabled
+		if serverRunning {
+			localIP := peer.GetLocalIP()
+			fmt.Println("Peer sharing: " + ui.Keyword("active"))
+			fmt.Printf("Address:      %s:%d\n", localIP, cfg.Peer.Port)
+
 			idx := peer.NewPeerFileIndex()
 			if err := idx.Load(); err == nil {
-				fmt.Printf("  Indexed files:\t%d\n", idx.Count())
+				fmt.Printf("Indexed:      %d files\n", idx.Count())
 			}
+		} else {
+			fmt.Println("Peer sharing: " + ui.Muted("not running"))
+			fmt.Printf("Port:         %d\n", cfg.Peer.Port)
+			fmt.Println()
+			fmt.Println(ui.Muted("Start with: lleme serve"))
 		}
 	},
 }

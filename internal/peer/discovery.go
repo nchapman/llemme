@@ -262,16 +262,26 @@ func (d *Discovery) PeerCount() int {
 	return len(d.peers)
 }
 
-// getLocalIP returns the preferred outbound local IP address
-func getLocalIP() net.IP {
+// GetLocalIP returns the preferred outbound local IP address as a string.
+func GetLocalIP() string {
 	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err != nil {
-		return net.IPv4(127, 0, 0, 1)
+		return "127.0.0.1"
 	}
 	defer conn.Close()
 
 	localAddr := conn.LocalAddr().(*net.UDPAddr)
-	return localAddr.IP
+	return localAddr.IP.String()
+}
+
+// IsServerRunning checks if a peer server is listening on the given port.
+func IsServerRunning(port int) bool {
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 500*time.Millisecond)
+	if err != nil {
+		return false
+	}
+	conn.Close()
+	return true
 }
 
 // isLocalIP checks if an IP belongs to this machine

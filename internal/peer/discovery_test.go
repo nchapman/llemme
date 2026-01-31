@@ -75,15 +75,16 @@ func TestPeerStruct(t *testing.T) {
 }
 
 func TestGetLocalIP(t *testing.T) {
-	ip := getLocalIP()
+	ipStr := GetLocalIP()
 
-	if ip == nil {
-		t.Fatal("getLocalIP returned nil")
+	if ipStr == "" {
+		t.Fatal("GetLocalIP returned empty string")
 	}
 
 	// Should be a valid IPv4 address
-	if ip.To4() == nil {
-		t.Errorf("expected IPv4 address, got %v", ip)
+	ip := net.ParseIP(ipStr)
+	if ip == nil || ip.To4() == nil {
+		t.Errorf("expected valid IPv4 address, got %q", ipStr)
 	}
 }
 

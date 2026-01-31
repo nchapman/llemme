@@ -32,8 +32,7 @@ func DiscoverPeersSilent() []*Peer {
 
 // CreateDownloader returns a function that attempts to download files from peers.
 // The returned function can be used as hf.PeerDownloadFunc for model pulls.
-// user, repo, and quant are used for display purposes only.
-func CreateDownloader(user, repo, quant string) hf.PeerDownloadFunc {
+func CreateDownloader() hf.PeerDownloadFunc {
 	// Discover peers once upfront, reuse for all files
 	var peers []*Peer
 	var peersOnce sync.Once
@@ -55,8 +54,7 @@ func CreateDownloader(user, repo, quant string) hf.PeerDownloadFunc {
 		}
 
 		// Download from peer
-		modelName := ui.Keyword(hf.FormatModelName(user, repo, quant))
-		fmt.Printf("Pulling %s from peer %s (%s)\n", modelName, ui.Bold(found.peer.Host), ui.FormatBytes(found.size))
+		fmt.Printf(" via peer %s\n", ui.Bold(found.peer.Host))
 
 		if err := found.client.DownloadHash(hash, destPath, progress); err != nil {
 			os.Remove(destPath)

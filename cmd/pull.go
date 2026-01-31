@@ -151,7 +151,7 @@ func pullModelWithProgress(client *hf.Client, cfg *config.Config, user, repo str
 
 	// Add peer download support if enabled
 	if cfg != nil && cfg.Peer.Enabled {
-		opts.PeerDownload = peer.CreateDownloader(user, repo, quant.Name)
+		opts.PeerDownload = peer.CreateDownloader()
 	}
 
 	return hf.PullModelWithProgressFactory(client, user, repo, quant, opts, newProgressBar)
