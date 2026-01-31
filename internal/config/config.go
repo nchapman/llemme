@@ -21,8 +21,7 @@ type Config struct {
 }
 
 type Peer struct {
-	Enabled     bool     `yaml:"enabled"`      // Discover and download from peers (default: false)
-	Share       bool     `yaml:"share"`        // Allow peers to download from this instance (default: true, requires enabled=true)
+	Enabled     bool     `yaml:"enabled"`      // Enable bidirectional peer-to-peer model sharing (default: false)
 	Port        int      `yaml:"port"`         // Port for peer sharing server (default: 11314)
 	StaticPeers []string `yaml:"static_peers"` // Static peer addresses (host:port) when mDNS discovery fails
 }
@@ -123,7 +122,6 @@ func DefaultConfig() *Config {
 		},
 		Peer: Peer{
 			Enabled: false,
-			Share:   true,
 			Port:    11314,
 		},
 	}
@@ -151,6 +149,14 @@ server:
     - http://localhost
     - http://127.0.0.1
     - http://[::1]
+
+# Peer-to-peer model sharing
+# Share models with other lleme instances on your LAN (uses mDNS discovery)
+peer:
+  enabled: false  # Discover peers and share models bidirectionally
+  port: 11314     # Port for peer sharing (accessible from other machines)
+  # static_peers:  # Manually specify peers if mDNS doesn't work (e.g., across subnets)
+  #   - 192.168.1.100:11314
 
 # llama.cpp server settings
 # All options here are passed directly to llama-server.
@@ -190,15 +196,6 @@ llamacpp:
 
     # --- Reasoning models ---
     # reasoning-format: auto   # Thinking token handling (auto, none, deepseek)
-
-# Peer-to-peer model sharing
-# Allows lleme instances on the same network to share downloaded models
-peer:
-  enabled: false  # Enable peer discovery (must be true for share to work)
-  share: true     # Allow peers to download models from this instance
-  port: 11314     # Port for peer sharing server (binds to 0.0.0.0)
-  # static_peers:  # Manual peers when mDNS discovery doesn't work (e.g., Linux)
-  #   - 192.168.1.100:11314
 `
 
 func Load() (*Config, error) {

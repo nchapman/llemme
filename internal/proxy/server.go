@@ -68,12 +68,10 @@ func NewServer(cfg *Config, appCfg *config.Config) *Server {
 		peerPort,
 		version.Version,
 		appCfg.Peer.Enabled,
-		appCfg.Peer.Share,
 	)
 
 	// Create peer server for model sharing (runs on separate port, binds to 0.0.0.0)
-	// Only start if peer discovery is enabled AND sharing is enabled
-	if appCfg.Peer.Enabled && appCfg.Peer.Share {
+	if appCfg.Peer.Enabled {
 		s.peerServer = peer.NewServer(peerPort)
 	}
 

@@ -7,7 +7,7 @@ import (
 )
 
 func TestNewDiscovery(t *testing.T) {
-	d := NewDiscovery(11313, "0.1.0", true, true)
+	d := NewDiscovery(11313, "0.1.0", true)
 
 	if d == nil {
 		t.Fatal("NewDiscovery returned nil")
@@ -24,14 +24,10 @@ func TestNewDiscovery(t *testing.T) {
 	if !d.enabled {
 		t.Error("expected enabled to be true")
 	}
-
-	if !d.share {
-		t.Error("expected share to be true")
-	}
 }
 
 func TestDiscoveryDisabled(t *testing.T) {
-	d := NewDiscovery(11313, "0.1.0", false, false)
+	d := NewDiscovery(11313, "0.1.0", false)
 
 	// Start should return nil and not actually start anything
 	if err := d.Start(); err != nil {

@@ -59,11 +59,10 @@ type Discovery struct {
 	stopChan chan struct{}
 	stopOnce sync.Once
 	enabled  bool
-	share    bool
 }
 
 // NewDiscovery creates a new peer discovery manager
-func NewDiscovery(port int, version string, enabled, share bool) *Discovery {
+func NewDiscovery(port int, version string, enabled bool) *Discovery {
 	cache := NewPeerCache()
 	if err := cache.Load(); err != nil {
 		logs.Debug("Failed to load peer cache", "error", err)
@@ -76,7 +75,6 @@ func NewDiscovery(port int, version string, enabled, share bool) *Discovery {
 		version:  version,
 		stopChan: make(chan struct{}),
 		enabled:  enabled,
-		share:    share,
 	}
 }
 
@@ -87,12 +85,10 @@ func (d *Discovery) Start() error {
 		return nil
 	}
 
-	// Register our service if sharing is enabled
-	if d.share {
-		if err := d.register(); err != nil {
-			logs.Warn("Failed to register mDNS service", "error", err)
-			// Continue anyway - we can still discover peers
-		}
+	// Register our service via mDNS
+	if err := d.register(); err != nil {
+		logs.Warn("Failed to register mDNS service", "error", err)
+		// Continue anyway - we can still discover peers
 	}
 
 	// Start peer discovery in background

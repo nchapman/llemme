@@ -35,17 +35,6 @@ var peerStatusCmd = &cobra.Command{
 		// Check if server is actually running by trying to connect
 		serverRunning := peer.IsServerRunning(cfg.Peer.Port)
 
-		if !cfg.Peer.Share {
-			fmt.Println("Peer sharing: " + ui.Keyword("discovery only"))
-			if serverRunning {
-				fmt.Printf("Server:       running on port %d\n", cfg.Peer.Port)
-			}
-			fmt.Println()
-			fmt.Println(ui.Muted("To share your models: lleme config set peer.share true"))
-			return
-		}
-
-		// Full sharing enabled
 		if serverRunning {
 			localIP := peer.GetLocalIP()
 			fmt.Println("Peer sharing: " + ui.Keyword("active"))
