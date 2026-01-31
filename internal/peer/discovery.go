@@ -21,11 +21,12 @@ const (
 	Domain      = "local."
 
 	// Discovery timeouts - use tiered approach for faster response
-	FastTimeout     = 300 * time.Millisecond // First attempt - catches most local peers
-	MediumTimeout   = 800 * time.Millisecond // Second attempt - catches slower responders
-	MaxTimeout      = 2 * time.Second        // Final attempt - maximum wait
-	ThoroughTimeout = 3 * time.Second        // Background polling - find all peers
-	RetryDelay      = 100 * time.Millisecond // Delay between retries
+	FastTimeout        = 300 * time.Millisecond // First attempt - catches most local peers
+	MediumTimeout      = 800 * time.Millisecond // Second attempt - catches slower responders
+	MaxTimeout         = 2 * time.Second        // Final attempt - maximum wait
+	ThoroughTimeout    = 3 * time.Second        // Background polling - find all peers
+	RetryDelay         = 100 * time.Millisecond // Delay between retries
+	StaticProbeTimeout = 2 * time.Second        // Timeout for probing static peers
 )
 
 // DiscoveryMode controls how peer discovery behaves
@@ -184,12 +185,11 @@ func (d *Discovery) discover() {
 	// Convert to map for updating
 	newPeers := make(map[string]*Peer, len(peers))
 	for _, p := range peers {
-		key := fmt.Sprintf("%s:%d", p.Host, p.Port)
 		// Skip our own instance
 		if ip := net.ParseIP(p.Host); ip != nil && isLocalIP(ip) && p.Port == d.port {
 			continue
 		}
-		newPeers[key] = p
+		newPeers[peerKey(p.Host, p.Port)] = p
 	}
 
 	// Update peer list
@@ -411,7 +411,7 @@ func discoverWithTimeout(timeout time.Duration) []*Peer {
 			continue
 		}
 
-		key := fmt.Sprintf("%s:%d", host, entry.Port)
+		key := peerKey(host, entry.Port)
 		if seen[key] {
 			continue
 		}
@@ -471,7 +471,7 @@ func probeStaticPeer(addr string) *Peer {
 	}
 
 	// Probe the peer with a HEAD request to check if it's alive
-	client := &http.Client{Timeout: 2 * time.Second}
+	client := &http.Client{Timeout: StaticProbeTimeout}
 	url := fmt.Sprintf("http://%s/api/peer/sha256/0000000000000000000000000000000000000000000000000000000000000000", addr)
 	resp, err := client.Head(url)
 	if err != nil {

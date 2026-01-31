@@ -13,35 +13,37 @@ import (
 	"github.com/nchapman/lleme/internal/ui"
 )
 
+const (
+	// PeerQueryTimeout is how long to wait for peers to respond to hash queries
+	PeerQueryTimeout = 5 * time.Second
+)
+
 // logMu protects global log.Writer changes during peer discovery.
 var logMu sync.Mutex
 
-// DiscoverPeersSilent discovers peers with mDNS logging suppressed (fast mode).
+// discoverSilent runs a discovery function with mDNS logging suppressed.
 // This is thread-safe and can be called concurrently.
-func DiscoverPeersSilent() []*Peer {
+func discoverSilent(discover func() []*Peer) []*Peer {
 	logMu.Lock()
 	defer logMu.Unlock()
 
 	origOutput := log.Writer()
 	log.SetOutput(io.Discard)
-	peers := DiscoverPeers()
+	peers := discover()
 	log.SetOutput(origOutput)
 
 	return peers
 }
 
+// DiscoverPeersSilent discovers peers with mDNS logging suppressed (fast mode).
+func DiscoverPeersSilent() []*Peer {
+	return discoverSilent(DiscoverPeers)
+}
+
 // DiscoverPeersThoroughSilent discovers all peers with mDNS logging suppressed (thorough mode).
 // Waits longer to find all available peers. Best for `peer list` command.
 func DiscoverPeersThoroughSilent() []*Peer {
-	logMu.Lock()
-	defer logMu.Unlock()
-
-	origOutput := log.Writer()
-	log.SetOutput(io.Discard)
-	peers := DiscoverPeersThorough()
-	log.SetOutput(origOutput)
-
-	return peers
+	return discoverSilent(DiscoverPeersThorough)
 }
 
 // CreateDownloader returns a function that attempts to download files from peers.
@@ -100,7 +102,7 @@ func findPeerWithHash(peers []*Peer, hash string) *peerMatch {
 		return nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), PeerQueryTimeout)
 	defer cancel()
 
 	// Buffer of 1 - we only need the first result

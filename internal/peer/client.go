@@ -12,6 +12,14 @@ import (
 	"github.com/nchapman/lleme/internal/version"
 )
 
+const (
+	// ClientTimeout is the default timeout for peer HTTP requests
+	ClientTimeout = 30 * time.Second
+
+	// DownloadBufferSize is the buffer size for file downloads
+	DownloadBufferSize = 32 * 1024
+)
+
 // Client handles HTTP communication with a peer using hash-based requests.
 type Client struct {
 	peer       *Peer
@@ -23,7 +31,7 @@ func NewClient(peer *Peer) *Client {
 	return &Client{
 		peer: peer,
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: ClientTimeout,
 		},
 	}
 }
@@ -62,7 +70,7 @@ func (c *Client) DownloadHash(hash, destPath string, progress DownloadProgressCa
 	// Use a client with no timeout for large downloads
 	downloadClient := &http.Client{
 		Transport: &http.Transport{
-			ResponseHeaderTimeout: 30 * time.Second,
+			ResponseHeaderTimeout: ClientTimeout,
 		},
 	}
 
@@ -116,7 +124,7 @@ func (c *Client) DownloadHash(hash, destPath string, progress DownloadProgressCa
 	}
 	defer file.Close()
 
-	buf := make([]byte, 32*1024)
+	buf := make([]byte, DownloadBufferSize)
 	written := fileSize
 
 	for {
