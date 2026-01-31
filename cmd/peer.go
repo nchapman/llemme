@@ -2,9 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"io"
-	"log"
-	"time"
 
 	"github.com/nchapman/lleme/internal/config"
 	"github.com/nchapman/lleme/internal/peer"
@@ -78,12 +75,7 @@ var peerListCmd = &cobra.Command{
 		spinner := ui.NewSpinner()
 		spinner.Start("Discovering peers...")
 
-		origOutput := log.Writer()
-		log.SetOutput(io.Discard)
-		peers := peer.DiscoverPeers()
-		// Brief delay to let mDNS goroutines finish logging before we restore
-		time.Sleep(100 * time.Millisecond)
-		log.SetOutput(origOutput)
+		peers := peer.DiscoverPeersSilent()
 
 		if len(peers) == 0 {
 			spinner.Stop(true, "")

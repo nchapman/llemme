@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/nchapman/lleme/internal/config"
 	"github.com/nchapman/lleme/internal/hf"
@@ -86,7 +85,7 @@ Examples:
 		}
 
 		// Check if local files are up to date with remote manifest
-		upToDate, saveManifest, manifest, manifestJSON, err := hf.CheckForUpdates(client, user, repo, selectedQuant)
+		upToDate, saveManifest, _, manifestJSON, err := hf.CheckForUpdates(client, user, repo, selectedQuant)
 		if err != nil {
 			ui.Fatal("%v", err)
 		}
@@ -107,29 +106,8 @@ Examples:
 			return
 		}
 
-		// Try to pull from a peer first if peer discovery is enabled
-		// Only works for single files with a hash (not split files)
-		if cfg.Peer.Enabled && manifest != nil && manifest.GGUFFile != nil &&
-			manifest.GGUFFile.LFS != nil && manifest.GGUFFile.LFS.SHA256 != "" {
-			hash := manifest.GGUFFile.LFS.SHA256
-			if pulledFromPeer := tryPullFromPeer(user, repo, selectedQuant.Name, hash); pulledFromPeer {
-				// Save manifest for peer-downloaded model
-				manifestPath := hf.GetManifestFilePath(user, repo, selectedQuant.Name)
-				if err := os.WriteFile(manifestPath, manifestJSON, 0644); err != nil {
-					ui.Fatal("Failed to save manifest: %v", err)
-				}
-				// Update peer sharing index
-				if err := peer.RebuildPeerFileIndex(); err != nil {
-					ui.PrintError("Failed to update peer index: %v", err)
-				}
-				modelName := hf.FormatModelName(user, repo, selectedQuant.Name)
-				fmt.Printf("Pulled %s\n", modelName)
-				return
-			}
-		}
-
-		// Pull the model from HuggingFace
-		result, err := pullModelWithProgress(client, user, repo, selectedQuant)
+		// Pull the model (tries peers first if enabled, then HuggingFace)
+		result, err := pullModelWithProgress(client, cfg, user, repo, selectedQuant)
 		if err != nil {
 			ui.Fatal("%v", err)
 		}
@@ -148,8 +126,8 @@ Examples:
 	},
 }
 
-// pullModelWithProgress wraps hf.PullModel with progress bar display.
-func pullModelWithProgress(client *hf.Client, user, repo string, quant hf.Quantization) (*hf.PullResult, error) {
+// pullModelWithProgress wraps hf.PullModel with progress bar display and peer support.
+func pullModelWithProgress(client *hf.Client, cfg *config.Config, user, repo string, quant hf.Quantization) (*hf.PullResult, error) {
 	// Get manifest info for display (also returns manifest to pass to PullModel)
 	info, manifest, manifestJSON, err := hf.GetManifestInfo(client, user, repo, quant)
 	if err != nil {
@@ -169,6 +147,11 @@ func pullModelWithProgress(client *hf.Client, user, repo string, quant hf.Quanti
 	opts := &hf.PullOptions{
 		Manifest:     manifest,
 		ManifestJSON: manifestJSON,
+	}
+
+	// Add peer download support if enabled
+	if cfg != nil && cfg.Peer.Enabled {
+		opts.PeerDownload = peer.CreateDownloader(user, repo, quant.Name)
 	}
 
 	return hf.PullModelWithProgressFactory(client, user, repo, quant, opts, newProgressBar)
@@ -211,87 +194,6 @@ func handleModelError(err error, user, repo string) {
 	} else {
 		fmt.Printf("%s %v\n", ui.ErrorMsg("Error:"), err)
 	}
-}
-
-// peerMatch holds the result of a successful peer hash lookup.
-type peerMatch struct {
-	peer   *peer.Peer
-	client *peer.Client
-	size   int64
-}
-
-// tryPullFromPeer attempts to download a file from a peer using its SHA256 hash.
-// The hash comes from the HuggingFace manifest (trusted source).
-// Returns true if the file was successfully downloaded from a peer.
-func tryPullFromPeer(user, repo, quant, hash string) bool {
-	// Quick mDNS discovery to find peers
-	peers := peer.DiscoverPeers()
-	if len(peers) == 0 {
-		return false
-	}
-
-	// Query all peers in parallel for the hash
-	resultCh := make(chan peerMatch, len(peers))
-
-	for _, p := range peers {
-		go func(p *peer.Peer) {
-			client := peer.NewClient(p)
-			size, hasFile := client.HasHash(hash)
-			if hasFile {
-				resultCh <- peerMatch{peer: p, client: client, size: size}
-			}
-		}(p)
-	}
-
-	// Wait for first successful result or timeout
-	var found *peerMatch
-	select {
-	case match := <-resultCh:
-		found = &match
-	case <-time.After(5 * time.Second):
-		return false
-	}
-
-	// Found the file on a peer - attempt download
-	modelName := ui.Keyword(hf.FormatModelName(user, repo, quant))
-	fmt.Printf("Pulling %s from peer %s (%s)\n", modelName, found.peer.Host, ui.FormatBytes(found.size))
-
-	bar := ui.NewProgressBar()
-	bar.Start("", found.size)
-
-	destPath := hf.GetModelFilePath(user, repo, quant)
-
-	// Ensure model directory exists
-	modelDir := hf.GetModelPath(user, repo)
-	if err := os.MkdirAll(modelDir, 0755); err != nil {
-		bar.Stop()
-		fmt.Printf("Failed to create model directory: %v\n", err)
-		return false
-	}
-
-	err := found.client.DownloadHash(hash, destPath, func(downloaded, total int64) {
-		bar.Update(downloaded, total)
-	})
-
-	if err != nil {
-		bar.Stop()
-		os.Remove(destPath)
-		os.Remove(destPath + ".partial")
-		fmt.Printf("Peer download failed: %v - falling back to HuggingFace\n", err)
-		return false
-	}
-
-	// Verify the download against the HF-provided hash (not peer-provided)
-	bar.Finish("Verifying")
-	valid, err := peer.VerifyDownload(destPath, hash)
-	if err != nil || !valid {
-		os.Remove(destPath)
-		fmt.Printf("Verification failed - falling back to HuggingFace\n")
-		return false
-	}
-
-	bar.Finish("Downloaded from peer")
-	return true
 }
 
 func init() {

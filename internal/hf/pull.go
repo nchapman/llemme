@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
+
+	"github.com/nchapman/lleme/internal/logs"
 )
 
 // PullResult contains the result of a model pull operation.
@@ -58,65 +61,130 @@ func GetManifestInfo(client *Client, user, repo string, quant Quantization) (*Ma
 	return info, manifest, manifestJSON, nil
 }
 
+// PeerDownloadFunc attempts to download a file from a peer by its SHA256 hash.
+// Returns (downloaded bool, error). Does NOT verify hash - caller handles verification.
+type PeerDownloadFunc func(hash, destPath string, size int64, progress func(downloaded, total int64)) (bool, error)
+
 // PullOptions configures a model pull operation.
 type PullOptions struct {
 	// Pre-fetched manifest to avoid duplicate API calls.
 	// If nil, PullModel will fetch it.
 	Manifest     *Manifest
 	ManifestJSON []byte
+
+	// PeerDownload is an optional function to try downloading from peers first.
+	// If provided and returns (true, nil), the HuggingFace download is skipped.
+	PeerDownload PeerDownloadFunc
+}
+
+// fileDownload tracks a file to download and its metadata.
+type fileDownload struct {
+	file     *ManifestFile
+	destPath string
+	fromPeer bool // true if downloaded from peer (needs verification with fallback)
 }
 
 // PullModel downloads a model from HuggingFace using the manifest API.
 // It handles downloading the GGUF file, optional mmproj for vision models,
 // split GGUF files, hash verification, and saving the manifest for future reference.
 func PullModel(client *Client, user, repo string, quant Quantization, opts *PullOptions, progress func(PullProgress)) (*PullResult, error) {
-	var manifest *Manifest
-	var manifestJSON []byte
-	var err error
-
-	// Use pre-fetched manifest if provided, otherwise fetch it
-	if opts != nil && opts.Manifest != nil {
-		manifest = opts.Manifest
-		manifestJSON = opts.ManifestJSON
-	} else {
-		manifest, manifestJSON, err = client.GetManifest(user, repo, quant.Tag)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get manifest: %w", err)
-		}
+	manifest, manifestJSON, err := getOrFetchManifest(client, user, repo, quant, opts)
+	if err != nil {
+		return nil, err
 	}
 
-	if manifest.GGUFFile == nil {
-		return nil, fmt.Errorf("manifest does not contain a GGUF file")
-	}
-
-	// Check if this is a split file by examining the manifest filename
 	splitInfo := ParseSplitFilename(manifest.GGUFFile.RFilename)
 	if splitInfo != nil && splitInfo.SplitNo != 0 {
 		return nil, fmt.Errorf("manifest references split %d, expected first split", splitInfo.SplitNo+1)
 	}
 
-	// Calculate total download size
-	result := &PullResult{
-		GGUFSize:  manifest.GGUFFile.Size,
-		TotalSize: manifest.GGUFFile.Size,
-		IsVision:  manifest.MMProjFile != nil,
-	}
-	if result.IsVision {
-		result.MMProjSize = manifest.MMProjFile.Size
-		result.TotalSize += result.MMProjSize
-	}
-
-	// If split file, fetch all split file info from HuggingFace (includes LFS hashes)
+	// Fetch split file info if needed
 	if splitInfo != nil {
 		splitFiles, err := fetchSplitFileInfo(client, user, repo, splitInfo)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch split file info: %w", err)
 		}
 		manifest.SplitFiles = splitFiles
+	}
 
-		// Calculate total size from all splits
+	result := calculateResultSizes(manifest, splitInfo)
+
+	// Create model directory
+	modelDir := GetModelPath(user, repo)
+	if err := os.MkdirAll(modelDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create model directory: %w", err)
+	}
+
+	// Build list of files to download
+	files, err := buildFileList(user, repo, quant, manifest, splitInfo, result)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get peer download function
+	var peerDownload PeerDownloadFunc
+	if opts != nil {
+		peerDownload = opts.PeerDownload
+	}
+
+	// Download all files
+	if err := downloadAllFiles(client, user, repo, files, peerDownload, result.TotalSize, progress); err != nil {
+		cleanupFiles(files, splitInfo, user, repo, quant)
+		return nil, err
+	}
+
+	// Verify all files (with fallback for peer downloads)
+	if err := verifyAllFiles(client, user, repo, files, result.TotalSize, progress); err != nil {
+		cleanupFiles(files, splitInfo, user, repo, quant)
+		return nil, err
+	}
+
+	// Save manifest
+	if err := saveManifest(user, repo, quant.Name, manifest, manifestJSON); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// getOrFetchManifest returns the manifest from opts or fetches it.
+func getOrFetchManifest(client *Client, user, repo string, quant Quantization, opts *PullOptions) (*Manifest, []byte, error) {
+	if opts != nil && opts.Manifest != nil {
+		return opts.Manifest, opts.ManifestJSON, nil
+	}
+
+	if client == nil {
+		return nil, nil, fmt.Errorf("HuggingFace client is required")
+	}
+
+	manifest, manifestJSON, err := client.GetManifest(user, repo, quant.Tag)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get manifest: %w", err)
+	}
+
+	if manifest.GGUFFile == nil {
+		return nil, nil, fmt.Errorf("manifest does not contain a GGUF file")
+	}
+
+	return manifest, manifestJSON, nil
+}
+
+// calculateResultSizes computes the PullResult size fields.
+func calculateResultSizes(manifest *Manifest, splitInfo *SplitInfo) *PullResult {
+	result := &PullResult{
+		GGUFSize:  manifest.GGUFFile.Size,
+		TotalSize: manifest.GGUFFile.Size,
+		IsVision:  manifest.MMProjFile != nil,
+	}
+
+	if result.IsVision {
+		result.MMProjSize = manifest.MMProjFile.Size
+		result.TotalSize += result.MMProjSize
+	}
+
+	if splitInfo != nil {
 		totalGGUFSize := manifest.GGUFFile.Size
-		for _, sf := range splitFiles {
+		for _, sf := range manifest.SplitFiles {
 			totalGGUFSize += sf.Size
 		}
 		result.GGUFSize = totalGGUFSize
@@ -126,231 +194,233 @@ func PullModel(client *Client, user, repo string, quant Quantization, opts *Pull
 		}
 	}
 
-	// Create model directory
-	modelDir := GetModelPath(user, repo)
-	if err := os.MkdirAll(modelDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create model directory: %w", err)
+	return result
+}
+
+// buildFileList creates the list of files to download.
+func buildFileList(user, repo string, quant Quantization, manifest *Manifest, splitInfo *SplitInfo, result *PullResult) ([]fileDownload, error) {
+	var files []fileDownload
+
+	if splitInfo != nil {
+		splitDir := GetSplitModelDir(user, repo, quant.Name)
+		if err := os.MkdirAll(splitDir, 0755); err != nil {
+			return nil, fmt.Errorf("failed to create split directory: %w", err)
+		}
+
+		// First split
+		firstPath := filepath.Join(splitDir, filepath.Base(manifest.GGUFFile.RFilename))
+		result.ModelPath = firstPath
+		files = append(files, fileDownload{file: manifest.GGUFFile, destPath: firstPath})
+
+		// Remaining splits
+		for _, sf := range manifest.SplitFiles {
+			path := filepath.Join(splitDir, filepath.Base(sf.RFilename))
+			files = append(files, fileDownload{file: sf, destPath: path})
+		}
+	} else {
+		result.ModelPath = GetModelFilePath(user, repo, quant.Name)
+		files = append(files, fileDownload{file: manifest.GGUFFile, destPath: result.ModelPath})
 	}
 
+	if result.IsVision {
+		result.MMProjPath = GetMMProjFilePath(user, repo, quant.Name)
+		files = append(files, fileDownload{file: manifest.MMProjFile, destPath: result.MMProjPath})
+	}
+
+	return files, nil
+}
+
+// downloadAllFiles downloads all files, trying peer first then HuggingFace.
+func downloadAllFiles(client *Client, user, repo string, files []fileDownload, peerDownload PeerDownloadFunc, totalSize int64, progress func(PullProgress)) error {
 	downloaded := int64(0)
-	downloaderWithProgress := NewDownloaderWithProgress(client, func(current, total int64, speed float64, eta time.Duration) {
+
+	for i := range files {
+		fd := &files[i]
+
+		progressFn := func(current, total int64) {
+			if progress != nil {
+				progress(PullProgress{
+					Phase:   "download",
+					Current: downloaded + current,
+					Total:   totalSize,
+				})
+			}
+		}
+
+		fromPeer, err := downloadFile(client, user, repo, fd.file, fd.destPath, peerDownload, progressFn)
+		if err != nil {
+			return err
+		}
+		fd.fromPeer = fromPeer
+		downloaded += fd.file.Size
+	}
+
+	return nil
+}
+
+// downloadFile tries peer download first, falls back to HuggingFace.
+// Returns (fromPeer, error). Does NOT verify - that's handled separately.
+func downloadFile(client *Client, user, repo string, file *ManifestFile, destPath string, peerDownload PeerDownloadFunc, progress func(current, total int64)) (bool, error) {
+	// Try peer first if available
+	if peerDownload != nil && file.LFS != nil && file.LFS.SHA256 != "" {
+		downloaded, err := peerDownload(file.LFS.SHA256, destPath, file.Size, progress)
+		if err != nil {
+			logs.Debug("peer download failed, falling back to HuggingFace", "file", file.RFilename, "error", err)
+		}
+		if downloaded {
+			return true, nil
+		}
+	}
+
+	// Fall back to HuggingFace
+	if err := downloadFromHF(client, user, repo, file, destPath, progress); err != nil {
+		return false, err
+	}
+
+	return false, nil
+}
+
+// downloadFromHF downloads a file from HuggingFace.
+func downloadFromHF(client *Client, user, repo string, file *ManifestFile, destPath string, progress func(current, total int64)) error {
+	if client == nil {
+		return fmt.Errorf("HuggingFace client is required")
+	}
+
+	downloader := NewDownloaderWithProgress(client, func(current, total int64, speed float64, eta time.Duration) {
 		if progress != nil {
-			progress(PullProgress{
-				Phase:   "download",
-				Current: downloaded + current,
-				Total:   result.TotalSize,
-			})
+			progress(current, total)
 		}
 	})
 
-	if splitInfo != nil {
-		// Split file - download all parts to split directory
-		result.ModelPath, err = handleSplitDownload(client, user, repo, quant, splitInfo, &downloaded, result, progress)
-		if err != nil {
-			splitDir := GetSplitModelDir(user, repo, quant.Name)
-			os.RemoveAll(splitDir)
-			return nil, err
+	_, err := downloader.DownloadModel(user, repo, "main", file.RFilename, destPath)
+	return err
+}
+
+// verifyAllFiles verifies all downloaded files. If a peer-downloaded file fails,
+// retries from HuggingFace. HuggingFace download failures are fatal.
+func verifyAllFiles(client *Client, user, repo string, files []fileDownload, totalSize int64, progress func(PullProgress)) error {
+	verified := int64(0)
+
+	for i := range files {
+		fd := &files[i]
+
+		// Skip if no hash to verify
+		if fd.file.LFS == nil || fd.file.LFS.SHA256 == "" {
+			verified += fd.file.Size
+			continue
 		}
-	} else {
-		// Single file - download directly to final location
-		result.ModelPath = GetModelFilePath(user, repo, quant.Name)
-		_, err = downloaderWithProgress.DownloadModel(user, repo, "main", manifest.GGUFFile.RFilename, result.ModelPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to download model: %w", err)
+
+		progressFn := func(current, total int64) {
+			if progress != nil {
+				progress(PullProgress{
+					Phase:   "verify",
+					Current: verified + current,
+					Total:   totalSize,
+				})
+			}
 		}
-		downloaded += manifest.GGUFFile.Size
-	}
 
-	// Download mmproj if present (vision model)
-	if result.IsVision {
-		result.MMProjPath = GetMMProjFilePath(user, repo, quant.Name)
-		_, err = downloaderWithProgress.DownloadModel(user, repo, "main", manifest.MMProjFile.RFilename, result.MMProjPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to download mmproj: %w", err)
-		}
-	}
+		if err := verifyFile(fd.destPath, fd.file.LFS.SHA256, progressFn); err != nil {
+			os.Remove(fd.destPath)
 
-	// Verify downloaded files against manifest hashes
-	if manifest.GGUFFile.LFS != nil {
-		verified := int64(0)
-
-		if splitInfo == nil {
-			// Single file verification
-			hash, err := CalculateSHA256WithProgress(result.ModelPath, func(processed, total int64) {
-				if progress != nil {
-					progress(PullProgress{
-						Phase:   "verify",
-						Current: verified + processed,
-						Total:   result.TotalSize,
-					})
-				}
-			})
-			if err != nil {
-				return nil, fmt.Errorf("failed to verify model: %w", err)
-			}
-			if hash != manifest.GGUFFile.LFS.SHA256 {
-				os.Remove(result.ModelPath)
-				return nil, fmt.Errorf("model verification failed: hash mismatch")
-			}
-			verified += manifest.GGUFFile.Size
-		} else {
-			// Split file verification - verify each split
-			splitDir := GetSplitModelDir(user, repo, quant.Name)
-
-			// Verify first split
-			firstSplitPath := filepath.Join(splitDir, filepath.Base(manifest.GGUFFile.RFilename))
-			hash, err := CalculateSHA256WithProgress(firstSplitPath, func(processed, total int64) {
-				if progress != nil {
-					progress(PullProgress{
-						Phase:   "verify",
-						Current: verified + processed,
-						Total:   result.TotalSize,
-					})
-				}
-			})
-			if err != nil {
-				return nil, fmt.Errorf("failed to verify split 1: %w", err)
-			}
-			if hash != manifest.GGUFFile.LFS.SHA256 {
-				os.RemoveAll(splitDir)
-				return nil, fmt.Errorf("split 1 verification failed: hash mismatch")
-			}
-			verified += manifest.GGUFFile.Size
-
-			// Verify remaining splits
-			for i, sf := range manifest.SplitFiles {
-				if sf.LFS == nil {
-					continue // Skip if no hash info
-				}
-				splitPath := filepath.Join(splitDir, filepath.Base(sf.RFilename))
-				hash, err := CalculateSHA256WithProgress(splitPath, func(processed, total int64) {
+			// If peer download failed verification, retry from HuggingFace
+			if fd.fromPeer {
+				downloadProgressFn := func(current, total int64) {
 					if progress != nil {
 						progress(PullProgress{
-							Phase:   "verify",
-							Current: verified + processed,
-							Total:   result.TotalSize,
+							Phase:   "download",
+							Current: current,
+							Total:   fd.file.Size,
 						})
 					}
-				})
-				if err != nil {
-					return nil, fmt.Errorf("failed to verify split %d: %w", i+2, err)
 				}
-				if hash != sf.LFS.SHA256 {
-					os.RemoveAll(splitDir)
-					return nil, fmt.Errorf("split %d verification failed: hash mismatch", i+2)
+
+				if err := downloadFromHF(client, user, repo, fd.file, fd.destPath, downloadProgressFn); err != nil {
+					return fmt.Errorf("failed to download %s from HuggingFace: %w", filepath.Base(fd.destPath), err)
 				}
-				verified += sf.Size
+
+				// Verify the HF download
+				if err := verifyFile(fd.destPath, fd.file.LFS.SHA256, progressFn); err != nil {
+					os.Remove(fd.destPath)
+					return fmt.Errorf("verification failed for %s: %w", filepath.Base(fd.destPath), err)
+				}
+			} else {
+				return fmt.Errorf("verification failed for %s: %w", filepath.Base(fd.destPath), err)
 			}
 		}
 
-		if result.IsVision && manifest.MMProjFile.LFS != nil {
-			hash, err := CalculateSHA256WithProgress(result.MMProjPath, func(processed, total int64) {
-				if progress != nil {
-					progress(PullProgress{
-						Phase:   "verify",
-						Current: verified + processed,
-						Total:   result.TotalSize,
-					})
-				}
-			})
-			if err != nil {
-				return nil, fmt.Errorf("failed to verify mmproj: %w", err)
-			}
-			if hash != manifest.MMProjFile.LFS.SHA256 {
-				os.Remove(result.MMProjPath)
-				return nil, fmt.Errorf("mmproj verification failed: hash mismatch")
-			}
-		}
+		verified += fd.file.Size
 	}
 
-	// Save manifest for offline reference and verification
-	// Re-marshal to include SplitFiles if present
+	return nil
+}
+
+// verifyFile checks a file's SHA256 hash.
+func verifyFile(path, expectedHash string, progress func(current, total int64)) error {
+	hash, err := CalculateSHA256WithProgress(path, progress)
+	if err != nil {
+		return fmt.Errorf("failed to calculate hash: %w", err)
+	}
+	if !strings.EqualFold(hash, expectedHash) {
+		return fmt.Errorf("hash mismatch")
+	}
+	return nil
+}
+
+// cleanupFiles removes downloaded files on error.
+func cleanupFiles(files []fileDownload, splitInfo *SplitInfo, user, repo string, quant Quantization) {
+	if splitInfo != nil {
+		os.RemoveAll(GetSplitModelDir(user, repo, quant.Name))
+	} else {
+		for _, fd := range files {
+			os.Remove(fd.destPath)
+		}
+	}
+}
+
+// saveManifest saves the manifest to disk.
+func saveManifest(user, repo, quant string, manifest *Manifest, manifestJSON []byte) error {
 	var manifestData []byte
+	var err error
+
 	if len(manifest.SplitFiles) > 0 {
 		manifestData, err = json.Marshal(manifest)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal manifest: %w", err)
+			return fmt.Errorf("failed to marshal manifest: %w", err)
 		}
 	} else {
 		manifestData = manifestJSON
 	}
-	manifestPath := GetManifestFilePath(user, repo, quant.Name)
+
+	manifestPath := GetManifestFilePath(user, repo, quant)
 	if err := os.WriteFile(manifestPath, manifestData, 0644); err != nil {
-		return nil, fmt.Errorf("failed to save manifest: %w", err)
+		return fmt.Errorf("failed to save manifest: %w", err)
 	}
 
-	return result, nil
-}
-
-// handleSplitDownload downloads all split files and organizes them.
-// Downloads sequentially with progress tracking. Returns the path to the first split file.
-func handleSplitDownload(client *Client, user, repo string, quant Quantization, splitInfo *SplitInfo, downloaded *int64, result *PullResult, progress func(PullProgress)) (string, error) {
-	modelDir := GetModelPath(user, repo)
-
-	// Create quant subdirectory for split files
-	splitDir := filepath.Join(modelDir, quant.Name)
-	if err := os.MkdirAll(splitDir, 0755); err != nil {
-		return "", fmt.Errorf("failed to create split directory: %w", err)
-	}
-
-	var firstSplitPath string
-
-	// Download all splits sequentially with progress tracking
-	for i := 0; i < splitInfo.SplitCount; i++ {
-		splitFilename := SplitPath(splitInfo.Prefix, i, splitInfo.SplitCount)
-		localFilename := filepath.Base(splitFilename)
-		localPath := filepath.Join(splitDir, localFilename)
-
-		if i == 0 {
-			firstSplitPath = localPath
-		}
-
-		downloader := NewDownloaderWithProgress(client, func(current, total int64, speed float64, eta time.Duration) {
-			if progress != nil {
-				progress(PullProgress{
-					Phase:   "download",
-					Current: *downloaded + current,
-					Total:   result.TotalSize,
-				})
-			}
-		})
-
-		dlResult, err := downloader.DownloadModel(user, repo, "main", splitFilename, localPath)
-		if err != nil {
-			return "", fmt.Errorf("failed to download split %d: %w", i+1, err)
-		}
-		*downloaded += dlResult.Total
-	}
-
-	return firstSplitPath, nil
+	return nil
 }
 
 // fetchSplitFileInfo fetches LFS metadata for all split files (except the first, which is in the manifest).
-// Returns ManifestFile entries for splits 2 through N.
 func fetchSplitFileInfo(client *Client, user, repo string, splitInfo *SplitInfo) ([]*ManifestFile, error) {
 	if splitInfo.SplitCount <= 1 {
 		return nil, nil
 	}
 
-	// Get the directory path from the split prefix (e.g., "Q4_K_M/model-Q4_K_M" -> "Q4_K_M")
 	dirPath := filepath.Dir(splitInfo.Prefix)
 	if dirPath == "." {
 		dirPath = ""
 	}
 
-	// Fetch file listing from HuggingFace
 	files, err := client.ListFilesInPath(user, repo, "main", dirPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list split files: %w", err)
 	}
 
-	// Build a map of filename -> file info for quick lookup
 	fileMap := make(map[string]FileTree)
 	for _, f := range files {
 		fileMap[filepath.Base(f.Path)] = f
 	}
 
-	// Collect info for splits 2 through N
 	var splitFiles []*ManifestFile
 	for i := 1; i < splitInfo.SplitCount; i++ {
 		splitPath := SplitPath(splitInfo.Prefix, i, splitInfo.SplitCount)
@@ -366,7 +436,6 @@ func fetchSplitFileInfo(client *Client, user, repo string, splitInfo *SplitInfo)
 			Size:      ft.Size,
 		}
 
-		// Extract LFS info if available (OID is the SHA256 hash)
 		if ft.LFS.OID != "" {
 			mf.LFS = &ManifestLFS{
 				SHA256: ft.LFS.OID,
@@ -381,7 +450,6 @@ func fetchSplitFileInfo(client *Client, user, repo string, splitInfo *SplitInfo)
 }
 
 // CheckForUpdates checks if a local model is up to date with the remote manifest.
-// Returns (up-to-date, should-save-manifest, manifest, manifestJSON, error).
 func CheckForUpdates(client *Client, user, repo string, quant Quantization) (bool, bool, *Manifest, []byte, error) {
 	manifest, manifestJSON, err := client.GetManifest(user, repo, quant.Tag)
 	if err != nil {
@@ -396,30 +464,22 @@ func CheckForUpdates(client *Client, user, repo string, quant Quantization) (boo
 	return upToDate, saveManifest, manifest, manifestJSON, nil
 }
 
-// isUpToDate checks if local files match the remote manifest by comparing sha256 hashes.
-// Returns (up-to-date, should-save-manifest).
+// isUpToDate checks if local files match the remote manifest.
 func isUpToDate(user, repo, quant string, remote *Manifest) (bool, bool) {
 	manifestPath := GetManifestFilePath(user, repo, quant)
-
-	// Find the model file (single or split)
 	modelPath := FindModelFile(user, repo, quant)
 
-	// Load saved manifest
 	manifestData, err := os.ReadFile(manifestPath)
 	if err != nil {
-		// No local manifest - check if this is a legacy download we can upgrade
 		if modelPath != "" {
 			modelInfo, statErr := os.Stat(modelPath)
 			if statErr == nil && modelInfo.Size() == remote.GGUFFile.Size {
-				// Model exists with matching size - likely a legacy download
-				// Check if vision model needs mmproj
 				if remote.MMProjFile != nil {
 					mmprojPath := GetMMProjFilePath(user, repo, quant)
 					if _, err := os.Stat(mmprojPath); err != nil {
-						return false, false // Need to download mmproj
+						return false, false
 					}
 				}
-				// Save manifest for this legacy model and consider it up to date
 				return true, true
 			}
 		}
@@ -427,28 +487,24 @@ func isUpToDate(user, repo, quant string, remote *Manifest) (bool, bool) {
 	}
 
 	var local Manifest
-	if err := parseManifest(manifestData, &local); err != nil {
-		return false, false // Can't parse, need to download
+	if err := json.Unmarshal(manifestData, &local); err != nil {
+		return false, false
 	}
 
-	// Compare GGUF file hash
 	if !hashesMatch(local.GGUFFile, remote.GGUFFile) {
 		return false, false
 	}
 
-	// Compare mmproj hash if remote has one
 	if remote.MMProjFile != nil {
 		if !hashesMatch(local.MMProjFile, remote.MMProjFile) {
 			return false, false
 		}
-		// Also verify the mmproj file actually exists
 		mmprojPath := GetMMProjFilePath(user, repo, quant)
 		if _, err := os.Stat(mmprojPath); err != nil {
 			return false, false
 		}
 	}
 
-	// Verify the model file actually exists
 	if modelPath == "" {
 		return false, false
 	}
@@ -456,21 +512,14 @@ func isUpToDate(user, repo, quant string, remote *Manifest) (bool, bool) {
 	return true, false
 }
 
-// hashesMatch compares the sha256 hashes of two manifest files.
 func hashesMatch(local, remote *ManifestFile) bool {
 	if local == nil || remote == nil {
 		return local == nil && remote == nil
 	}
 	if local.LFS == nil || remote.LFS == nil {
-		// No hash info, fall back to size comparison
 		return local.Size == remote.Size
 	}
 	return local.LFS.SHA256 == remote.LFS.SHA256
-}
-
-// parseManifest unmarshals manifest JSON data.
-func parseManifest(data []byte, manifest *Manifest) error {
-	return json.Unmarshal(data, manifest)
 }
 
 // ProgressDisplay handles progress bar display for pull operations.
@@ -485,15 +534,13 @@ type ProgressDisplay interface {
 type ProgressDisplayFactory func() ProgressDisplay
 
 // PullModelWithProgress downloads a model with progress bar display.
-// Uses the provided factory to create progress bars for download and verify phases.
 func PullModelWithProgress(client *Client, user, repo string, quant Quantization, opts *PullOptions) (*PullResult, error) {
 	return PullModelWithProgressFactory(client, user, repo, quant, opts, nil)
 }
 
 // PullModelWithProgressFactory downloads a model with customizable progress display.
-// If factory is nil, progress is not displayed.
 func PullModelWithProgressFactory(client *Client, user, repo string, quant Quantization, opts *PullOptions, factory ProgressDisplayFactory) (*PullResult, error) {
-	var progress ProgressDisplay
+	var progressBar ProgressDisplay
 	var currentPhase string
 
 	result, err := PullModel(client, user, repo, quant, opts, func(p PullProgress) {
@@ -501,33 +548,33 @@ func PullModelWithProgressFactory(client *Client, user, repo string, quant Quant
 			return
 		}
 		if p.Phase != currentPhase {
-			if progress != nil {
+			if progressBar != nil {
 				if currentPhase == "download" {
-					progress.Finish("Downloaded")
+					progressBar.Finish("Downloaded")
 				} else {
-					progress.Finish("Verified")
+					progressBar.Finish("Verified")
 				}
 			}
 			currentPhase = p.Phase
-			progress = factory()
+			progressBar = factory()
 			if p.Phase == "download" {
-				progress.Start("", p.Total)
+				progressBar.Start("", p.Total)
 			} else {
-				progress.Start("Verifying", p.Total)
+				progressBar.Start("Verifying", p.Total)
 			}
 		}
-		if progress != nil {
-			progress.Update(p.Current, p.Total)
+		if progressBar != nil {
+			progressBar.Update(p.Current, p.Total)
 		}
 	})
 
-	if progress != nil {
+	if progressBar != nil {
 		if err != nil {
-			progress.Stop()
+			progressBar.Stop()
 		} else if currentPhase == "download" {
-			progress.Finish("Downloaded")
+			progressBar.Finish("Downloaded")
 		} else {
-			progress.Finish("Verified")
+			progressBar.Finish("Verified")
 		}
 	}
 
