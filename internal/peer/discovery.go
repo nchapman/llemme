@@ -19,6 +19,23 @@ import (
 const (
 	ServiceType = "_lleme._tcp"
 	Domain      = "local."
+
+	// Discovery timeouts - use tiered approach for faster response
+	FastTimeout     = 300 * time.Millisecond // First attempt - catches most local peers
+	MediumTimeout   = 800 * time.Millisecond // Second attempt - catches slower responders
+	MaxTimeout      = 2 * time.Second        // Final attempt - maximum wait
+	ThoroughTimeout = 3 * time.Second        // Background polling - find all peers
+	RetryDelay      = 100 * time.Millisecond // Delay between retries
+)
+
+// DiscoveryMode controls how peer discovery behaves
+type DiscoveryMode int
+
+const (
+	// ModeFast returns quickly when any peer is found (for CLI, pulls)
+	ModeFast DiscoveryMode = iota
+	// ModeThorough waits longer to find all available peers (for background polling)
+	ModeThorough
 )
 
 // Peer represents a discovered lleme instance on the network
@@ -158,68 +175,21 @@ func (d *Discovery) discoverLoop() {
 	}
 }
 
-// discover performs a single mDNS query for peers using zeroconf
+// discover performs a single mDNS query for peers using zeroconf.
+// Uses thorough mode to find all available peers for the background loop.
 func (d *Discovery) discover() {
-	resolver, err := zeroconf.NewResolver(nil)
-	if err != nil {
-		logs.Debug("Failed to create mDNS resolver", "error", err)
-		return
-	}
+	// Use thorough discovery to find all peers
+	peers := discoverWithMode(ModeThorough)
 
-	entries := make(chan *zeroconf.ServiceEntry, 10)
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	go func() {
-		if err := resolver.Browse(ctx, ServiceType, Domain, entries); err != nil {
-			logs.Debug("mDNS browse failed", "error", err)
-		}
-	}()
-
-	// Collect discovered peers
-	newPeers := make(map[string]*Peer)
-
-	for entry := range entries {
-		if entry == nil {
+	// Convert to map for updating
+	newPeers := make(map[string]*Peer, len(peers))
+	for _, p := range peers {
+		key := fmt.Sprintf("%s:%d", p.Host, p.Port)
+		// Skip our own instance
+		if ip := net.ParseIP(p.Host); ip != nil && isLocalIP(ip) && p.Port == d.port {
 			continue
 		}
-
-		// Parse TXT records to get version
-		version := ""
-		for _, txt := range entry.Text {
-			if v, ok := strings.CutPrefix(txt, "version="); ok {
-				version = v
-			}
-		}
-
-		// Get IPv4 address
-		var host string
-		for _, ip := range entry.AddrIPv4 {
-			if ip != nil && !isLocalIP(ip) {
-				host = ip.String()
-				break
-			}
-		}
-
-		// Skip if no valid IPv4 or is local
-		if host == "" {
-			continue
-		}
-
-		// Skip our own instance (host is already verified non-local, just check port)
-		if entry.Port == d.port && len(entry.AddrIPv4) > 0 && isLocalIP(entry.AddrIPv4[0]) {
-			continue
-		}
-
-		key := fmt.Sprintf("%s:%d", host, entry.Port)
-
-		newPeers[key] = &Peer{
-			Name:         entry.Instance,
-			Host:         host,
-			Port:         entry.Port,
-			Version:      version,
-			DiscoveredAt: time.Now(),
-		}
+		newPeers[key] = p
 	}
 
 	// Update peer list
@@ -312,24 +282,30 @@ func isLocalIP(ip net.IP) bool {
 	return false
 }
 
-// DiscoverPeers returns peers from cache merged with fresh mDNS discovery and static peers.
+// DiscoverPeers returns peers using fast mode (returns quickly when any peer is found).
+// Best for pulls and operations where finding one peer quickly is preferred.
 // Fresh discovery results take precedence over cached entries.
 func DiscoverPeers() []*Peer {
-	// Load cache
+	return discoverPeersWithMode(ModeFast)
+}
+
+// DiscoverPeersThorough returns peers using thorough mode (waits to find all peers).
+// Best for `peer list` and operations where a complete peer list is preferred.
+// Fresh discovery results take precedence over cached entries.
+func DiscoverPeersThorough() []*Peer {
+	return discoverPeersWithMode(ModeThorough)
+}
+
+// discoverPeersWithMode returns peers from cache merged with fresh mDNS discovery and static peers.
+// Fresh discovery results take precedence over cached entries.
+func discoverPeersWithMode(mode DiscoveryMode) []*Peer {
+	// Load cache first for fast fallback
 	cache := NewPeerCache()
 	cache.Load() // Ignore errors, cache may not exist
+	cachedPeers := cache.GetFresh()
 
-	// Try fresh discovery (with retries for mDNS flakiness)
-	var freshPeers []*Peer
-	for attempt := range 3 {
-		freshPeers = discoverPeersOnce()
-		if len(freshPeers) > 0 {
-			break
-		}
-		if attempt < 2 {
-			time.Sleep(200 * time.Millisecond)
-		}
-	}
+	// Try fresh discovery with the requested mode
+	freshPeers := discoverWithMode(mode)
 
 	// Update cache with fresh results
 	if len(freshPeers) > 0 {
@@ -337,7 +313,7 @@ func DiscoverPeers() []*Peer {
 		cache.Save() // Ignore errors
 	}
 
-	// Merge: start with fresh peers, add non-stale cached peers not already present
+	// Merge: fresh peers first, then cached peers not already present
 	seen := make(map[string]bool)
 	var result []*Peer
 
@@ -347,7 +323,7 @@ func DiscoverPeers() []*Peer {
 		result = append(result, p)
 	}
 
-	for _, p := range cache.GetFresh() {
+	for _, p := range cachedPeers {
 		key := peerKey(p.Host, p.Port)
 		if !seen[key] {
 			seen[key] = true
@@ -355,8 +331,8 @@ func DiscoverPeers() []*Peer {
 		}
 	}
 
-	// Add static peers from config (useful when mDNS doesn't work)
-	for _, p := range getStaticPeers() {
+	// Add static peers from config (probed in parallel)
+	for _, p := range getStaticPeersParallel() {
 		key := peerKey(p.Host, p.Port)
 		if !seen[key] {
 			seen[key] = true
@@ -367,36 +343,45 @@ func DiscoverPeers() []*Peer {
 	return result
 }
 
-func discoverPeersOnce() []*Peer {
-	var peers []*Peer
-	ch := make(chan *Peer, 10)
+// discoverWithMode performs discovery based on the specified mode.
+// ModeFast: tiered timeouts with early return when any peer is found
+// ModeThorough: longer timeout to find all available peers
+func discoverWithMode(mode DiscoveryMode) []*Peer {
+	if mode == ModeThorough {
+		// For background polling, use longer timeout to find all peers
+		peers := discoverWithTimeout(ThoroughTimeout)
+		logs.Debug("Thorough discovery completed", "count", len(peers))
+		return peers
+	}
 
-	done := make(chan struct{})
-	go func() {
-		for p := range ch {
-			peers = append(peers, p)
+	// Fast mode: tiered timeouts with early return
+	timeouts := []time.Duration{FastTimeout, MediumTimeout, MaxTimeout}
+
+	for i, timeout := range timeouts {
+		peers := discoverWithTimeout(timeout)
+		if len(peers) > 0 {
+			logs.Debug("Fast discovery found peers", "count", len(peers), "timeout", timeout, "attempt", i+1)
+			return peers
 		}
-		close(done)
-	}()
+		if i < len(timeouts)-1 {
+			time.Sleep(RetryDelay)
+		}
+	}
 
-	QuickDiscover(ch)
-	<-done
-	return peers
+	return nil
 }
 
-// QuickDiscover performs a one-time mDNS query and sends discovered peers to the channel.
-// The channel is closed when discovery completes.
-func QuickDiscover(results chan<- *Peer) {
-	defer close(results)
-
+// discoverWithTimeout performs mDNS discovery with specified timeout.
+// Collects all peers discovered within the timeout period.
+func discoverWithTimeout(timeout time.Duration) []*Peer {
 	resolver, err := zeroconf.NewResolver(nil)
 	if err != nil {
 		logs.Debug("Failed to create mDNS resolver", "error", err)
-		return
+		return nil
 	}
 
 	entries := make(chan *zeroconf.ServiceEntry, 10)
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	go func() {
@@ -405,6 +390,7 @@ func QuickDiscover(results chan<- *Peer) {
 		}
 	}()
 
+	var peers []*Peer
 	seen := make(map[string]bool)
 
 	for entry := range entries {
@@ -425,6 +411,12 @@ func QuickDiscover(results chan<- *Peer) {
 			continue
 		}
 
+		key := fmt.Sprintf("%s:%d", host, entry.Port)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+
 		// Parse TXT records for version
 		version := ""
 		for _, txt := range entry.Text {
@@ -433,21 +425,28 @@ func QuickDiscover(results chan<- *Peer) {
 			}
 		}
 
-		logs.Debug("Discovered lleme peer", "host", host, "port", entry.Port, "version", version)
-
-		key := fmt.Sprintf("%s:%d", host, entry.Port)
-		if seen[key] {
-			continue
-		}
-		seen[key] = true
-
-		results <- &Peer{
+		peers = append(peers, &Peer{
 			Name:         entry.Instance,
 			Host:         host,
 			Port:         entry.Port,
 			Version:      version,
 			DiscoveredAt: time.Now(),
-		}
+		})
+
+		logs.Debug("Discovered peer", "host", host, "port", entry.Port, "version", version)
+	}
+
+	return peers
+}
+
+// QuickDiscover performs a one-time mDNS query and sends discovered peers to the channel.
+// The channel is closed when discovery completes. Uses fast mode for quick response.
+func QuickDiscover(results chan<- *Peer) {
+	defer close(results)
+
+	// Use fast mode discovery
+	for _, p := range discoverWithMode(ModeFast) {
+		results <- p
 	}
 }
 
@@ -461,8 +460,8 @@ func probeStaticPeer(addr string) *Peer {
 	}
 
 	port, err := strconv.Atoi(portStr)
-	if err != nil {
-		logs.Debug("Invalid static peer port", "addr", addr, "error", err)
+	if err != nil || port < 1 || port > 65535 {
+		logs.Debug("Invalid static peer port", "addr", addr, "port", portStr)
 		return nil
 	}
 
@@ -497,16 +496,32 @@ func probeStaticPeer(addr string) *Peer {
 	}
 }
 
-// getStaticPeers loads and probes static peers from config.
-func getStaticPeers() []*Peer {
+// getStaticPeersParallel loads and probes static peers from config in parallel.
+func getStaticPeersParallel() []*Peer {
 	cfg, err := config.Load()
 	if err != nil || len(cfg.Peer.StaticPeers) == 0 {
 		return nil
 	}
 
-	var peers []*Peer
+	results := make(chan *Peer, len(cfg.Peer.StaticPeers))
+
+	var wg sync.WaitGroup
 	for _, addr := range cfg.Peer.StaticPeers {
-		if p := probeStaticPeer(addr); p != nil {
+		wg.Add(1)
+		go func(addr string) {
+			defer wg.Done()
+			results <- probeStaticPeer(addr)
+		}(addr)
+	}
+
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	var peers []*Peer
+	for p := range results {
+		if p != nil {
 			peers = append(peers, p)
 		}
 	}

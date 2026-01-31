@@ -20,9 +20,8 @@ import (
 	"github.com/nchapman/lleme/internal/config"
 	"github.com/nchapman/lleme/internal/logs"
 	"github.com/nchapman/lleme/internal/peer"
+	"github.com/nchapman/lleme/internal/version"
 )
-
-const Version = "0.2.0"
 
 // Server is the main proxy server that routes requests to backends
 type Server struct {
@@ -67,7 +66,7 @@ func NewServer(cfg *Config, appCfg *config.Config) *Server {
 	}
 	s.discovery = peer.NewDiscovery(
 		peerPort,
-		Version,
+		version.Version,
 		appCfg.Peer.Enabled,
 		appCfg.Peer.Share,
 	)
@@ -479,7 +478,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	backends := s.manager.ListBackends()
 
 	status := ProxyStatus{
-		Version:       Version,
+		Version:       version.Version,
 		UptimeSeconds: time.Since(s.startedAt).Seconds(),
 		Host:          s.config.Host,
 		Port:          s.config.Port,

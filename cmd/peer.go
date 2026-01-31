@@ -79,11 +79,11 @@ var peerListCmd = &cobra.Command{
 			return
 		}
 
-		// Discover peers with spinner (suppress mDNS library logging)
+		// Discover all peers with spinner (thorough mode for complete list)
 		spinner := ui.NewSpinner()
 		spinner.Start("Discovering peers...")
 
-		peers := peer.DiscoverPeersSilent()
+		peers := peer.DiscoverPeersThoroughSilent()
 
 		if len(peers) == 0 {
 			spinner.Stop(true, "")

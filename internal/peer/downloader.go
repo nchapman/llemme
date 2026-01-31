@@ -16,7 +16,7 @@ import (
 // logMu protects global log.Writer changes during peer discovery.
 var logMu sync.Mutex
 
-// DiscoverPeersSilent discovers peers with mDNS logging suppressed.
+// DiscoverPeersSilent discovers peers with mDNS logging suppressed (fast mode).
 // This is thread-safe and can be called concurrently.
 func DiscoverPeersSilent() []*Peer {
 	logMu.Lock()
@@ -25,6 +25,20 @@ func DiscoverPeersSilent() []*Peer {
 	origOutput := log.Writer()
 	log.SetOutput(io.Discard)
 	peers := DiscoverPeers()
+	log.SetOutput(origOutput)
+
+	return peers
+}
+
+// DiscoverPeersThoroughSilent discovers all peers with mDNS logging suppressed (thorough mode).
+// Waits longer to find all available peers. Best for `peer list` command.
+func DiscoverPeersThoroughSilent() []*Peer {
+	logMu.Lock()
+	defer logMu.Unlock()
+
+	origOutput := log.Writer()
+	log.SetOutput(io.Discard)
+	peers := DiscoverPeersThorough()
 	log.SetOutput(origOutput)
 
 	return peers

@@ -147,10 +147,7 @@ func TestDiscoverPeers(t *testing.T) {
 		if p.Port == 0 {
 			t.Error("peer should have a port")
 		}
-		// Version must be non-empty (our filter requirement)
-		if p.Version == "" {
-			t.Error("peer should have version (we filter on this)")
-		}
+		// Version may be empty if peer doesn't advertise it
 	}
 
 	t.Logf("Found %d peers", len(peers))
@@ -224,10 +221,70 @@ func TestProbeStaticPeerUnreachable(t *testing.T) {
 	}
 }
 
-func TestGetStaticPeersEmpty(t *testing.T) {
+func TestGetStaticPeersParallelEmpty(t *testing.T) {
 	// When no static peers are configured, should return nil
 	// This test relies on the test environment not having static_peers configured
-	peers := getStaticPeers()
+	peers := getStaticPeersParallel()
 	// Just verify it doesn't panic - result depends on config
-	t.Logf("getStaticPeers returned %d peers", len(peers))
+	t.Logf("getStaticPeersParallel returned %d peers", len(peers))
+}
+
+func TestDiscoverPeersTimings(t *testing.T) {
+	// Test that discovery uses fast timeouts
+	start := time.Now()
+	peers := DiscoverPeers()
+	elapsed := time.Since(start)
+
+	t.Logf("Discovery found %d peers in %v", len(peers), elapsed)
+
+	// With tiered timeouts (300ms + 800ms + 2s), if peers are found quickly
+	// it should return in under 500ms. If no peers, max is ~3.2s.
+	if len(peers) > 0 && elapsed > 1*time.Second {
+		t.Logf("Warning: discovery with peers took longer than expected: %v", elapsed)
+	}
+}
+
+func TestDiscoveryModes(t *testing.T) {
+	// Test fast mode (should return quickly when peer found)
+	start := time.Now()
+	fastPeers := discoverWithMode(ModeFast)
+	fastElapsed := time.Since(start)
+
+	// Test thorough mode (should wait full timeout)
+	start = time.Now()
+	thoroughPeers := discoverWithMode(ModeThorough)
+	thoroughElapsed := time.Since(start)
+
+	t.Logf("Fast mode: %d peers in %v", len(fastPeers), fastElapsed)
+	t.Logf("Thorough mode: %d peers in %v", len(thoroughPeers), thoroughElapsed)
+
+	// If peers are found, fast mode should be quicker than thorough mode
+	if len(fastPeers) > 0 && len(thoroughPeers) > 0 {
+		if fastElapsed >= thoroughElapsed {
+			t.Logf("Note: Fast mode (%v) was not faster than thorough mode (%v)", fastElapsed, thoroughElapsed)
+		}
+	}
+
+	// Thorough mode should find at least as many peers as fast mode
+	if len(thoroughPeers) < len(fastPeers) {
+		t.Errorf("Thorough mode found fewer peers (%d) than fast mode (%d)", len(thoroughPeers), len(fastPeers))
+	}
+}
+
+func BenchmarkDiscoverPeers(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		DiscoverPeers()
+	}
+}
+
+func BenchmarkDiscoverFastMode(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		discoverWithMode(ModeFast)
+	}
+}
+
+func BenchmarkDiscoverThoroughMode(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		discoverWithMode(ModeThorough)
+	}
 }
