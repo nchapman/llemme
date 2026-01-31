@@ -143,6 +143,40 @@ func TestHashIndexLoadInvalidJSON(t *testing.T) {
 	}
 }
 
+func TestHashIndexEntries(t *testing.T) {
+	idx := NewHashIndex()
+
+	// Empty index should return empty map
+	entries := idx.Entries()
+	if len(entries) != 0 {
+		t.Errorf("expected empty map, got %d entries", len(entries))
+	}
+
+	// Add some entries
+	idx.index["hash1"] = "/path/to/file1.gguf"
+	idx.index["hash2"] = "/path/to/file2.gguf"
+	idx.index["hash3"] = "/path/to/file3.gguf"
+
+	entries = idx.Entries()
+	if len(entries) != 3 {
+		t.Errorf("expected 3 entries, got %d", len(entries))
+	}
+
+	// Verify entries are correct
+	if entries["hash1"] != "/path/to/file1.gguf" {
+		t.Errorf("wrong value for hash1")
+	}
+	if entries["hash2"] != "/path/to/file2.gguf" {
+		t.Errorf("wrong value for hash2")
+	}
+
+	// Verify it's a copy (modifying returned map doesn't affect original)
+	entries["hash4"] = "/path/to/file4.gguf"
+	if idx.Count() != 3 {
+		t.Errorf("modifying returned map should not affect original, count is %d", idx.Count())
+	}
+}
+
 func TestHashIndexConcurrentAccess(t *testing.T) {
 	idx := NewHashIndex()
 

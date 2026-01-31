@@ -225,7 +225,7 @@ type peerMatch struct {
 // Returns true if the file was successfully downloaded from a peer.
 func tryPullFromPeer(user, repo, quant, hash string) bool {
 	// Quick mDNS discovery to find peers
-	peers := discoverPeersQuick()
+	peers := peer.DiscoverPeers()
 	if len(peers) == 0 {
 		return false
 	}
@@ -292,28 +292,6 @@ func tryPullFromPeer(user, repo, quant, hash string) bool {
 
 	bar.Finish("Downloaded from peer")
 	return true
-}
-
-// discoverPeersQuick does a fast mDNS query to find peers.
-func discoverPeersQuick() []*peer.Peer {
-	var peers []*peer.Peer
-
-	entriesCh := make(chan *peer.Peer, 10)
-
-	// Use a goroutine to collect results
-	done := make(chan struct{})
-	go func() {
-		for p := range entriesCh {
-			peers = append(peers, p)
-		}
-		close(done)
-	}()
-
-	// Do the actual mDNS query
-	peer.QuickDiscover(entriesCh)
-
-	<-done
-	return peers
 }
 
 func init() {

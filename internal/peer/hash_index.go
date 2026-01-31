@@ -62,6 +62,17 @@ func (h *HashIndex) Count() int {
 	return len(h.index)
 }
 
+// Entries returns a copy of the index map for iteration.
+func (h *HashIndex) Entries() map[string]string {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	entries := make(map[string]string, len(h.index))
+	for k, v := range h.index {
+		entries[k] = v
+	}
+	return entries
+}
+
 // RebuildIndex scans all manifest files and saves the index to disk.
 // Call this after pulling or deleting models.
 func RebuildIndex() error {

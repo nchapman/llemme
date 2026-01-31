@@ -173,20 +173,7 @@ func formatTimeSince(t time.Time) string {
 }
 
 func showPeerStatus() {
-	// Quick discovery to find peers
-	entriesCh := make(chan *peer.Peer, 10)
-	var peers []*peer.Peer
-
-	done := make(chan struct{})
-	go func() {
-		for p := range entriesCh {
-			peers = append(peers, p)
-		}
-		close(done)
-	}()
-
-	peer.QuickDiscover(entriesCh)
-	<-done
+	peers := peer.DiscoverPeers()
 
 	fmt.Println()
 	if len(peers) == 0 {

@@ -176,6 +176,19 @@ func (d *Discovery) discover() {
 				continue
 			}
 
+			// Parse TXT records first to validate this is a lleme service
+			version := ""
+			for _, txt := range entry.InfoFields {
+				if v, ok := strings.CutPrefix(txt, "version="); ok {
+					version = v
+				}
+			}
+
+			// Skip non-lleme services (must have version TXT record)
+			if version == "" {
+				continue
+			}
+
 			// Skip our own instance
 			if entry.Port == d.port && isLocalIP(entry.AddrV4) {
 				continue
@@ -187,14 +200,6 @@ func (d *Discovery) discover() {
 			}
 
 			key := fmt.Sprintf("%s:%d", host, entry.Port)
-
-			// Parse TXT records
-			version := ""
-			for _, txt := range entry.InfoFields {
-				if v, ok := strings.CutPrefix(txt, "version="); ok {
-					version = v
-				}
-			}
 
 			newPeers[key] = &Peer{
 				Name:         entry.Name,
@@ -281,6 +286,25 @@ func isLocalIP(ip net.IP) bool {
 	return false
 }
 
+// DiscoverPeers performs a one-time mDNS query and returns all discovered peers.
+// This is a convenience wrapper around QuickDiscover.
+func DiscoverPeers() []*Peer {
+	var peers []*Peer
+	ch := make(chan *Peer, 10)
+
+	done := make(chan struct{})
+	go func() {
+		for p := range ch {
+			peers = append(peers, p)
+		}
+		close(done)
+	}()
+
+	QuickDiscover(ch)
+	<-done
+	return peers
+}
+
 // QuickDiscover performs a one-time mDNS query and sends discovered peers to the channel.
 // The channel is closed when discovery completes.
 func QuickDiscover(results chan<- *Peer) {
@@ -320,19 +344,26 @@ func QuickDiscover(results chan<- *Peer) {
 				continue
 			}
 
-			key := fmt.Sprintf("%s:%d", host, entry.Port)
-			if seen[key] {
-				continue
-			}
-			seen[key] = true
-
-			// Parse TXT records
+			// Parse TXT records first to validate this is a lleme service
 			version := ""
 			for _, txt := range entry.InfoFields {
 				if v, ok := strings.CutPrefix(txt, "version="); ok {
 					version = v
 				}
 			}
+
+			// Skip non-lleme services (must have version TXT record)
+			if version == "" {
+				continue
+			}
+
+			logs.Debug("Discovered lleme peer", "host", host, "port", entry.Port, "version", version)
+
+			key := fmt.Sprintf("%s:%d", host, entry.Port)
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
 
 			results <- &Peer{
 				Name:         entry.Name,

@@ -132,6 +132,29 @@ func TestDomainConstant(t *testing.T) {
 	}
 }
 
+func TestDiscoverPeers(t *testing.T) {
+	// This test exercises the DiscoverPeers function
+	// It may or may not find peers depending on the network environment
+	peers := DiscoverPeers()
+
+	// Should complete without error (nil slice is valid if no peers)
+	// If peers are found, verify they have required fields
+	for _, p := range peers {
+		if p.Host == "" {
+			t.Error("peer should have a host")
+		}
+		if p.Port == 0 {
+			t.Error("peer should have a port")
+		}
+		// Version must be non-empty (our filter requirement)
+		if p.Version == "" {
+			t.Error("peer should have version (we filter on this)")
+		}
+	}
+
+	t.Logf("Found %d peers", len(peers))
+}
+
 func TestPeersCopyBehavior(t *testing.T) {
 	d := NewDiscovery(11313, "0.1.0", true, false)
 
