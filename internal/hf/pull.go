@@ -106,17 +106,18 @@ func PullModel(client *Client, user, repo string, quant Quantization, opts *Pull
 		result.TotalSize += result.MMProjSize
 	}
 
-	// If split file, fetch all sizes upfront via HEAD requests
+	// If split file, fetch all split file info from HuggingFace (includes LFS hashes)
 	if splitInfo != nil {
+		splitFiles, err := fetchSplitFileInfo(client, user, repo, splitInfo)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch split file info: %w", err)
+		}
+		manifest.SplitFiles = splitFiles
+
+		// Calculate total size from all splits
 		totalGGUFSize := manifest.GGUFFile.Size
-		for i := 1; i < splitInfo.SplitCount; i++ {
-			splitPath := SplitPath(splitInfo.Prefix, i, splitInfo.SplitCount)
-			size, err := client.GetFileSize(user, repo, "main", splitPath)
-			if err != nil {
-				// Fall back to estimate if HEAD fails
-				size = manifest.GGUFFile.Size
-			}
-			totalGGUFSize += size
+		for _, sf := range splitFiles {
+			totalGGUFSize += sf.Size
 		}
 		result.GGUFSize = totalGGUFSize
 		result.TotalSize = totalGGUFSize
@@ -169,28 +170,78 @@ func PullModel(client *Client, user, repo string, quant Quantization, opts *Pull
 		}
 	}
 
-	// Verify downloaded files against manifest hashes (only for single files)
-	// Split files are verified by llama.cpp when loading
-	if manifest.GGUFFile.LFS != nil && splitInfo == nil {
+	// Verify downloaded files against manifest hashes
+	if manifest.GGUFFile.LFS != nil {
 		verified := int64(0)
 
-		hash, err := CalculateSHA256WithProgress(result.ModelPath, func(processed, total int64) {
-			if progress != nil {
-				progress(PullProgress{
-					Phase:   "verify",
-					Current: verified + processed,
-					Total:   result.TotalSize,
-				})
+		if splitInfo == nil {
+			// Single file verification
+			hash, err := CalculateSHA256WithProgress(result.ModelPath, func(processed, total int64) {
+				if progress != nil {
+					progress(PullProgress{
+						Phase:   "verify",
+						Current: verified + processed,
+						Total:   result.TotalSize,
+					})
+				}
+			})
+			if err != nil {
+				return nil, fmt.Errorf("failed to verify model: %w", err)
 			}
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to verify model: %w", err)
+			if hash != manifest.GGUFFile.LFS.SHA256 {
+				os.Remove(result.ModelPath)
+				return nil, fmt.Errorf("model verification failed: hash mismatch")
+			}
+			verified += manifest.GGUFFile.Size
+		} else {
+			// Split file verification - verify each split
+			splitDir := GetSplitModelDir(user, repo, quant.Name)
+
+			// Verify first split
+			firstSplitPath := filepath.Join(splitDir, filepath.Base(manifest.GGUFFile.RFilename))
+			hash, err := CalculateSHA256WithProgress(firstSplitPath, func(processed, total int64) {
+				if progress != nil {
+					progress(PullProgress{
+						Phase:   "verify",
+						Current: verified + processed,
+						Total:   result.TotalSize,
+					})
+				}
+			})
+			if err != nil {
+				return nil, fmt.Errorf("failed to verify split 1: %w", err)
+			}
+			if hash != manifest.GGUFFile.LFS.SHA256 {
+				os.RemoveAll(splitDir)
+				return nil, fmt.Errorf("split 1 verification failed: hash mismatch")
+			}
+			verified += manifest.GGUFFile.Size
+
+			// Verify remaining splits
+			for i, sf := range manifest.SplitFiles {
+				if sf.LFS == nil {
+					continue // Skip if no hash info
+				}
+				splitPath := filepath.Join(splitDir, filepath.Base(sf.RFilename))
+				hash, err := CalculateSHA256WithProgress(splitPath, func(processed, total int64) {
+					if progress != nil {
+						progress(PullProgress{
+							Phase:   "verify",
+							Current: verified + processed,
+							Total:   result.TotalSize,
+						})
+					}
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to verify split %d: %w", i+2, err)
+				}
+				if hash != sf.LFS.SHA256 {
+					os.RemoveAll(splitDir)
+					return nil, fmt.Errorf("split %d verification failed: hash mismatch", i+2)
+				}
+				verified += sf.Size
+			}
 		}
-		if hash != manifest.GGUFFile.LFS.SHA256 {
-			os.Remove(result.ModelPath)
-			return nil, fmt.Errorf("model verification failed: hash mismatch")
-		}
-		verified += manifest.GGUFFile.Size
 
 		if result.IsVision && manifest.MMProjFile.LFS != nil {
 			hash, err := CalculateSHA256WithProgress(result.MMProjPath, func(processed, total int64) {
@@ -213,8 +264,18 @@ func PullModel(client *Client, user, repo string, quant Quantization, opts *Pull
 	}
 
 	// Save manifest for offline reference and verification
+	// Re-marshal to include SplitFiles if present
+	var manifestData []byte
+	if len(manifest.SplitFiles) > 0 {
+		manifestData, err = json.Marshal(manifest)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal manifest: %w", err)
+		}
+	} else {
+		manifestData = manifestJSON
+	}
 	manifestPath := GetManifestFilePath(user, repo, quant.Name)
-	if err := os.WriteFile(manifestPath, manifestJSON, 0644); err != nil {
+	if err := os.WriteFile(manifestPath, manifestData, 0644); err != nil {
 		return nil, fmt.Errorf("failed to save manifest: %w", err)
 	}
 
@@ -262,6 +323,61 @@ func handleSplitDownload(client *Client, user, repo string, quant Quantization, 
 	}
 
 	return firstSplitPath, nil
+}
+
+// fetchSplitFileInfo fetches LFS metadata for all split files (except the first, which is in the manifest).
+// Returns ManifestFile entries for splits 2 through N.
+func fetchSplitFileInfo(client *Client, user, repo string, splitInfo *SplitInfo) ([]*ManifestFile, error) {
+	if splitInfo.SplitCount <= 1 {
+		return nil, nil
+	}
+
+	// Get the directory path from the split prefix (e.g., "Q4_K_M/model-Q4_K_M" -> "Q4_K_M")
+	dirPath := filepath.Dir(splitInfo.Prefix)
+	if dirPath == "." {
+		dirPath = ""
+	}
+
+	// Fetch file listing from HuggingFace
+	files, err := client.ListFilesInPath(user, repo, "main", dirPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list split files: %w", err)
+	}
+
+	// Build a map of filename -> file info for quick lookup
+	fileMap := make(map[string]FileTree)
+	for _, f := range files {
+		fileMap[filepath.Base(f.Path)] = f
+	}
+
+	// Collect info for splits 2 through N
+	var splitFiles []*ManifestFile
+	for i := 1; i < splitInfo.SplitCount; i++ {
+		splitPath := SplitPath(splitInfo.Prefix, i, splitInfo.SplitCount)
+		splitName := filepath.Base(splitPath)
+
+		ft, ok := fileMap[splitName]
+		if !ok {
+			return nil, fmt.Errorf("split file %s not found in repository", splitName)
+		}
+
+		mf := &ManifestFile{
+			RFilename: splitPath,
+			Size:      ft.Size,
+		}
+
+		// Extract LFS info if available (OID is the SHA256 hash)
+		if ft.LFS.OID != "" {
+			mf.LFS = &ManifestLFS{
+				SHA256: ft.LFS.OID,
+				Size:   ft.LFS.Size,
+			}
+		}
+
+		splitFiles = append(splitFiles, mf)
+	}
+
+	return splitFiles, nil
 }
 
 // CheckForUpdates checks if a local model is up to date with the remote manifest.

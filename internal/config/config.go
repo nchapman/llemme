@@ -17,6 +17,13 @@ type Config struct {
 	HuggingFace HuggingFace `yaml:"huggingface"`
 	Server      Server      `yaml:"server"`
 	LlamaCpp    LlamaCpp    `yaml:"llamacpp"`
+	Peer        Peer        `yaml:"peer"`
+}
+
+type Peer struct {
+	Enabled bool `yaml:"enabled"` // Discover and download from peers (default: false)
+	Share   bool `yaml:"share"`   // Allow peers to download from this instance (default: true, requires enabled=true)
+	Port    int  `yaml:"port"`    // Port for peer sharing server (default: 11314)
 }
 
 type HuggingFace struct {
@@ -113,6 +120,11 @@ func DefaultConfig() *Config {
 				"http://[::1]",
 			},
 		},
+		Peer: Peer{
+			Enabled: false,
+			Share:   true,
+			Port:    11314,
+		},
 	}
 }
 
@@ -177,6 +189,13 @@ llamacpp:
 
     # --- Reasoning models ---
     # reasoning-format: auto   # Thinking token handling (auto, none, deepseek)
+
+# Peer-to-peer model sharing
+# Allows lleme instances on the same network to share downloaded models
+peer:
+  enabled: false  # Enable peer discovery (must be true for share to work)
+  share: true     # Allow peers to download models from this instance
+  port: 11314     # Port for peer sharing server (binds to 0.0.0.0)
 `
 
 func Load() (*Config, error) {
