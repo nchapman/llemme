@@ -1,16 +1,17 @@
 package peer
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
-func TestNewHashIndex(t *testing.T) {
-	idx := NewHashIndex()
+func TestNewPeerFileIndex(t *testing.T) {
+	idx := NewPeerFileIndex()
 	if idx == nil {
-		t.Fatal("NewHashIndex returned nil")
+		t.Fatal("NewPeerFileIndex returned nil")
 	}
 	if idx.index == nil {
 		t.Error("index map should be initialized")
@@ -20,14 +21,14 @@ func TestNewHashIndex(t *testing.T) {
 	}
 }
 
-func TestHashIndexLoadNonExistent(t *testing.T) {
+func TestPeerFileIndexLoadNonExistent(t *testing.T) {
 	// Create a temp directory for testing
 	tmpDir := t.TempDir()
 	origBaseDir := os.Getenv("HOME")
 	defer os.Setenv("HOME", origBaseDir)
 
 	// Point to non-existent file
-	idx := NewHashIndex()
+	idx := NewPeerFileIndex()
 	// Load should succeed with empty index when file doesn't exist
 	// This test verifies the behavior indirectly through manual index manipulation
 	idx.index["test"] = "value"
@@ -44,8 +45,8 @@ func TestHashIndexLoadNonExistent(t *testing.T) {
 	_ = tmpDir // silence unused warning
 }
 
-func TestHashIndexLookup(t *testing.T) {
-	idx := NewHashIndex()
+func TestPeerFileIndexLookup(t *testing.T) {
+	idx := NewPeerFileIndex()
 	hash := "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
 	path := "/path/to/model.gguf"
 
@@ -64,8 +65,8 @@ func TestHashIndexLookup(t *testing.T) {
 	}
 }
 
-func TestHashIndexCount(t *testing.T) {
-	idx := NewHashIndex()
+func TestPeerFileIndexCount(t *testing.T) {
+	idx := NewPeerFileIndex()
 
 	if idx.Count() != 0 {
 		t.Errorf("expected 0, got %d", idx.Count())
@@ -83,16 +84,16 @@ func TestHashIndexCount(t *testing.T) {
 	}
 }
 
-func TestHashIndexLoadFromFile(t *testing.T) {
+func TestPeerFileIndexLoadFromFile(t *testing.T) {
 	tmpDir := t.TempDir()
-	indexPath := filepath.Join(tmpDir, "hash_index.json")
+	indexPath := filepath.Join(tmpDir, "peer_file_index.yaml")
 
 	// Create a test index file
 	testIndex := map[string]string{
 		"abc123": "/path/to/file1.gguf",
 		"def456": "/path/to/file2.gguf",
 	}
-	data, err := json.Marshal(testIndex)
+	data, err := yaml.Marshal(testIndex)
 	if err != nil {
 		t.Fatalf("failed to marshal test index: %v", err)
 	}
@@ -101,12 +102,12 @@ func TestHashIndexLoadFromFile(t *testing.T) {
 	}
 
 	// Load directly from the test file
-	idx := NewHashIndex()
+	idx := NewPeerFileIndex()
 	data, err = os.ReadFile(indexPath)
 	if err != nil {
 		t.Fatalf("failed to read test index: %v", err)
 	}
-	if err := json.Unmarshal(data, &idx.index); err != nil {
+	if err := yaml.Unmarshal(data, &idx.index); err != nil {
 		t.Fatalf("failed to unmarshal: %v", err)
 	}
 
@@ -122,29 +123,29 @@ func TestHashIndexLoadFromFile(t *testing.T) {
 	}
 }
 
-func TestHashIndexLoadInvalidJSON(t *testing.T) {
+func TestPeerFileIndexLoadInvalidYAML(t *testing.T) {
 	tmpDir := t.TempDir()
-	indexPath := filepath.Join(tmpDir, "hash_index.json")
+	indexPath := filepath.Join(tmpDir, "peer_file_index.yaml")
 
-	// Create an invalid JSON file
-	if err := os.WriteFile(indexPath, []byte("not valid json"), 0644); err != nil {
+	// Create an invalid YAML file
+	if err := os.WriteFile(indexPath, []byte("not: valid: yaml: ["), 0644); err != nil {
 		t.Fatalf("failed to write invalid index: %v", err)
 	}
 
 	// Load should fail
-	idx := NewHashIndex()
+	idx := NewPeerFileIndex()
 	data, err := os.ReadFile(indexPath)
 	if err != nil {
 		t.Fatalf("failed to read: %v", err)
 	}
-	err = json.Unmarshal(data, &idx.index)
+	err = yaml.Unmarshal(data, &idx.index)
 	if err == nil {
-		t.Error("expected error loading invalid JSON")
+		t.Error("expected error loading invalid YAML")
 	}
 }
 
-func TestHashIndexEntries(t *testing.T) {
-	idx := NewHashIndex()
+func TestPeerFileIndexEntries(t *testing.T) {
+	idx := NewPeerFileIndex()
 
 	// Empty index should return empty map
 	entries := idx.Entries()
@@ -177,8 +178,8 @@ func TestHashIndexEntries(t *testing.T) {
 	}
 }
 
-func TestHashIndexConcurrentAccess(t *testing.T) {
-	idx := NewHashIndex()
+func TestPeerFileIndexConcurrentAccess(t *testing.T) {
+	idx := NewPeerFileIndex()
 
 	// Add some entries
 	for i := 0; i < 100; i++ {
@@ -203,7 +204,7 @@ func TestHashIndexConcurrentAccess(t *testing.T) {
 	}
 }
 
-func TestRebuildIndexIntegration(t *testing.T) {
+func TestRebuildPeerFileIndexIntegration(t *testing.T) {
 	// Skip if no models directory exists
 	modelsDir := os.ExpandEnv("$HOME/.lleme/models")
 	if _, err := os.Stat(modelsDir); os.IsNotExist(err) {
@@ -211,12 +212,12 @@ func TestRebuildIndexIntegration(t *testing.T) {
 	}
 
 	// Test rebuild
-	if err := RebuildIndex(); err != nil {
-		t.Fatalf("RebuildIndex failed: %v", err)
+	if err := RebuildPeerFileIndex(); err != nil {
+		t.Fatalf("RebuildPeerFileIndex failed: %v", err)
 	}
 
 	// Test index file was created
-	indexPath := IndexFilePath()
+	indexPath := PeerFileIndexPath()
 	info, err := os.Stat(indexPath)
 	if err != nil {
 		t.Fatalf("Index file not created: %v", err)
@@ -224,7 +225,7 @@ func TestRebuildIndexIntegration(t *testing.T) {
 	t.Logf("Index file: %s (%d bytes)", indexPath, info.Size())
 
 	// Test load and query
-	idx := NewHashIndex()
+	idx := NewPeerFileIndex()
 	if err := idx.Load(); err != nil {
 		t.Fatalf("Failed to load index: %v", err)
 	}

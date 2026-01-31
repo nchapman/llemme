@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"time"
 
 	"github.com/nchapman/lleme/internal/config"
 	"github.com/nchapman/lleme/internal/peer"
@@ -50,7 +51,7 @@ var peerStatusCmd = &cobra.Command{
 		// Show index stats if sharing is enabled
 		if cfg.Peer.Enabled && cfg.Peer.Share {
 			fmt.Println()
-			idx := peer.NewHashIndex()
+			idx := peer.NewPeerFileIndex()
 			if err := idx.Load(); err == nil {
 				fmt.Printf("  Indexed files:\t%d\n", idx.Count())
 			}
@@ -80,6 +81,8 @@ var peerListCmd = &cobra.Command{
 		origOutput := log.Writer()
 		log.SetOutput(io.Discard)
 		peers := peer.DiscoverPeers()
+		// Brief delay to let mDNS goroutines finish logging before we restore
+		time.Sleep(100 * time.Millisecond)
 		log.SetOutput(origOutput)
 
 		if len(peers) == 0 {
@@ -105,30 +108,30 @@ var peerListCmd = &cobra.Command{
 
 var peerIndexCmd = &cobra.Command{
 	Use:   "index",
-	Short: "Show or rebuild the local hash index",
-	Long: `Show files in the local hash index that are available for sharing.
+	Short: "Show or rebuild the peer file index",
+	Long: `Show files in the peer file index that are available for sharing.
 
 Use --rebuild to rebuild the index from downloaded model manifests.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		rebuild, _ := cmd.Flags().GetBool("rebuild")
 
 		if rebuild {
-			fmt.Println("Rebuilding hash index...")
-			if err := peer.RebuildIndex(); err != nil {
+			fmt.Println("Rebuilding peer file index...")
+			if err := peer.RebuildPeerFileIndex(); err != nil {
 				ui.Fatal("Failed to rebuild index: %v", err)
 			}
 			fmt.Println("Index rebuilt successfully.")
 			fmt.Println()
 		}
 
-		idx := peer.NewHashIndex()
+		idx := peer.NewPeerFileIndex()
 		if err := idx.Load(); err != nil {
 			ui.Fatal("Failed to load index: %v", err)
 		}
 
 		entries := idx.Entries()
 		if len(entries) == 0 {
-			fmt.Println(ui.Muted("Hash index is empty. Pull some models first."))
+			fmt.Println(ui.Muted("Peer file index is empty. Pull some models first."))
 			fmt.Println(ui.Muted("Run 'lleme peer index --rebuild' if you have models."))
 			return
 		}

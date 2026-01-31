@@ -17,16 +17,16 @@ import (
 // Server handles peer-to-peer model sharing HTTP endpoints.
 // Uses hash-based requests for privacy - peers cannot list available models.
 type Server struct {
-	httpServer *http.Server
-	port       int
-	hashIndex  *HashIndex
+	httpServer    *http.Server
+	port          int
+	peerFileIndex *PeerFileIndex
 }
 
 // NewServer creates a new peer sharing server.
 func NewServer(port int) *Server {
 	s := &Server{
-		port:      port,
-		hashIndex: NewHashIndex(),
+		port:          port,
+		peerFileIndex: NewPeerFileIndex(),
 	}
 
 	mux := http.NewServeMux()
@@ -40,16 +40,16 @@ func NewServer(port int) *Server {
 	return s
 }
 
-// Start starts the peer server and loads the hash index.
+// Start starts the peer server and loads the peer file index.
 func (s *Server) Start() error {
 	// Rebuild index if file doesn't exist, then load it
-	if _, err := os.Stat(IndexFilePath()); os.IsNotExist(err) {
-		if err := RebuildIndex(); err != nil {
-			logs.Warn("Failed to rebuild hash index", "error", err)
+	if _, err := os.Stat(PeerFileIndexPath()); os.IsNotExist(err) {
+		if err := RebuildPeerFileIndex(); err != nil {
+			logs.Warn("Failed to rebuild peer file index", "error", err)
 		}
 	}
-	if err := s.hashIndex.Load(); err != nil {
-		logs.Warn("Failed to load hash index", "error", err)
+	if err := s.peerFileIndex.Load(); err != nil {
+		logs.Warn("Failed to load peer file index", "error", err)
 	}
 
 	ln, err := net.Listen("tcp", s.httpServer.Addr)
@@ -63,7 +63,7 @@ func (s *Server) Start() error {
 		}
 	}()
 
-	logs.Debug("Peer server started", "addr", s.httpServer.Addr, "indexed_files", s.hashIndex.Count())
+	logs.Debug("Peer server started", "addr", s.httpServer.Addr, "indexed_files", s.peerFileIndex.Count())
 	return nil
 }
 
@@ -79,9 +79,9 @@ func (s *Server) Port() int {
 	return s.port
 }
 
-// ReloadIndex reloads the hash index from disk.
+// ReloadIndex reloads the peer file index from disk.
 func (s *Server) ReloadIndex() error {
-	return s.hashIndex.Load()
+	return s.peerFileIndex.Load()
 }
 
 // handleHashDownload serves a file by its SHA256 hash.
@@ -113,7 +113,7 @@ func (s *Server) handleHashDownload(w http.ResponseWriter, r *http.Request) {
 	hash = strings.ToLower(hash)
 
 	// Look up file path in index
-	filePath := s.hashIndex.Lookup(hash)
+	filePath := s.peerFileIndex.Lookup(hash)
 	if filePath == "" {
 		http.NotFound(w, r)
 		return

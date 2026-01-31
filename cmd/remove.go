@@ -178,7 +178,7 @@ Examples:
 
 		// Update peer sharing index
 		if removed > 0 {
-			if err := peer.RebuildIndex(); err != nil {
+			if err := peer.RebuildPeerFileIndex(); err != nil {
 				ui.PrintError("Failed to update peer index: %v", err)
 			}
 		}

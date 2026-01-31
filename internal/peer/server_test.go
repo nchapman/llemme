@@ -16,8 +16,8 @@ func TestNewServer(t *testing.T) {
 	if s.port != 11314 {
 		t.Errorf("expected port 11314, got %d", s.port)
 	}
-	if s.hashIndex == nil {
-		t.Error("hashIndex should be initialized")
+	if s.peerFileIndex == nil {
+		t.Error("peerFileIndex should be initialized")
 	}
 }
 
@@ -118,7 +118,7 @@ func TestHandleHashDownloadHEAD(t *testing.T) {
 
 	// Add to index
 	hash := "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
-	s.hashIndex.index[hash] = tmpFile
+	s.peerFileIndex.index[hash] = tmpFile
 
 	req := httptest.NewRequest(http.MethodHead, "/api/peer/sha256/"+hash, nil)
 	w := httptest.NewRecorder()
@@ -165,7 +165,7 @@ func TestHandleHashDownloadGET(t *testing.T) {
 
 	// Add to index
 	hash := "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321"
-	s.hashIndex.index[hash] = tmpFile
+	s.peerFileIndex.index[hash] = tmpFile
 
 	req := httptest.NewRequest(http.MethodGet, "/api/peer/sha256/"+hash, nil)
 	w := httptest.NewRecorder()
@@ -200,7 +200,7 @@ func TestHandleHashDownloadCaseNormalization(t *testing.T) {
 
 	// Add to index with lowercase hash
 	hash := "aabbcc1234567890aabbcc1234567890aabbcc1234567890aabbcc1234567890"
-	s.hashIndex.index[hash] = tmpFile
+	s.peerFileIndex.index[hash] = tmpFile
 
 	// Request with uppercase hash should work (normalized to lowercase)
 	upperHash := "AABBCC1234567890AABBCC1234567890AABBCC1234567890AABBCC1234567890"
@@ -236,7 +236,7 @@ func TestHandleHashDownloadFileNotExists(t *testing.T) {
 
 	// Add to index but file doesn't exist (but path is under models dir)
 	hash := "1111111111111111111111111111111111111111111111111111111111111111"
-	s.hashIndex.index[hash] = filepath.Join(modelsDir, "nonexistent-model.gguf")
+	s.peerFileIndex.index[hash] = filepath.Join(modelsDir, "nonexistent-model.gguf")
 
 	req := httptest.NewRequest(http.MethodHead, "/api/peer/sha256/"+hash, nil)
 	w := httptest.NewRecorder()
@@ -253,7 +253,7 @@ func TestHandleHashDownloadPathTraversal(t *testing.T) {
 
 	// Add to index with path outside models directory (defense in depth test)
 	hash := "2222222222222222222222222222222222222222222222222222222222222222"
-	s.hashIndex.index[hash] = "/etc/passwd"
+	s.peerFileIndex.index[hash] = "/etc/passwd"
 
 	req := httptest.NewRequest(http.MethodHead, "/api/peer/sha256/"+hash, nil)
 	w := httptest.NewRecorder()

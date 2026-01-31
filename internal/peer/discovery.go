@@ -32,6 +32,7 @@ type Discovery struct {
 	mu       sync.RWMutex
 	server   *mdns.Server
 	peers    map[string]*Peer // key: "host:port"
+	cache    *PeerCache       // persistent peer cache
 	port     int
 	version  string // lleme version to advertise
 	stopChan chan struct{}
@@ -42,8 +43,14 @@ type Discovery struct {
 
 // NewDiscovery creates a new peer discovery manager
 func NewDiscovery(port int, version string, enabled, share bool) *Discovery {
+	cache := NewPeerCache()
+	if err := cache.Load(); err != nil {
+		logs.Debug("Failed to load peer cache", "error", err)
+	}
+
 	return &Discovery{
 		peers:    make(map[string]*Peer),
+		cache:    cache,
 		port:     port,
 		version:  version,
 		stopChan: make(chan struct{}),
@@ -134,15 +141,24 @@ func (d *Discovery) discoverLoop() {
 	// Initial discovery
 	d.discover()
 
-	ticker := time.NewTicker(30 * time.Second)
+	ticker := time.NewTicker(PollInterval)
 	defer ticker.Stop()
 
+	pollCount := 0
 	for {
 		select {
 		case <-d.stopChan:
 			return
 		case <-ticker.C:
 			d.discover()
+			pollCount++
+			// Cleanup stale cache entries every ~20 minutes
+			if pollCount%10 == 0 {
+				d.cache.Cleanup()
+				if err := d.cache.Save(); err != nil {
+					logs.Debug("Failed to save peer cache after cleanup", "error", err)
+				}
+			}
 		}
 	}
 }
@@ -189,15 +205,17 @@ func (d *Discovery) discover() {
 				continue
 			}
 
+			// Skip entries without IPv4 address
+			if entry.AddrV4 == nil {
+				continue
+			}
+
 			// Skip our own instance
 			if entry.Port == d.port && isLocalIP(entry.AddrV4) {
 				continue
 			}
 
 			host := entry.AddrV4.String()
-			if host == "" || host == "<nil>" {
-				continue
-			}
 
 			key := fmt.Sprintf("%s:%d", host, entry.Port)
 
@@ -220,7 +238,16 @@ done:
 	d.peers = newPeers
 	d.mu.Unlock()
 
+	// Update and save cache
 	if len(newPeers) > 0 {
+		peerList := make([]*Peer, 0, len(newPeers))
+		for _, p := range newPeers {
+			peerList = append(peerList, p)
+		}
+		d.cache.Update(peerList)
+		if err := d.cache.Save(); err != nil {
+			logs.Debug("Failed to save peer cache", "error", err)
+		}
 		logs.Debug("Discovered peers", "count", len(newPeers))
 	}
 }
@@ -286,9 +313,53 @@ func isLocalIP(ip net.IP) bool {
 	return false
 }
 
-// DiscoverPeers performs a one-time mDNS query and returns all discovered peers.
-// This is a convenience wrapper around QuickDiscover.
+// DiscoverPeers returns peers from cache merged with fresh mDNS discovery.
+// Fresh discovery results take precedence over cached entries.
 func DiscoverPeers() []*Peer {
+	// Load cache
+	cache := NewPeerCache()
+	cache.Load() // Ignore errors, cache may not exist
+
+	// Try fresh discovery (with retries for mDNS flakiness)
+	var freshPeers []*Peer
+	for attempt := range 3 {
+		freshPeers = discoverPeersOnce()
+		if len(freshPeers) > 0 {
+			break
+		}
+		if attempt < 2 {
+			time.Sleep(200 * time.Millisecond)
+		}
+	}
+
+	// Update cache with fresh results
+	if len(freshPeers) > 0 {
+		cache.Update(freshPeers)
+		cache.Save() // Ignore errors
+	}
+
+	// Merge: start with fresh peers, add non-stale cached peers not already present
+	seen := make(map[string]bool)
+	var result []*Peer
+
+	for _, p := range freshPeers {
+		key := peerKey(p.Host, p.Port)
+		seen[key] = true
+		result = append(result, p)
+	}
+
+	for _, p := range cache.GetFresh() {
+		key := peerKey(p.Host, p.Port)
+		if !seen[key] {
+			seen[key] = true
+			result = append(result, p)
+		}
+	}
+
+	return result
+}
+
+func discoverPeersOnce() []*Peer {
 	var peers []*Peer
 	ch := make(chan *Peer, 10)
 
@@ -311,14 +382,14 @@ func QuickDiscover(results chan<- *Peer) {
 	defer close(results)
 
 	entriesCh := make(chan *mdns.ServiceEntry, 10)
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	go func() {
 		params := mdns.DefaultParams(ServiceType)
 		params.DisableIPv6 = true
 		params.Entries = entriesCh
-		params.Timeout = 2 * time.Second
+		params.Timeout = 3 * time.Second
 		mdns.Query(params)
 	}()
 
@@ -330,14 +401,11 @@ func QuickDiscover(results chan<- *Peer) {
 			if !ok {
 				return
 			}
-			if entry == nil {
+			if entry == nil || entry.AddrV4 == nil {
 				continue
 			}
 
 			host := entry.AddrV4.String()
-			if host == "" || host == "<nil>" {
-				continue
-			}
 
 			// Skip local instances
 			if isLocalIP(entry.AddrV4) {

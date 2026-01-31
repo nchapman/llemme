@@ -10,32 +10,33 @@ import (
 	"github.com/nchapman/lleme/internal/config"
 	"github.com/nchapman/lleme/internal/hf"
 	"github.com/nchapman/lleme/internal/logs"
+	"gopkg.in/yaml.v3"
 )
 
-// IndexFilePath returns the path to the persisted hash index file.
-func IndexFilePath() string {
-	return filepath.Join(config.BaseDir(), "hash_index.json")
+// PeerFileIndexPath returns the path to the persisted peer file index.
+func PeerFileIndexPath() string {
+	return filepath.Join(config.CachePath(), "peer_file_index.yaml")
 }
 
-// HashIndex maps SHA256 hashes to local file paths for peer sharing.
-type HashIndex struct {
+// PeerFileIndex maps SHA256 hashes to local file paths for peer sharing.
+type PeerFileIndex struct {
 	mu    sync.RWMutex
 	index map[string]string // sha256 -> model file path
 }
 
-// NewHashIndex creates a new hash index.
-func NewHashIndex() *HashIndex {
-	return &HashIndex{
+// NewPeerFileIndex creates a new hash index.
+func NewPeerFileIndex() *PeerFileIndex {
+	return &PeerFileIndex{
 		index: make(map[string]string),
 	}
 }
 
 // Load reads the index from the persisted file.
-func (h *HashIndex) Load() error {
+func (h *PeerFileIndex) Load() error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	data, err := os.ReadFile(IndexFilePath())
+	data, err := os.ReadFile(PeerFileIndexPath())
 	if err != nil {
 		if os.IsNotExist(err) {
 			h.index = make(map[string]string)
@@ -44,26 +45,26 @@ func (h *HashIndex) Load() error {
 		return err
 	}
 
-	return json.Unmarshal(data, &h.index)
+	return yaml.Unmarshal(data, &h.index)
 }
 
 // Lookup returns the file path for a given SHA256 hash.
 // Returns empty string if not found.
-func (h *HashIndex) Lookup(hash string) string {
+func (h *PeerFileIndex) Lookup(hash string) string {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	return h.index[hash]
 }
 
 // Count returns the number of indexed files.
-func (h *HashIndex) Count() int {
+func (h *PeerFileIndex) Count() int {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	return len(h.index)
 }
 
 // Entries returns a copy of the index map for iteration.
-func (h *HashIndex) Entries() map[string]string {
+func (h *PeerFileIndex) Entries() map[string]string {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	entries := make(map[string]string, len(h.index))
@@ -73,9 +74,9 @@ func (h *HashIndex) Entries() map[string]string {
 	return entries
 }
 
-// RebuildIndex scans all manifest files and saves the index to disk.
+// RebuildPeerFileIndex scans all manifest files and saves the index to disk.
 // Call this after pulling or deleting models.
-func RebuildIndex() error {
+func RebuildPeerFileIndex() error {
 	index := make(map[string]string)
 	modelsDir := config.ModelsPath()
 
@@ -148,12 +149,16 @@ func RebuildIndex() error {
 	}
 
 	// Save to file atomically (write to temp, then rename)
-	data, err := json.Marshal(index)
+	data, err := yaml.Marshal(index)
 	if err != nil {
 		return err
 	}
 
-	indexPath := IndexFilePath()
+	indexPath := PeerFileIndexPath()
+	if err := os.MkdirAll(filepath.Dir(indexPath), 0755); err != nil {
+		return err
+	}
+
 	tmpPath := indexPath + ".tmp"
 	if err := os.WriteFile(tmpPath, data, 0644); err != nil {
 		return err
@@ -163,7 +168,7 @@ func RebuildIndex() error {
 		return err
 	}
 
-	logs.Debug("Hash index rebuilt", "entries", len(index))
+	logs.Debug("Peer file index rebuilt", "entries", len(index))
 	return nil
 }
 

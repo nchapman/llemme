@@ -119,7 +119,7 @@ Examples:
 					ui.Fatal("Failed to save manifest: %v", err)
 				}
 				// Update peer sharing index
-				if err := peer.RebuildIndex(); err != nil {
+				if err := peer.RebuildPeerFileIndex(); err != nil {
 					ui.PrintError("Failed to update peer index: %v", err)
 				}
 				modelName := hf.FormatModelName(user, repo, selectedQuant.Name)
@@ -135,7 +135,7 @@ Examples:
 		}
 
 		// Update peer sharing index
-		if err := peer.RebuildIndex(); err != nil {
+		if err := peer.RebuildPeerFileIndex(); err != nil {
 			ui.PrintError("Failed to update peer index: %v", err)
 		}
 
