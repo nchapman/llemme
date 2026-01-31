@@ -15,6 +15,7 @@ import (
 	"github.com/nchapman/lleme/internal/hf"
 	"github.com/nchapman/lleme/internal/llama"
 	"github.com/nchapman/lleme/internal/logs"
+	"github.com/nchapman/lleme/internal/peer"
 	"github.com/nchapman/lleme/internal/proxy"
 	"github.com/nchapman/lleme/internal/server"
 	"github.com/nchapman/lleme/internal/tui/chat"
@@ -337,11 +338,21 @@ func offerToPull(cfg *config.Config, user, repo, quant string) (*proxy.Downloade
 		ManifestJSON: manifestJSON,
 	}
 
+	// Add peer download support if enabled
+	if cfg.Peer.Enabled {
+		opts.PeerDownload = peer.CreateDownloader()
+	}
+
 	result, err := hf.PullModelWithProgressFactory(client, user, repo, selectedQuant, opts, func() hf.ProgressDisplay {
 		return ui.NewProgressBar()
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	// Update peer sharing index
+	if err := peer.RebuildPeerFileIndex(); err != nil {
+		ui.PrintError("Failed to update peer index: %v", err)
 	}
 
 	if result.IsVision {

@@ -1,13 +1,15 @@
 package hf
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
 func TestGetManifestInfo(t *testing.T) {
-	// This test verifies that GetManifestInfo uses the raw Tag for API calls
-	// Since it requires network access, we test the ManifestInfo struct behavior
-
 	info := &ManifestInfo{
 		GGUFSize:   4000000000,
 		MMProjSize: 100000000,
@@ -30,7 +32,6 @@ func TestGetManifestInfo(t *testing.T) {
 }
 
 func TestPullOptions(t *testing.T) {
-	// Test that PullOptions correctly stores manifest data
 	manifest := &Manifest{
 		GGUFFile: &ManifestFile{
 			RFilename: "model.gguf",
@@ -53,7 +54,6 @@ func TestPullOptions(t *testing.T) {
 }
 
 func TestPullResult(t *testing.T) {
-	// Test PullResult struct
 	result := &PullResult{
 		ModelPath:  "/path/to/model.gguf",
 		MMProjPath: "/path/to/mmproj.gguf",
@@ -75,7 +75,6 @@ func TestPullResult(t *testing.T) {
 }
 
 func TestPullProgress(t *testing.T) {
-	// Test PullProgress struct
 	progress := PullProgress{
 		Phase:   "download",
 		Current: 500,
@@ -183,9 +182,9 @@ func TestParseManifest(t *testing.T) {
 	}`)
 
 	var manifest Manifest
-	err := parseManifest(jsonData, &manifest)
+	err := json.Unmarshal(jsonData, &manifest)
 	if err != nil {
-		t.Fatalf("parseManifest() error = %v", err)
+		t.Fatalf("json.Unmarshal() error = %v", err)
 	}
 
 	if manifest.GGUFFile == nil {
@@ -215,8 +214,594 @@ func TestParseManifestInvalid(t *testing.T) {
 	jsonData := []byte(`invalid json`)
 
 	var manifest Manifest
-	err := parseManifest(jsonData, &manifest)
+	err := json.Unmarshal(jsonData, &manifest)
 	if err == nil {
-		t.Error("parseManifest() should return error for invalid JSON")
+		t.Error("json.Unmarshal() should return error for invalid JSON")
+	}
+}
+
+func TestCalculateResultSizes(t *testing.T) {
+	tests := []struct {
+		name       string
+		manifest   *Manifest
+		splitInfo  *SplitInfo
+		wantGGUF   int64
+		wantTotal  int64
+		wantVision bool
+	}{
+		{
+			name: "single file",
+			manifest: &Manifest{
+				GGUFFile: &ManifestFile{Size: 4000000000},
+			},
+			splitInfo:  nil,
+			wantGGUF:   4000000000,
+			wantTotal:  4000000000,
+			wantVision: false,
+		},
+		{
+			name: "single file with mmproj",
+			manifest: &Manifest{
+				GGUFFile:   &ManifestFile{Size: 4000000000},
+				MMProjFile: &ManifestFile{Size: 500000000},
+			},
+			splitInfo:  nil,
+			wantGGUF:   4000000000,
+			wantTotal:  4500000000,
+			wantVision: true,
+		},
+		{
+			name: "split files",
+			manifest: &Manifest{
+				GGUFFile: &ManifestFile{Size: 2000000000},
+				SplitFiles: []*ManifestFile{
+					{Size: 2000000000},
+					{Size: 2000000000},
+				},
+			},
+			splitInfo:  &SplitInfo{SplitCount: 3},
+			wantGGUF:   6000000000,
+			wantTotal:  6000000000,
+			wantVision: false,
+		},
+		{
+			name: "split files with mmproj",
+			manifest: &Manifest{
+				GGUFFile: &ManifestFile{Size: 2000000000},
+				SplitFiles: []*ManifestFile{
+					{Size: 2000000000},
+				},
+				MMProjFile: &ManifestFile{Size: 500000000},
+			},
+			splitInfo:  &SplitInfo{SplitCount: 2},
+			wantGGUF:   4000000000,
+			wantTotal:  4500000000,
+			wantVision: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := calculateResultSizes(tt.manifest, tt.splitInfo)
+			if result.GGUFSize != tt.wantGGUF {
+				t.Errorf("GGUFSize = %d, want %d", result.GGUFSize, tt.wantGGUF)
+			}
+			if result.TotalSize != tt.wantTotal {
+				t.Errorf("TotalSize = %d, want %d", result.TotalSize, tt.wantTotal)
+			}
+			if result.IsVision != tt.wantVision {
+				t.Errorf("IsVision = %v, want %v", result.IsVision, tt.wantVision)
+			}
+		})
+	}
+}
+
+func TestVerifyFile(t *testing.T) {
+	// Create temp file with known content
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "test.bin")
+	content := []byte("test content for hashing")
+	if err := os.WriteFile(testFile, content, 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+
+	// Calculate expected hash
+	h := sha256.Sum256(content)
+	expectedHash := hex.EncodeToString(h[:])
+
+	tests := []struct {
+		name    string
+		hash    string
+		wantErr bool
+	}{
+		{
+			name:    "matching hash",
+			hash:    expectedHash,
+			wantErr: false,
+		},
+		{
+			name:    "wrong hash",
+			hash:    "0000000000000000000000000000000000000000000000000000000000000000",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var progressCalled bool
+			err := verifyFile(testFile, tt.hash, func(current, total int64) {
+				progressCalled = true
+			})
+			if (err != nil) != tt.wantErr {
+				t.Errorf("verifyFile() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !tt.wantErr && !progressCalled {
+				t.Error("progress callback should be called on success")
+			}
+		})
+	}
+}
+
+func TestVerifyFileCaseInsensitive(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "test.bin")
+	content := []byte("test content")
+	os.WriteFile(testFile, content, 0644)
+
+	h := sha256.Sum256(content)
+	lowerHash := hex.EncodeToString(h[:])
+	upperHash := hex.EncodeToString(h[:])
+	for i := range upperHash {
+		if upperHash[i] >= 'a' && upperHash[i] <= 'f' {
+			upperHash = upperHash[:i] + string(upperHash[i]-32) + upperHash[i+1:]
+		}
+	}
+
+	// Both should work
+	if err := verifyFile(testFile, lowerHash, nil); err != nil {
+		t.Errorf("lowercase hash should match: %v", err)
+	}
+	if err := verifyFile(testFile, upperHash, nil); err != nil {
+		t.Errorf("uppercase hash should match: %v", err)
+	}
+}
+
+func TestVerifyFileNotFound(t *testing.T) {
+	err := verifyFile("/nonexistent/file.bin", "abc123", nil)
+	if err == nil {
+		t.Error("verifyFile() should return error for nonexistent file")
+	}
+}
+
+func TestCleanupFilesSingleFiles(t *testing.T) {
+	tmpDir := t.TempDir()
+	file1 := filepath.Join(tmpDir, "file1.gguf")
+	file2 := filepath.Join(tmpDir, "file2.gguf")
+
+	os.WriteFile(file1, []byte("test"), 0644)
+	os.WriteFile(file2, []byte("test"), 0644)
+
+	files := []fileDownload{
+		{destPath: file1},
+		{destPath: file2},
+	}
+
+	cleanupFiles(files, nil, "user", "repo", Quantization{Name: "Q4_K_M"})
+
+	if _, err := os.Stat(file1); !os.IsNotExist(err) {
+		t.Error("file1 should be deleted")
+	}
+	if _, err := os.Stat(file2); !os.IsNotExist(err) {
+		t.Error("file2 should be deleted")
+	}
+}
+
+func TestDownloadFilePeerSuccess(t *testing.T) {
+	tmpDir := t.TempDir()
+	destPath := filepath.Join(tmpDir, "model.gguf")
+
+	peerDownload := func(hash, dest string, size int64, progress func(int64, int64)) (bool, error) {
+		os.WriteFile(dest, []byte("peer content"), 0644)
+		if progress != nil {
+			progress(100, 100)
+		}
+		return true, nil
+	}
+
+	file := &ManifestFile{
+		RFilename: "model.gguf",
+		Size:      100,
+		LFS:       &ManifestLFS{SHA256: "abc123"},
+	}
+
+	fromPeer, err := downloadFile(nil, "user", "repo", file, destPath, peerDownload, nil)
+	if err != nil {
+		t.Fatalf("downloadFile() error = %v", err)
+	}
+	if !fromPeer {
+		t.Error("fromPeer should be true")
+	}
+	if _, err := os.Stat(destPath); err != nil {
+		t.Error("file should exist")
+	}
+}
+
+func TestDownloadFilePeerAttempted(t *testing.T) {
+	// Test that peer download is attempted when conditions are met
+	peerAttempted := false
+	peerDownload := func(hash, dest string, size int64, progress func(int64, int64)) (bool, error) {
+		peerAttempted = true
+		// Return true to avoid falling back to HF (which needs a real client)
+		os.WriteFile(dest, []byte("content"), 0644)
+		return true, nil
+	}
+
+	file := &ManifestFile{
+		RFilename: "model.gguf",
+		Size:      100,
+		LFS:       &ManifestLFS{SHA256: "abc123"},
+	}
+
+	tmpDir := t.TempDir()
+	destPath := filepath.Join(tmpDir, "model.gguf")
+
+	downloadFile(nil, "user", "repo", file, destPath, peerDownload, nil)
+	if !peerAttempted {
+		t.Error("peer download should be attempted when hash is available")
+	}
+}
+
+func TestDownloadFileSkipsPeerWithoutHash(t *testing.T) {
+	// Test that peer download is skipped when file has no LFS hash.
+	peerCalled := false
+	peerDownload := func(hash, dest string, size int64, progress func(int64, int64)) (bool, error) {
+		peerCalled = true
+		return true, nil
+	}
+
+	tests := []struct {
+		name string
+		file *ManifestFile
+	}{
+		{"nil LFS", &ManifestFile{RFilename: "model.gguf", Size: 100, LFS: nil}},
+		{"empty hash", &ManifestFile{RFilename: "model.gguf", Size: 100, LFS: &ManifestLFS{SHA256: ""}}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			peerCalled = false
+			tmpDir := t.TempDir()
+			destPath := filepath.Join(tmpDir, "model.gguf")
+
+			// downloadFile will skip peer (no hash), then fail on HF (nil client)
+			_, err := downloadFile(nil, "user", "repo", tt.file, destPath, peerDownload, nil)
+
+			// Should get an error about nil client (not panic)
+			if err == nil {
+				t.Error("expected error for nil client")
+			}
+			if peerCalled {
+				t.Error("peer download should not be called for files without hash")
+			}
+		})
+	}
+}
+
+func TestDownloadAllFilesWithPeer(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	peerDownload := func(hash, dest string, size int64, progress func(int64, int64)) (bool, error) {
+		if hash == "peer_hash" {
+			os.WriteFile(dest, []byte("peer content"), 0644)
+			if progress != nil {
+				progress(size, size)
+			}
+			return true, nil
+		}
+		return false, nil
+	}
+
+	files := []fileDownload{
+		{
+			file:     &ManifestFile{RFilename: "model1.gguf", Size: 100, LFS: &ManifestLFS{SHA256: "peer_hash"}},
+			destPath: filepath.Join(tmpDir, "model1.gguf"),
+		},
+	}
+
+	var progressCalls int
+	err := downloadAllFiles(nil, "user", "repo", files, peerDownload, 100, func(p PullProgress) {
+		progressCalls++
+	})
+
+	if err != nil {
+		t.Fatalf("downloadAllFiles() error = %v", err)
+	}
+	if !files[0].fromPeer {
+		t.Error("file should be marked as from peer")
+	}
+	if progressCalls == 0 {
+		t.Error("progress should be called")
+	}
+}
+
+func TestVerifyAllFilesSuccess(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	content := []byte("test content")
+	h := sha256.Sum256(content)
+	hash := hex.EncodeToString(h[:])
+
+	testFile := filepath.Join(tmpDir, "model.gguf")
+	os.WriteFile(testFile, content, 0644)
+
+	files := []fileDownload{
+		{
+			file:     &ManifestFile{RFilename: "model.gguf", Size: int64(len(content)), LFS: &ManifestLFS{SHA256: hash}},
+			destPath: testFile,
+			fromPeer: false,
+		},
+	}
+
+	err := verifyAllFiles(nil, "user", "repo", files, int64(len(content)), nil)
+	if err != nil {
+		t.Fatalf("verifyAllFiles() error = %v", err)
+	}
+}
+
+func TestVerifyAllFilesHashMismatch(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	badFile := filepath.Join(tmpDir, "bad.gguf")
+	os.WriteFile(badFile, []byte("bad content"), 0644)
+
+	files := []fileDownload{
+		{
+			file:     &ManifestFile{RFilename: "bad.gguf", Size: 11, LFS: &ManifestLFS{SHA256: "wrong_hash"}},
+			destPath: badFile,
+			fromPeer: false,
+		},
+	}
+
+	err := verifyAllFiles(nil, "user", "repo", files, 11, nil)
+	if err == nil {
+		t.Error("verifyAllFiles() should fail for wrong hash")
+	}
+
+	// File should be deleted
+	if _, err := os.Stat(badFile); !os.IsNotExist(err) {
+		t.Error("bad file should be deleted after verification failure")
+	}
+}
+
+func TestVerifyAllFilesSkipsWithoutHash(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	noHashFile := filepath.Join(tmpDir, "nohash.gguf")
+	os.WriteFile(noHashFile, []byte("content"), 0644)
+
+	files := []fileDownload{
+		{
+			file:     &ManifestFile{RFilename: "nohash.gguf", Size: 7},
+			destPath: noHashFile,
+			fromPeer: false,
+		},
+	}
+
+	err := verifyAllFiles(nil, "user", "repo", files, 7, nil)
+	if err != nil {
+		t.Fatalf("verifyAllFiles() should not fail for files without hash: %v", err)
+	}
+}
+
+func TestGetOrFetchManifestUsesProvided(t *testing.T) {
+	manifest := &Manifest{
+		GGUFFile: &ManifestFile{RFilename: "model.gguf"},
+	}
+	manifestJSON := []byte(`{"test": true}`)
+
+	opts := &PullOptions{
+		Manifest:     manifest,
+		ManifestJSON: manifestJSON,
+	}
+
+	got, gotJSON, err := getOrFetchManifest(nil, "user", "repo", Quantization{}, opts)
+	if err != nil {
+		t.Fatalf("getOrFetchManifest() error = %v", err)
+	}
+	if got != manifest {
+		t.Error("should return provided manifest")
+	}
+	if string(gotJSON) != string(manifestJSON) {
+		t.Error("should return provided manifestJSON")
+	}
+}
+
+func TestGetOrFetchManifestRequiresClient(t *testing.T) {
+	// Without opts.Manifest, function needs a valid client
+	_, _, err := getOrFetchManifest(nil, "user", "repo", Quantization{}, nil)
+	if err == nil {
+		t.Error("should error without client when no opts.Manifest provided")
+	}
+}
+
+func TestFileDownloadStruct(t *testing.T) {
+	fd := fileDownload{
+		file:     &ManifestFile{RFilename: "test.gguf", Size: 1000},
+		destPath: "/path/to/test.gguf",
+		fromPeer: true,
+	}
+
+	if fd.file.RFilename != "test.gguf" {
+		t.Error("file should be set")
+	}
+	if fd.destPath != "/path/to/test.gguf" {
+		t.Error("destPath should be set")
+	}
+	if !fd.fromPeer {
+		t.Error("fromPeer should be true")
+	}
+}
+
+func TestBuildFileListSingleFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	oldHome := os.Getenv("HOME")
+	defer os.Setenv("HOME", oldHome)
+	os.Setenv("HOME", tmpDir)
+
+	manifest := &Manifest{
+		GGUFFile: &ManifestFile{RFilename: "model-Q4_K_M.gguf", Size: 1000},
+	}
+	result := &PullResult{}
+	quant := Quantization{Name: "Q4_K_M"}
+
+	files, err := buildFileList("user", "repo", quant, manifest, nil, result)
+	if err != nil {
+		t.Fatalf("buildFileList() error = %v", err)
+	}
+	if len(files) != 1 {
+		t.Errorf("expected 1 file, got %d", len(files))
+	}
+	if result.ModelPath == "" {
+		t.Error("ModelPath should be set")
+	}
+}
+
+func TestBuildFileListSplitFiles(t *testing.T) {
+	tmpDir := t.TempDir()
+	oldHome := os.Getenv("HOME")
+	defer os.Setenv("HOME", oldHome)
+	os.Setenv("HOME", tmpDir)
+
+	manifest := &Manifest{
+		GGUFFile: &ManifestFile{RFilename: "model-00001-of-00002.gguf", Size: 500},
+		SplitFiles: []*ManifestFile{
+			{RFilename: "model-00002-of-00002.gguf", Size: 500},
+		},
+	}
+	result := &PullResult{}
+	quant := Quantization{Name: "Q4_K_M"}
+	splitInfo := &SplitInfo{SplitCount: 2, Prefix: "model"}
+
+	files, err := buildFileList("user", "repo", quant, manifest, splitInfo, result)
+	if err != nil {
+		t.Fatalf("buildFileList() error = %v", err)
+	}
+	if len(files) != 2 {
+		t.Errorf("expected 2 files, got %d", len(files))
+	}
+	if result.ModelPath == "" {
+		t.Error("ModelPath should be set")
+	}
+}
+
+func TestBuildFileListVision(t *testing.T) {
+	tmpDir := t.TempDir()
+	oldHome := os.Getenv("HOME")
+	defer os.Setenv("HOME", oldHome)
+	os.Setenv("HOME", tmpDir)
+
+	manifest := &Manifest{
+		GGUFFile:   &ManifestFile{RFilename: "model.gguf", Size: 1000},
+		MMProjFile: &ManifestFile{RFilename: "mmproj.gguf", Size: 100},
+	}
+	result := &PullResult{IsVision: true}
+	quant := Quantization{Name: "Q4_K_M"}
+
+	files, err := buildFileList("user", "repo", quant, manifest, nil, result)
+	if err != nil {
+		t.Fatalf("buildFileList() error = %v", err)
+	}
+	if len(files) != 2 {
+		t.Errorf("expected 2 files, got %d", len(files))
+	}
+	if result.MMProjPath == "" {
+		t.Error("MMProjPath should be set for vision model")
+	}
+}
+
+func TestSaveManifestSingleFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	oldHome := os.Getenv("HOME")
+	defer os.Setenv("HOME", oldHome)
+	os.Setenv("HOME", tmpDir)
+
+	manifest := &Manifest{
+		GGUFFile: &ManifestFile{RFilename: "model.gguf", Size: 1000},
+	}
+	manifestJSON := []byte(`{"gguf_file":{"rfilename":"model.gguf","size":1000}}`)
+
+	// Create the model directory
+	modelDir := GetModelPath("user", "repo")
+	os.MkdirAll(modelDir, 0755)
+
+	err := saveManifest("user", "repo", "Q4_K_M", manifest, manifestJSON)
+	if err != nil {
+		t.Fatalf("saveManifest() error = %v", err)
+	}
+
+	// Verify file was written
+	manifestPath := GetManifestFilePath("user", "repo", "Q4_K_M")
+	data, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("failed to read manifest: %v", err)
+	}
+	if string(data) != string(manifestJSON) {
+		t.Error("manifest content should match for single file")
+	}
+}
+
+func TestSaveManifestSplitFiles(t *testing.T) {
+	tmpDir := t.TempDir()
+	oldHome := os.Getenv("HOME")
+	defer os.Setenv("HOME", oldHome)
+	os.Setenv("HOME", tmpDir)
+
+	manifest := &Manifest{
+		GGUFFile: &ManifestFile{RFilename: "model-00001-of-00002.gguf", Size: 500},
+		SplitFiles: []*ManifestFile{
+			{RFilename: "model-00002-of-00002.gguf", Size: 500},
+		},
+	}
+	manifestJSON := []byte(`original`)
+
+	// Create the model directory
+	modelDir := GetModelPath("user", "repo")
+	os.MkdirAll(modelDir, 0755)
+
+	err := saveManifest("user", "repo", "Q4_K_M", manifest, manifestJSON)
+	if err != nil {
+		t.Fatalf("saveManifest() error = %v", err)
+	}
+
+	// Verify file was written with marshaled manifest (not original JSON)
+	manifestPath := GetManifestFilePath("user", "repo", "Q4_K_M")
+	data, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("failed to read manifest: %v", err)
+	}
+	// Split files should re-marshal, not use original JSON
+	if string(data) == "original" {
+		t.Error("split manifest should be re-marshaled, not use original JSON")
+	}
+}
+
+func TestCleanupFilesSplit(t *testing.T) {
+	tmpDir := t.TempDir()
+	oldHome := os.Getenv("HOME")
+	defer os.Setenv("HOME", oldHome)
+	os.Setenv("HOME", tmpDir)
+
+	// Create split directory with files
+	splitDir := GetSplitModelDir("user", "repo", "Q4_K_M")
+	os.MkdirAll(splitDir, 0755)
+	os.WriteFile(filepath.Join(splitDir, "model-00001-of-00002.gguf"), []byte("test"), 0644)
+	os.WriteFile(filepath.Join(splitDir, "model-00002-of-00002.gguf"), []byte("test"), 0644)
+
+	splitInfo := &SplitInfo{SplitCount: 2}
+	cleanupFiles(nil, splitInfo, "user", "repo", Quantization{Name: "Q4_K_M"})
+
+	// Verify directory was removed
+	if _, err := os.Stat(splitDir); !os.IsNotExist(err) {
+		t.Error("split directory should be deleted")
 	}
 }

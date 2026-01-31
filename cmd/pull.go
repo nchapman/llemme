@@ -7,6 +7,7 @@ import (
 
 	"github.com/nchapman/lleme/internal/config"
 	"github.com/nchapman/lleme/internal/hf"
+	"github.com/nchapman/lleme/internal/peer"
 	"github.com/nchapman/lleme/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -105,13 +106,18 @@ Examples:
 			return
 		}
 
-		// Pull the model using shared download logic
-		result, err := pullModelWithProgress(client, user, repo, selectedQuant)
+		// Pull the model (tries peers first if enabled, then HuggingFace)
+		result, err := pullModelWithProgress(client, cfg, user, repo, selectedQuant)
 		if err != nil {
 			ui.Fatal("%v", err)
 		}
 
-		modelName := hf.FormatModelName(user, repo, quant)
+		// Update peer sharing index
+		if err := peer.RebuildPeerFileIndex(); err != nil {
+			ui.PrintError("Failed to update peer index: %v", err)
+		}
+
+		modelName := hf.FormatModelName(user, repo, selectedQuant.Name)
 		if result.IsVision {
 			fmt.Printf("Pulled %s (vision model)\n", modelName)
 		} else {
@@ -120,8 +126,8 @@ Examples:
 	},
 }
 
-// pullModelWithProgress wraps hf.PullModel with progress bar display.
-func pullModelWithProgress(client *hf.Client, user, repo string, quant hf.Quantization) (*hf.PullResult, error) {
+// pullModelWithProgress wraps hf.PullModel with progress bar display and peer support.
+func pullModelWithProgress(client *hf.Client, cfg *config.Config, user, repo string, quant hf.Quantization) (*hf.PullResult, error) {
 	// Get manifest info for display (also returns manifest to pass to PullModel)
 	info, manifest, manifestJSON, err := hf.GetManifestInfo(client, user, repo, quant)
 	if err != nil {
@@ -141,6 +147,11 @@ func pullModelWithProgress(client *hf.Client, user, repo string, quant hf.Quanti
 	opts := &hf.PullOptions{
 		Manifest:     manifest,
 		ManifestJSON: manifestJSON,
+	}
+
+	// Add peer download support if enabled
+	if cfg != nil && cfg.Peer.Enabled {
+		opts.PeerDownload = peer.CreateDownloader()
 	}
 
 	return hf.PullModelWithProgressFactory(client, user, repo, quant, opts, newProgressBar)

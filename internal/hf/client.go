@@ -53,10 +53,19 @@ type CardData struct {
 	Tags      []string `json:"tags"`
 }
 
+// FileTreeLFS contains LFS metadata for a file in the tree API response.
+type FileTreeLFS struct {
+	OID         string `json:"oid"` // SHA256 hash
+	Size        int64  `json:"size"`
+	PointerSize int    `json:"pointerSize"`
+}
+
+// FileTree represents a file or directory in a HuggingFace repository.
 type FileTree struct {
-	Path string `json:"path"`
-	Type string `json:"type"`
-	Size int64  `json:"size"`
+	Path string      `json:"path"`
+	Type string      `json:"type"`
+	Size int64       `json:"size"`
+	LFS  FileTreeLFS `json:"lfs,omitempty"` // Present for LFS files
 }
 
 type SearchResult struct {
@@ -106,8 +115,9 @@ type ManifestFile struct {
 // Manifest represents the HuggingFace manifest API response.
 // This API returns the recommended GGUF file and optional mmproj file for vision models.
 type Manifest struct {
-	GGUFFile   *ManifestFile `json:"ggufFile"`
-	MMProjFile *ManifestFile `json:"mmprojFile"`
+	GGUFFile   *ManifestFile   `json:"ggufFile"`
+	MMProjFile *ManifestFile   `json:"mmprojFile"`
+	SplitFiles []*ManifestFile `json:"splitFiles,omitempty"` // Additional split files (local augmentation)
 }
 
 func NewClient(cfg *config.Config) *Client {
