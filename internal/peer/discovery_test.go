@@ -38,14 +38,9 @@ func TestDiscoveryDisabled(t *testing.T) {
 		t.Errorf("Start returned error for disabled discovery: %v", err)
 	}
 
-	// Peers should be empty
-	if len(d.Peers()) != 0 {
-		t.Errorf("expected 0 peers, got %d", len(d.Peers()))
-	}
-
-	// PeerCount should be 0
-	if d.PeerCount() != 0 {
-		t.Errorf("expected peer count 0, got %d", d.PeerCount())
+	// Peers map should be empty
+	if len(d.peers) != 0 {
+		t.Errorf("expected 0 peers, got %d", len(d.peers))
 	}
 
 	// Stop should not panic
@@ -151,36 +146,6 @@ func TestDiscoverPeers(t *testing.T) {
 	}
 
 	t.Logf("Found %d peers", len(peers))
-}
-
-func TestPeersCopyBehavior(t *testing.T) {
-	d := NewDiscovery(11313, "0.1.0", true, false)
-
-	// Manually inject a peer for testing
-	d.mu.Lock()
-	d.peers["192.168.1.100:11313"] = &Peer{
-		Host: "192.168.1.100",
-		Port: 11313,
-	}
-	d.mu.Unlock()
-
-	// Get peers
-	peers := d.Peers()
-	if len(peers) != 1 {
-		t.Fatalf("expected 1 peer, got %d", len(peers))
-	}
-
-	// Modify the returned peer
-	peers[0].Host = "modified"
-
-	// Original should be unchanged
-	d.mu.RLock()
-	original := d.peers["192.168.1.100:11313"]
-	d.mu.RUnlock()
-
-	if original.Host != "192.168.1.100" {
-		t.Errorf("original peer was modified, expected 192.168.1.100, got %s", original.Host)
-	}
 }
 
 func TestProbeStaticPeerInvalidAddress(t *testing.T) {

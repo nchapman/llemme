@@ -1,9 +1,6 @@
 package peer
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"os"
 	"testing"
 	"time"
 )
@@ -25,116 +22,6 @@ func TestNewClient(t *testing.T) {
 	}
 	if client.httpClient == nil {
 		t.Error("httpClient should be initialized")
-	}
-}
-
-func TestVerifyDownloadEmptyHash(t *testing.T) {
-	// Create a temp file
-	tmpFile, err := os.CreateTemp("", "test-*.gguf")
-	if err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
-	}
-	defer os.Remove(tmpFile.Name())
-	tmpFile.WriteString("test content")
-	tmpFile.Close()
-
-	// Empty hash should return true (skip verification)
-	ok, err := VerifyDownload(tmpFile.Name(), "")
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if !ok {
-		t.Error("expected true for empty hash")
-	}
-}
-
-func TestVerifyDownloadCorrectHash(t *testing.T) {
-	// Create a temp file with known content
-	tmpFile, err := os.CreateTemp("", "test-*.gguf")
-	if err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
-	}
-	defer os.Remove(tmpFile.Name())
-
-	content := []byte("test content for hashing")
-	tmpFile.Write(content)
-	tmpFile.Close()
-
-	// Calculate expected hash
-	hash := sha256.Sum256(content)
-	expectedHash := hex.EncodeToString(hash[:])
-
-	ok, err := VerifyDownload(tmpFile.Name(), expectedHash)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if !ok {
-		t.Error("expected true for correct hash")
-	}
-}
-
-func TestVerifyDownloadIncorrectHash(t *testing.T) {
-	// Create a temp file
-	tmpFile, err := os.CreateTemp("", "test-*.gguf")
-	if err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
-	}
-	defer os.Remove(tmpFile.Name())
-	tmpFile.WriteString("test content")
-	tmpFile.Close()
-
-	// Wrong hash
-	wrongHash := "0000000000000000000000000000000000000000000000000000000000000000"
-
-	ok, err := VerifyDownload(tmpFile.Name(), wrongHash)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if ok {
-		t.Error("expected false for incorrect hash")
-	}
-}
-
-func TestVerifyDownloadCaseInsensitive(t *testing.T) {
-	// Create a temp file with known content
-	tmpFile, err := os.CreateTemp("", "test-*.gguf")
-	if err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
-	}
-	defer os.Remove(tmpFile.Name())
-
-	content := []byte("test content for case test")
-	tmpFile.Write(content)
-	tmpFile.Close()
-
-	// Calculate expected hash
-	hash := sha256.Sum256(content)
-	lowerHash := hex.EncodeToString(hash[:])
-
-	// Convert to uppercase
-	upperHash := ""
-	for _, c := range lowerHash {
-		if c >= 'a' && c <= 'f' {
-			upperHash += string(c - 32) // Convert to uppercase
-		} else {
-			upperHash += string(c)
-		}
-	}
-
-	// Should work with uppercase hash
-	ok, err := VerifyDownload(tmpFile.Name(), upperHash)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if !ok {
-		t.Error("expected true for uppercase hash (case-insensitive comparison)")
-	}
-}
-
-func TestVerifyDownloadFileNotFound(t *testing.T) {
-	_, err := VerifyDownload("/nonexistent/file.gguf", "somehash")
-	if err == nil {
-		t.Error("expected error for non-existent file")
 	}
 }
 

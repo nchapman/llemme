@@ -211,27 +211,6 @@ func (d *Discovery) discover() {
 	}
 }
 
-// Peers returns a copy of all discovered peers
-func (d *Discovery) Peers() []*Peer {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-
-	peers := make([]*Peer, 0, len(d.peers))
-	for _, p := range d.peers {
-		// Make a copy
-		peerCopy := *p
-		peers = append(peers, &peerCopy)
-	}
-	return peers
-}
-
-// PeerCount returns the number of discovered peers
-func (d *Discovery) PeerCount() int {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-	return len(d.peers)
-}
-
 // GetLocalIP returns the preferred outbound local IP address as a string.
 func GetLocalIP() string {
 	conn, err := net.Dial("udp", "8.8.8.8:80")
@@ -437,17 +416,6 @@ func discoverWithTimeout(timeout time.Duration) []*Peer {
 	}
 
 	return peers
-}
-
-// QuickDiscover performs a one-time mDNS query and sends discovered peers to the channel.
-// The channel is closed when discovery completes. Uses fast mode for quick response.
-func QuickDiscover(results chan<- *Peer) {
-	defer close(results)
-
-	// Use fast mode discovery
-	for _, p := range discoverWithMode(ModeFast) {
-		results <- p
-	}
 }
 
 // probeStaticPeer checks if a static peer address is a valid lleme instance.

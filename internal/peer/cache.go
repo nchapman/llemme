@@ -138,28 +138,6 @@ func (c *PeerCache) Cleanup() {
 	}
 }
 
-// Count returns the number of cached peers (including stale)
-func (c *PeerCache) Count() int {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return len(c.peers)
-}
-
-// FreshCount returns the number of non-stale cached peers
-func (c *PeerCache) FreshCount() int {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	cutoff := time.Now().Add(-PeerTTL)
-	count := 0
-	for _, cp := range c.peers {
-		if cp.LastSeen.After(cutoff) {
-			count++
-		}
-	}
-	return count
-}
-
 func peerKey(host string, port int) string {
 	return fmt.Sprintf("%s:%d", host, port)
 }

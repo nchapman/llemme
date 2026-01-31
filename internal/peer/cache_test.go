@@ -17,8 +17,8 @@ func TestNewPeerCache(t *testing.T) {
 	if cache.peers == nil {
 		t.Error("peers map should be initialized")
 	}
-	if cache.Count() != 0 {
-		t.Errorf("new cache should be empty, got %d", cache.Count())
+	if len(cache.peers) != 0 {
+		t.Errorf("new cache should be empty, got %d", len(cache.peers))
 	}
 }
 
@@ -32,8 +32,8 @@ func TestPeerCacheUpdate(t *testing.T) {
 
 	cache.Update(peers)
 
-	if cache.Count() != 2 {
-		t.Errorf("expected 2 peers, got %d", cache.Count())
+	if len(cache.GetFresh()) != 2 {
+		t.Errorf("expected 2 peers, got %d", len(cache.GetFresh()))
 	}
 
 	// Update with same host:port should overwrite
@@ -42,8 +42,8 @@ func TestPeerCacheUpdate(t *testing.T) {
 	}
 	cache.Update(updated)
 
-	if cache.Count() != 2 {
-		t.Errorf("expected still 2 peers, got %d", cache.Count())
+	if len(cache.GetFresh()) != 2 {
+		t.Errorf("expected still 2 peers, got %d", len(cache.GetFresh()))
 	}
 }
 
@@ -69,16 +69,6 @@ func TestPeerCacheGetFresh(t *testing.T) {
 		LastSeen: time.Now().Add(-PeerTTL - time.Minute),
 	}
 	cache.mu.Unlock()
-
-	// Total count should be 2
-	if cache.Count() != 2 {
-		t.Errorf("expected 2 total peers, got %d", cache.Count())
-	}
-
-	// Fresh count should be 1
-	if cache.FreshCount() != 1 {
-		t.Errorf("expected 1 fresh peer, got %d", cache.FreshCount())
-	}
 
 	// GetFresh should return only non-stale
 	fresh = cache.GetFresh()
@@ -106,14 +96,14 @@ func TestPeerCacheCleanup(t *testing.T) {
 	}
 	cache.mu.Unlock()
 
-	if cache.Count() != 2 {
-		t.Errorf("expected 2 peers before cleanup, got %d", cache.Count())
+	if len(cache.peers) != 2 {
+		t.Errorf("expected 2 peers before cleanup, got %d", len(cache.peers))
 	}
 
 	cache.Cleanup()
 
-	if cache.Count() != 1 {
-		t.Errorf("expected 1 peer after cleanup, got %d", cache.Count())
+	if len(cache.peers) != 1 {
+		t.Errorf("expected 1 peer after cleanup, got %d", len(cache.peers))
 	}
 }
 
@@ -150,8 +140,8 @@ func TestPeerCacheSaveLoad(t *testing.T) {
 		t.Fatalf("failed to decode: %v", err)
 	}
 
-	if cache2.Count() != 1 {
-		t.Errorf("expected 1 peer after load, got %d", cache2.Count())
+	if len(cache2.peers) != 1 {
+		t.Errorf("expected 1 peer after load, got %d", len(cache2.peers))
 	}
 }
 

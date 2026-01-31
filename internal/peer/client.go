@@ -5,10 +5,8 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
-	"github.com/nchapman/lleme/internal/hf"
 	"github.com/nchapman/lleme/internal/version"
 )
 
@@ -152,18 +150,4 @@ func (c *Client) DownloadHash(hash, destPath string, progress DownloadProgressCa
 	}
 
 	return nil
-}
-
-// VerifyDownload checks the SHA256 hash of a downloaded file.
-func VerifyDownload(path, expectedHash string) (bool, error) {
-	if expectedHash == "" {
-		return true, nil
-	}
-
-	actualHash, err := hf.CalculateSHA256(path)
-	if err != nil {
-		return false, err
-	}
-
-	return strings.EqualFold(actualHash, expectedHash), nil
 }

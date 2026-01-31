@@ -79,11 +79,6 @@ func (s *Server) Port() int {
 	return s.port
 }
 
-// ReloadIndex reloads the peer file index from disk.
-func (s *Server) ReloadIndex() error {
-	return s.peerFileIndex.Load()
-}
-
 // handleHashDownload serves a file by its SHA256 hash.
 // Endpoint: /api/peer/sha256/{hash}
 // Methods: HEAD (check availability + get size), GET (download file)
